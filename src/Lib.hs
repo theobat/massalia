@@ -41,7 +41,11 @@ import qualified Debug.Trace as Debug
 import qualified Data.Text as T
 import           Data.Text.Encoding             ( encodeUtf8 )
 import qualified LibAPI as Lib
-import LibAPI (SQLStructure, defaultSQLStruct, globalStructureToQuery)
+import Data.Functor.Contravariant ((>$<))
+
+import LibAPI (
+  SQLStructure, defaultSQLStruct, globalStructureToQuery,
+  globalStructureToListStatement, PlantFilter)
 
 selectionGen :: Arguments -> SelectionRec -> Selection Arguments SelectionRec
 selectionGen a = Selection a (Position 0 0) Nothing
@@ -68,21 +72,27 @@ testSelection = orgSelectionSet
 
 someFunc :: IO ()
 someFunc = do
-  print (globalStructureToQuery (plantGlobalSelect plantSelTest))
-  -- rawConnection <- Connection.acquire connectionSettings
-  -- connection <- case rawConnection of
-  --   Left e -> (error $ show e)
-  --   Right goodCo -> pure goodCo
-  -- result <- Session.run (Session.statement () selectSum) connection
+  print ()
+  rawConnection <- Connection.acquire connectionSettings
+  connection <- case rawConnection of
+    Left e -> (error $ show e)
+    Right goodCo -> pure goodCo
+  print (globalStructureToQuery limitedOrg)
+  -- result <- Session.run (Session.statement () statement) connection
+  -- print (fmap (organizationId <$>) result)
   -- queryTest <- Session.run (Session.statement () queryCrashTest) connection
   -- print (show <$> queryTest)
   -- print (plantId <$> queryTest)
 
   -- res <- testAPI (connection, testSelection) (customQuery queryString)
   -- print res
-  -- where
-  --   connectionSettings = Connection.settings "localhost" 5432 "postgres" "" "beton_direct_web"
-  --   queryString = selectionSetToString "testOrg" "organizationList" testSelection
+  where
+    connectionSettings = Connection.settings "localhost" 5432 "postgres" "" "beton_direct_web"
+    queryString = selectionSetToString "testOrg" "organizationList" testSelection
+    org = organizationGlobalSelect (Nothing, Nothing) orgSelectionSet
+    limitedOrg = org{ Lib.limit = 1 }
+    statement = globalStructureToListStatement limitedOrg
+
 
 customQuery :: Text -> GQLRequest
 customQuery queryString = GQLRequest { operationName = Nothing
@@ -98,12 +108,6 @@ selectionSetToString queryName nodeName selset =
     resolved (key, Selection{ selectionRec = selectionRec }) queryRes = case selectionRec of
           SelectionField -> queryRes <> key
           (SelectionSet deeperSel) -> queryRes <> resolveList deeperSel
-
-
-data PlantListFilter = PlantListFilter {
-  idFilter :: UUID
-}
-
 
 data Query m = Query
   { plantList :: () -> m [Plant]
@@ -147,18 +151,46 @@ plantToSQL depth selSet filter = undefined
 -- TODO --  SelectionSet -> SQLStructure () [Plant] ########### qOKOKOKOKOKOKOKOKOKOKOK
 --------------------
 
+
+-- no filter
+type OrganizationSelectFilter = (Maybe PlantFilter, Maybe Bool)
+organizationGlobalSelect :: OrganizationSelectFilter -> SelectionSet -> SQLStructure OrganizationSelectFilter Organization
+organizationGlobalSelect filter = foldr organizationSelection filteredValue
+  where
+    paramUUID = Encoders.param (Encoders.nonNullable Encoders.uuid)
+    test = Encoders.noParams <> paramUUID
+    initialValue = defaultSQLStruct {
+      Lib.wrapFunctionList = ["row"],
+      Lib.fromPart="organization",
+      Lib.statementEncoder = Lib.plantIdFilter >$< paramUUID,
+      Lib.statementDecoder = (\val -> organizationDefault {organizationId = val}) <$> (Decoders.field (Decoders.nonNullable Decoders.uuid))
+    }
+    filteredValue = case fst filter of
+      Nothing -> initialValue
+      Just (Lib.PlantFilter _ plantIdFilter) -> initialValue {
+        Lib.joinList = [
+          "JOIN plant ON plant.id=organization.plant_id AND plant.id=?"
+        ]
+      }
+
+organizationSelection :: (Key, Selection Arguments SelectionRec) -> SQLStructure a Organization -> SQLStructure a Organization
+organizationSelection ("orgId", _) = Lib.scalar "organization.id" (\o val -> o { organizationId = val }) Decoders.uuid
+organizationSelection ("plantList", selection) = rs
+  where rs = Lib.compo plantGlobalSelect ("plant.organization_id=organization.id", "organization.id") ((\p val -> p { orgPlantList = val })) selection
+  
+
 plantGlobalSelect :: SelectionSet -> SQLStructure () Plant
 plantGlobalSelect = foldr plantSelection initialValue
   where initialValue = defaultSQLStruct {
     Lib.wrapFunctionList = ["row"],
     Lib.fromPart="plant",
-    Lib.statementEncoder = Encoders.noParams,
     Lib.statementDecoder = (\val -> plantDefault {plantId = val}) <$> (Decoders.field (Decoders.nonNullable Decoders.uuid))
   }
 
-plantSelection :: (Key, Selection Arguments SelectionRec) -> SQLStructure () Plant -> SQLStructure () Plant
+plantSelection :: (Key, Selection Arguments SelectionRec) -> SQLStructure a Plant -> SQLStructure a Plant
 plantSelection ("plantId", _) = Lib.scalar "plant.id" (\p -> (\val -> p { plantId = val })) Decoders.uuid
-plantSelection ("truckList", selection) = Lib.compo truckGlobalSelect ("truck_plant.plant_id=plant.id", "plant.id") ((\p -> (\val -> p { truckList = val }))) selection
+plantSelection ("truckList", selection) = rs
+  where rs = Lib.compo truckGlobalSelect ("truck_plant.plant_id=plant.id", "plant.id") (\p val -> p { truckList = val }) selection
 
 truckGlobalSelect :: SelectionSet -> SQLStructure () Truck
 truckGlobalSelect = foldr truckSelection initialValue
@@ -166,84 +198,54 @@ truckGlobalSelect = foldr truckSelection initialValue
     Lib.wrapFunctionList = ["row"],
     Lib.fromPart="truck",
     Lib.joinList=["JOIN truck_plant ON truck_plant.truck_id=truck.id"],
-    Lib.statementEncoder = Encoders.noParams,
     Lib.statementDecoder = (\val -> truckDefault {truckId = val}) <$> (Decoders.field (Decoders.nonNullable Decoders.uuid))
   }
 
-truckSelection :: (Key, Selection Arguments SelectionRec) -> SQLStructure () Truck -> SQLStructure () Truck
-truckSelection ("truckId", _) = Lib.scalar "truck.id" (\p -> (\val -> p { truckId = val })) Decoders.uuid
+truckSelection :: (Key, Selection Arguments SelectionRec) -> SQLStructure a Truck -> SQLStructure a Truck
+truckSelection ("truckId", _) = Lib.scalar "truck.id" (\p val -> p{ truckId = val }) Decoders.uuid
 
--- selectSum :: [Text] -> Statement () Plant
--- selectSum fieldList = Statement (encodeUtf8 sql) encoder decoder True where
---   compute = decodePlant fieldList
---   sql = "select row("
---       <> (T.intercalate "," $ selectPart compute)
---       <> ") as plant_data"
---       <> " "
---       <>   filtersSQL
---       <>   " "
---       <>   groupbySQL
---   filtersSQL = "from plant join truck_plant ON truck_plant.plant_id=plant.id JOIN truck ON truck.id=truck_plant.truck_id"
---   groupbySQL = "group by plant.id limit 1"
---   encoder = Encoders.noParams
---   compositeDecoder = Decoders.column $ Decoders.nonNullable $ Decoders.composite $ statementDecoder compute
---   decoder = Decoders.singleRow compositeDecoder
-
--- -- selectPlant :: Statement () Int64
--- -- selectTest = Statement sql encoder decoder True where
--- --   sql = "select 1"
--- --   encoder = Encoders.noParams
--- --   decoder = Decoders.singleRow (Decoders.column (Decoders.nonNullable Decoders.int8))
-
--- decodePlant :: [Text] -> SQLStructure () Plant
--- decodePlant fields = testFields
---   where
---     defaultSQLStruct = SQLStructure { selectPart = [], statementDecoder = pure plantDefault}
---     testFields = foldr updatePlant defaultSQLStruct fields
---     -- decoderCompositeCol = Decoders.nullable Decoders.text
-    -- decoderComposite = Decoders.field decoderCompositeCol
-    -- decoderCompositeTuple =
-    --   updatePlantId <$> (fromJust <$> decoderComposite)
-
--- plantFieldEffect :: Text -> Plant -> Plant
--- plantFieldEffect "plantId" plant = plant { plantId = plantId }
-
+organizationDefault = Organization {}
 plantDefault = Plant {}
 truckDefault = Truck {}
 
--- -- updatePlant :: Text -> Plant -> Plant
--- updatePlant
---   :: Text -> SQLStructure () Plant -> SQLStructure () Plant
--- updatePlant "plantId" sqlST = sqlST {
---   selectPart = selectPart sqlST <> ["plant.id"],
---   statementDecoder = do
---     plant <- statementDecoder sqlST
---     (\val -> plant { plantId = Debug.traceShowId val }) <$> (Decoders.field (Decoders.nonNullable Decoders.uuid))
--- }
--- updatePlant "testOK" sqlST = sqlST {
---   selectPart = selectPart sqlST <> ["'okokok'"],
---   statementDecoder = do
---     plant <- statementDecoder sqlST
---     (\val -> plant { testOK = val }) <$> (Decoders.field (Decoders.nonNullable Decoders.text))
--- }
--- updatePlant "truckList" sqlST = sqlST {
---   selectPart = selectPart sqlST <> ["array_agg(row(truck.id))"],
---   statementDecoder = do
---     plant <- statementDecoder sqlST
---     (\val -> plant { truckList = val }) <$> (
---       Decoders.field $ Decoders.nonNullable (Decoders.listArray $ Decoders.nonNullable (Decoders.composite $ statementDecoder truckUpdater)) )
--- }
---   where truckUpdater = updateTruck "truckId" SQLStructure { selectPart = [], statementDecoder = pure truckDefault }
--- updatePlant anything _ = error ("field " ++ T.unpack anything ++ " is not supported yet")
+workGlobalSelect :: SelectionSet -> SQLStructure () Work
+workGlobalSelect = foldr workSelection initialValue
+  where initialValue = defaultSQLStruct {
+    Lib.wrapFunctionList = ["row"],
+    Lib.fromPart="work",
+    Lib.statementEncoder = Encoders.noParams
+  }
 
--- updateTruck :: Text -> SQLStructure () Truck -> SQLStructure () Truck
--- updateTruck "truckId" sqlST = sqlST
---   { statementDecoder =
---     do
---       truck <- statementDecoder sqlST
---       (\val -> truck { truckId = Debug.traceShowId val })
---         <$> (Decoders.field (Decoders.nonNullable Decoders.uuid))
---   }
+workSelection :: (Key, Selection Arguments SelectionRec) -> SQLStructure () Work -> SQLStructure () Work
+workSelection ("workId", _) = Lib.scalar "work.id" (\p val -> p{ workId = val }) Decoders.uuid
+
+workScheduleGlobalSelect :: SelectionSet -> SQLStructure () WorkSchedule
+workScheduleGlobalSelect = foldr workScheduleSelection initialValue
+  where initialValue = defaultSQLStruct {
+    Lib.wrapFunctionList = ["row"],
+    Lib.fromPart="workSchedule",
+    Lib.statementEncoder = Encoders.noParams
+  }
+
+workScheduleSelection :: (Key, Selection Arguments SelectionRec) -> SQLStructure () WorkSchedule -> SQLStructure () WorkSchedule
+workScheduleSelection ("pouringDate", _) = Lib.scalar "work_schedule.pouring_date" (\p val -> p{ pouringDate = val }) Decoders.text
+
+
+data Organization = Organization {
+  organizationId :: UUID,
+  orgPlantList :: [Plant]
+}
+
+data Work = Work {
+  workId :: UUID,
+  workScheduleList :: [WorkSchedule]
+}
+
+data WorkSchedule = WorkSchedule {
+  workScheduleId :: UUID,
+  pouringDate :: Text,
+  createdAt :: Text
+}
 
 data Plant = Plant {
   plantId :: UUID
@@ -276,3 +278,8 @@ instance GQLType Truck where
   type KIND Truck = OBJECT
   description _ = Just "A truck"
 
+
+data WorkFilter = WorkFilter {
+  requireWorkSchedule :: Maybe Bool,
+  orderByPouringDate :: Maybe Bool
+}

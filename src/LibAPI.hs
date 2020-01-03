@@ -16,6 +16,8 @@ module LibAPI
       , defaultSQLStruct
       , compo
       , globalStructureToQuery
+      , globalStructureToListStatement
+      , plantFilterInstance
     )
 where
 
@@ -62,6 +64,7 @@ import           Data.UUID
 import qualified Debug.Trace                   as Debug
 import qualified Data.Text                     as T
 import           Data.Text.Encoding             ( encodeUtf8 )
+import Data.Functor.Contravariant ((>$<))
 import           Data.Morpheus.Types.Internal.AST.Selection
                                                 ( SelectionRec(..), ValidSelection, SelectionSet, Selection(..), Arguments )
 
@@ -102,24 +105,12 @@ scalar col updater decoderType sqlST = sqlST {
     updater entity <$> (Decoders.field (Decoders.nonNullable decoderType))
 }
 
-compo :: (SelectionSet -> SQLStructure encoder typeInA) -> (Text, Text) -> (typeA -> [typeInA] -> typeA)
+compo :: (SelectionSet -> SQLStructure encoderTypeInA typeInA) -> (Text, Text) -> (typeA -> [typeInA] -> typeA)
   -> Selection Arguments SelectionRec -> SQLStructure encoder typeA -> SQLStructure encoder typeA
 compo generator conditions updater selSet = subQueryMerger $ resolver selSet
   where
     resolver = generateQuery generator
     subQueryMerger = mergeSubqueryList conditions updater
-
-data JoinStructure = JoinStructure {
-  joinTargetAlias :: Text,
-  joinTarget :: Text,
-  joinCondition :: Text
-}
-
-data TargetableType = From | Join | LeftJoin
-data Target = Target {
-  targetType :: TargetableType,
-  statement :: Text  
-}
 
 data GQLScalarFilter scalarType = GQLScalarFilter {
   isEq :: Maybe scalarType,
@@ -128,14 +119,37 @@ data GQLScalarFilter scalarType = GQLScalarFilter {
   isNotIn :: Maybe [scalarType]
 }
 
+-- utilHasql :: (b -> a) -> Params a -> Maybe b -> Params a
+-- utilHasql updater paraA paraB = paraA <> 
+
+filterEncoder :: Maybe (GQLScalarFilter scalarType) -> (Encoders.Params scalarType, Text)
+filterEncoder = maybe noFilterCase filterCase
+  where
+    noFilterCase = (Encoders.noParams, "")
+    filterCase (GQLScalarFilter {isEq = maybeEq, isNotEq = maybeNotEq, isIn = maybeIn, isNotIn = maybeNotIn}) = noFilterCase
+
 data PlantFilter = PlantFilter {
-  plantId :: Maybe (GQLScalarFilter UUID)
+  required :: Bool,
+  plantIdFilter :: Maybe (GQLScalarFilter UUID)
 }
 
-
+defaultScalar = GQLScalarFilter {
+  isEq = Nothing,
+  isNotEq = Nothing,
+  isIn = Nothing,
+  isNotIn = Nothing
+}
+plantFilterInstance = PlantFilter {
+  required=True,
+  plantIdFilter=(Just $ defaultScalar {
+    isEq = fromText "60972711-b4f9-46ce-bbc6-6fb7a788a636"
+  } )
+}
 
 ---- Structure to query PART:
-
+-- | The top function once your query struct is finished
+-- | to gather the actual results
+-- | Beware, this is only the encoder/decoder struct
 globalStructureToListStatement :: SQLStructure encoder decoder -> Statement encoder [decoder]
 globalStructureToListStatement struct = Statement (encodeUtf8 sql) encodeVal decodeVal True
   where 
@@ -147,7 +161,7 @@ globalStructureToListStatement struct = Statement (encodeUtf8 sql) encodeVal dec
 
 -- | Takes an SQLStructure and yield the resulting query
 globalStructureToQuery :: SQLStructure encoder decoder -> Text
-globalStructureToQuery struct = pureSyntaxAssembler globalSelect (fromPart struct) joinRes whereRes groupRes
+globalStructureToQuery struct = pureSyntaxAssembler globalSelect (fromPart struct) joinRes whereRes groupRes (offset struct) limitVal
   where
     globalSelect = wrapSelectionResult wrapList selectRes
     wrapList = wrapFunctionList struct
@@ -155,15 +169,17 @@ globalStructureToQuery struct = pureSyntaxAssembler globalSelect (fromPart struc
     joinRes = T.intercalate "\n" (joinList struct)
     whereRes = whereConditions struct
     groupRes = T.intercalate ", " (groupByList struct)
+    limitVal = limit struct
 
-pureSyntaxAssembler :: Text -> Text -> Text -> Text -> Text -> Text
-pureSyntaxAssembler select from join whereRes group = finalRes
+pureSyntaxAssembler :: Text -> Text -> Text -> Text -> Text -> Int -> Int -> Text
+pureSyntaxAssembler select from join whereRes group offsetValue limitValue = finalRes
     where
       formatter = " "
-      finalRes = selectFrom <> formatter <> joinWhere <> if group == "" then "" else formatter <> groupRes
+      finalRes = selectFrom <> formatter <> joinWhere <> groupRes <> limitRes
       selectFrom = "SELECT " <> select <> formatter <> "FROM " <> from
       joinWhere = join <> if whereRes == "" then "" else formatter <> "WHERE " <> whereRes
-      groupRes = "GROUP BY " <> group
+      groupRes = if group == "" then "" else formatter <> "GROUP BY " <> group
+      limitRes = if limitValue > 0 then formatter <> "LIMIT " <> (T.pack $ show limitValue) else ""
 
 -- | Takes a list of wrapping funtion (row or array_agg) and yield the compound
 wrapSelectionResult :: [Text] -> Text -> Text
@@ -176,7 +192,7 @@ wrapSelectionResult wrapList selectResult = foldr wrapperNameApplication selectR
 ------- Merge two SQLStructure ?? with an UPDATER...
 
 
-mergeSubqueryList :: (Text, Text) -> (typeA -> [typeInA] -> typeA) -> SQLStructure encoder typeInA -> SQLStructure encoder typeA -> SQLStructure encoder typeA
+mergeSubqueryList :: (Text, Text) -> (typeA -> [typeInA] -> typeA) -> SQLStructure encoderTypeInA typeInA -> SQLStructure encoder typeA -> SQLStructure encoder typeA
 mergeSubqueryList (whereCond, groupCond) updater valueInA valueA = valueA {
   selectPart = selectPart valueA <> ["(" <> globalStructureToQuery adaptedValueInA <> ")"],
   statementDecoder = do

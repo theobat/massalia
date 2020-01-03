@@ -96,3 +96,20 @@ where organization.id='e66c07a5-5b8c-45e4-8dc1-af19b8fdd78d'
 group by organization.id
 
 
+
+-- context reuse
+
+select 
+    row(
+        work.id,
+        (select row(work_schedule.id, work_schedule.pouring_date))
+    )
+from work
+join (
+    select *, (row_number() over (partition by work_id order by work_schedule.created_at desc)) as ok
+    from work_schedule
+) work_schedule on work_schedule.work_id=work.id AND work_schedule.ok=1
+group by work.id, work_schedule.id, work_schedule.pouring_date
+order by work_schedule.pouring_date DESC
+offset 0
+limit 10
