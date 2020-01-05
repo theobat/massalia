@@ -36,6 +36,7 @@ resolver: lts-14.10
 packages:
 - .
 - ../morpheus-graphql
+
 # Dependency packages to be pulled from upstream that are not in the resolver
 # using the same syntax as the packages field.
 # (e.g., acme-missiles-0.3)
@@ -61,6 +62,9 @@ packages:
 # Extra directories used by stack for building
 # extra-include-dirs: [/path/to/dir]
 # extra-lib-dirs: [/path/to/dir]
+# extra-lib-dirs:
+#   - ../morpheus-graphql
+
 #
 # Allow a newer minor version of GHC than the snapshot specifies
 # compiler-check: newer-minor

@@ -9,7 +9,8 @@
 
 module Main where
 
-import Lib
+import MorpheusTestdata
+-- import Lib
 
 main :: IO ()
-main = someFunc
+main = undefined -- someFunc

@@ -33,8 +33,6 @@ import qualified Data.ByteString.Lazy.Char8    as B
 import           Data.Morpheus                  ( interpreter )
 import           Data.Morpheus.Types            ( ScalarValue(String)
                                                 , GQLScalar(..)
-                                                , ResolveQ
-                                                , liftEither
                                                 , GQLRequest(..)
                                                 , GQLResponse
                                                 , Resolver(..)
@@ -48,11 +46,6 @@ import           Hasql.Statement                ( Statement(..) )
 import qualified Hasql.Decoders                as Decoders
 import qualified Hasql.Encoders                as Encoders
 import           Data.Int                       ( Int64 )
-import           Data.Morpheus.Types.Internal.AST.Selection
-                                                ( SelectionRec(..)
-                                                , ValidSelection
-                                                , SelectionSet
-                                                )
 import           Data.Morpheus.Types.Internal.AST.Base
                                                 ( Key )
 import qualified Hasql.Connection              as Connection
@@ -66,7 +59,9 @@ import qualified Data.Text                     as T
 import           Data.Text.Encoding             ( encodeUtf8 )
 import Data.Functor.Contravariant ((>$<))
 import           Data.Morpheus.Types.Internal.AST.Selection
-                                                ( SelectionRec(..), ValidSelection, SelectionSet, Selection(..), Arguments )
+                                                ( ValidSelectionSet, ValidSelection,
+                                                SelectionSet, Selection(..), Arguments,
+                                                SelectionContent(SelectionField, SelectionSet))
 
 someFunc :: IO ()
 someFunc = undefined
@@ -105,8 +100,8 @@ scalar col updater decoderType sqlST = sqlST {
     updater entity <$> (Decoders.field (Decoders.nonNullable decoderType))
 }
 
-compo :: (SelectionSet -> SQLStructure encoderTypeInA typeInA) -> (Text, Text) -> (typeA -> [typeInA] -> typeA)
-  -> Selection Arguments SelectionRec -> SQLStructure encoder typeA -> SQLStructure encoder typeA
+compo :: (ValidSelectionSet -> SQLStructure encoderTypeInA typeInA) -> (Text, Text) -> (typeA -> [typeInA] -> typeA)
+  -> ValidSelection -> SQLStructure encoder typeA -> SQLStructure encoder typeA
 compo generator conditions updater selSet = subQueryMerger $ resolver selSet
   where
     resolver = generateQuery generator
@@ -122,11 +117,11 @@ data GQLScalarFilter scalarType = GQLScalarFilter {
 -- utilHasql :: (b -> a) -> Params a -> Maybe b -> Params a
 -- utilHasql updater paraA paraB = paraA <> 
 
-filterEncoder :: Maybe (GQLScalarFilter scalarType) -> (Encoders.Params scalarType, Text)
-filterEncoder = maybe noFilterCase filterCase
-  where
-    noFilterCase = (Encoders.noParams, "")
-    filterCase (GQLScalarFilter {isEq = maybeEq, isNotEq = maybeNotEq, isIn = maybeIn, isNotIn = maybeNotIn}) = noFilterCase
+-- filterEncoder :: Maybe (GQLScalarFilter scalarType) -> (Encoders.Params scalarType, Text)
+-- filterEncoder = maybe noFilterCase filterCase
+--   where
+--     noFilterCase = (Encoders.noParams, "")
+--     filterCase (GQLScalarFilter {isEq = maybeEq, isNotEq = maybeNotEq, isIn = maybeIn, isNotIn = maybeNotIn}) = noFilterCase
 
 data PlantFilter = PlantFilter {
   required :: Bool,
@@ -205,7 +200,7 @@ mergeSubqueryList (whereCond, groupCond) updater valueInA valueA = valueA {
     groupByList = [groupCond]
   }
 
-generateQuery :: (SelectionSet -> SQLStructure a b) -> Selection Arguments SelectionRec -> SQLStructure a b
+generateQuery :: (ValidSelectionSet -> SQLStructure a b) -> ValidSelection -> SQLStructure a b
 generateQuery typeHandler nexSelSet = case nexSelSet of
   Selection _ _ _ (SelectionSet selectionSet) -> typeHandler selectionSet
   Selection _ position _ _ -> error $ ("unexpected selection set at position " ++ show position)
@@ -223,3 +218,17 @@ mergeSubquery updater structInB structB = structB {
       entity <- statementDecoder structB
       updater entity <$> (Decoders.field (Decoders.nonNullable $ Decoders.composite $ (statementDecoder structInB)))
   }
+
+-- | This should serve as an API Field "pack" which serves for every correspondance between an API field
+-- | and pretty much everything else: the selects, the filters and the
+-- | inserts ?
+data MassaliaField a b = MassaliaField {
+  name :: Text,
+  filterEncoder :: Text, --TODO
+  decoder :: Text, -- TODO
+  haskellValue :: a, -- TODO
+  hsUpdater :: b -> a -> b -- TODO
+}
+  
+okok :: MassaliaField UUID PlantFilter
+okok = MassaliaField {}
