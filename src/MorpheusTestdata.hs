@@ -45,7 +45,7 @@ orgSelectionSet =
 plantSelTest :: ValidSelectionSet
 plantSelTest =
   [ ("plantId"  , selectionGen [] SelectionField)
-  -- , ("truckList", selectionGen [] $ SelectionSet truckSelTest)
+  , ("truckList", selectionGen [] $ SelectionSet truckSelTest)
   ]
 
 truckSelTest :: ValidSelectionSet

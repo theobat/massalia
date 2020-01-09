@@ -65,7 +65,9 @@ someFunc = do
   case result of
     Left e -> error $ show e
     Right res -> do
+      _ <- print $ "organization"
       _ <- print $ (organizationId <$> res)
+      _ <- print $ "plantIdList"
       print $ plantId <$> concat (orgPlantList <$> res)
   -- queryTest <- Session.run (Session.statement () queryCrashTest) connection
   -- print (show <$> queryTest)
