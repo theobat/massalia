@@ -39,7 +39,7 @@ selectionGen a = Selection a (Position 0 0) Nothing
 orgSelectionSet :: ValidSelectionSet
 orgSelectionSet =
   [ ("orgId"  , selectionGen [] SelectionField)
-  -- , ("plantList", selectionGen [] $ SelectionSet plantSelTest)
+  , ("plantList", selectionGen [] $ SelectionSet plantSelTest)
   ]
 
 plantSelTest :: ValidSelectionSet

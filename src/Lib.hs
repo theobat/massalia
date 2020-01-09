@@ -77,7 +77,7 @@ someFunc = do
     connectionSettings = Connection.settings "localhost" 5432 "postgres" "" "beton_direct_web"
     -- queryString = selectionSetToString "testOrg" "organizationList" testSelection
     filters = (
-      Nothing, -- (Just plantFilterInstance),
+      (Just plantFilterInstance),
       Nothing)
     org = organizationGlobalSelect filters testSelection
     groupedOrg = org {
@@ -157,7 +157,7 @@ plantGlobalSelect = foldr plantSelection initialValue
   where initialValue = defaultSQLStruct {
     Lib.wrapFunctionList = ["row"],
     Lib.fromPart="plant",
-    Lib.statementDecoder = (\val -> plantDefault {plantId = val}) <$> (Decoders.field (Decoders.nonNullable Decoders.uuid))
+    Lib.statementDecoder = (pure plantDefault) :: Decoders.Composite Plant 
   }
 
 plantSelection :: (Key, ValidSelection) -> SQLStructure a Plant -> SQLStructure a Plant
@@ -171,7 +171,7 @@ truckGlobalSelect = foldr truckSelection initialValue
     Lib.wrapFunctionList = ["row"],
     Lib.fromPart="truck",
     Lib.joinList=["JOIN truck_plant ON truck_plant.truck_id=truck.id"],
-    Lib.statementDecoder = (\val -> truckDefault {truckId = val}) <$> (Decoders.field (Decoders.nonNullable Decoders.uuid))
+    Lib.statementDecoder = (pure truckDefault) :: Decoders.Composite Truck 
   }
 
 truckSelection :: (Key, ValidSelection) -> SQLStructure a Truck -> SQLStructure a Truck
