@@ -1,3 +1,3 @@
-# Changelog for haskeleton
+# Changelog for massalia
 
 ## Unreleased changes

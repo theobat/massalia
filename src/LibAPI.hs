@@ -62,6 +62,7 @@ import           Data.Morpheus.Types.Internal.AST.Selection
                                                 ( ValidSelectionSet, ValidSelection,
                                                 SelectionSet, Selection(..), Arguments,
                                                 SelectionContent(SelectionField, SelectionSet))
+import Data.Maybe (fromMaybe)
 
 someFunc :: IO ()
 someFunc = undefined
@@ -105,7 +106,7 @@ compo :: (ValidSelectionSet -> SQLStructure encoderTypeInA typeInA) -> (Text, Te
 compo generator conditions updater selSet = subQueryMerger $ resolver selSet
   where
     resolver = generateQuery generator
-    subQueryMerger = mergeSubqueryList conditions updater
+    subQueryMerger = mergeSubqueryList conditions (\e v -> updater e (fromMaybe [] v))
 
 data GQLScalarFilter scalarType = GQLScalarFilter {
   isEq :: Maybe scalarType,
@@ -152,7 +153,7 @@ globalStructureToListStatement struct = Statement (encodeUtf8 sql) encodeVal dec
     encodeVal = statementEncoder struct
     singleComposite = Decoders.nonNullable $ Decoders.composite $ statementDecoder struct
     compositeDecoder = Decoders.column $ Decoders.nonNullable $ Decoders.listArray $ singleComposite
-    decodeVal = Decoders.singleRow compositeDecoder
+    decodeVal = Decoders.rowList (Decoders.column singleComposite)
 
 -- | Takes an SQLStructure and yield the resulting query
 globalStructureToQuery :: SQLStructure encoder decoder -> Text
@@ -187,12 +188,12 @@ wrapSelectionResult wrapList selectResult = foldr wrapperNameApplication selectR
 ------- Merge two SQLStructure ?? with an UPDATER...
 
 
-mergeSubqueryList :: (Text, Text) -> (typeA -> [typeInA] -> typeA) -> SQLStructure encoderTypeInA typeInA -> SQLStructure encoder typeA -> SQLStructure encoder typeA
+mergeSubqueryList :: (Text, Text) -> (typeA -> Maybe [typeInA] -> typeA) -> SQLStructure encoderTypeInA typeInA -> SQLStructure encoder typeA -> SQLStructure encoder typeA
 mergeSubqueryList (whereCond, groupCond) updater valueInA valueA = valueA {
   selectPart = selectPart valueA <> ["(" <> globalStructureToQuery adaptedValueInA <> ")"],
   statementDecoder = do
     entity <- statementDecoder valueA
-    updater entity <$> (Decoders.field (Decoders.nonNullable $ Decoders.listArray $ Decoders.nonNullable $ Decoders.composite (statementDecoder adaptedValueInA)))
+    updater entity <$> (Decoders.field (Decoders.nullable $ Decoders.listArray $ Decoders.nonNullable $ Decoders.composite (statementDecoder adaptedValueInA)))
 }
   where adaptedValueInA = valueInA {
     wrapFunctionList = ["array_agg"::Text] <> (wrapFunctionList valueInA),

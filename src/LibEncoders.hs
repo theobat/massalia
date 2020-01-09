@@ -57,8 +57,9 @@ unsafeAddGQLScalarEncoder :: Value scalarType -> (filterObject -> Maybe (GQLScal
 unsafeAddGQLScalarEncoder value accessor object = accessor >$< accessorParam
   where accessorParam = unsafeEncodeGQLScalarFilter value (accessor object)
 
-plantFilterEncode :: PlantFilter -> Params PlantFilter
-plantFilterEncode val = unsafeAddGQLScalarEncoder uuid plantIdFilter val <> unsafeAddGQLScalarEncoder text aRandomText val
+plantFilterEncode :: (Maybe PlantFilter) -> Params (Maybe PlantFilter)
+plantFilterEncode Nothing = mempty
+plantFilterEncode (Just val) = unsafeMaybeEncode (Just val) $ unsafeAddGQLScalarEncoder uuid plantIdFilter val <> unsafeAddGQLScalarEncoder text aRandomText val
 
   -- unsafeEncodeGQLScalarFilter :: Value scalarType -> Maybe (GQLScalarFilter scalarType) -> 
 

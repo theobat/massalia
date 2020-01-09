@@ -1,4 +1,4 @@
-name:                haskeleton
+name:                massalia
 version:             0.1.0.0
 github:              "theobat/massalia"
 license:             BSD3
@@ -17,7 +17,7 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/theobat/haskeleton#readme>
+description:         Please see the README on GitHub at <https://github.com/theobat/massalia#readme>
 
 dependencies:
 - base >= 4.7 && < 5
@@ -33,7 +33,7 @@ library:
   source-dirs: src
 
 executables:
-  haskeleton-exe:
+  massalia-exe:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -41,10 +41,10 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - haskeleton
+    - massalia
 
 tests:
-  haskeleton-test:
+  massalia-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
@@ -52,4 +52,4 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - haskeleton
+    - massalia

@@ -42,7 +42,7 @@ import qualified Data.Text as T
 import           Data.Text.Encoding             ( encodeUtf8 )
 import qualified LibAPI as Lib
 import Data.Functor.Contravariant ((>$<))
-import LibEncoders (PlantFilter, plantFilterEncode, plantFilterInstance)
+import LibEncoders (PlantFilter(PlantFilter), plantFilterEncode, plantFilterInstance, unsafeMaybeEncode)
 
 import LibAPI (
   SQLStructure, defaultSQLStruct, globalStructureToQuery,
@@ -60,9 +60,13 @@ someFunc = do
   connection <- case rawConnection of
     Left e -> (error $ show e)
     Right goodCo -> pure goodCo
-  print (globalStructureToQuery limitedOrg)
-  -- result <- Session.run (Session.statement () statement) connection
-  -- print (fmap (organizationId <$>) result)
+  print (globalStructureToQuery groupedOrg)
+  result <- Session.run (Session.statement filters statement) connection
+  case result of
+    Left e -> error $ show e
+    Right res -> do
+      _ <- print $ (organizationId <$> res)
+      print $ plantId <$> concat (orgPlantList <$> res)
   -- queryTest <- Session.run (Session.statement () queryCrashTest) connection
   -- print (show <$> queryTest)
   -- print (plantId <$> queryTest)
@@ -72,9 +76,16 @@ someFunc = do
   where
     connectionSettings = Connection.settings "localhost" 5432 "postgres" "" "beton_direct_web"
     -- queryString = selectionSetToString "testOrg" "organizationList" testSelection
-    org = organizationGlobalSelect (Nothing, Nothing) testSelection
-    limitedOrg = org{ Lib.limit = 1 }
-    statement = globalStructureToListStatement limitedOrg
+    filters = (
+      Nothing, -- (Just plantFilterInstance),
+      Nothing)
+    org = organizationGlobalSelect filters testSelection
+    groupedOrg = org {
+      -- Lib.wrapFunctionList = ["array_agg"] <> Lib.wrapFunctionList org,
+      -- Lib.groupByList = ["organization.id"],
+      Lib.limit = 2
+    }
+    statement = globalStructureToListStatement groupedOrg
 
 
 customQuery :: Text -> GQLRequest
@@ -89,12 +100,6 @@ data Query m = Query
 
 resolvePlantList :: (Connection.Connection, ValidSelectionSet)  -> () -> IORes m [Plant]
 resolvePlantList (connection, fieldList) _ = undefined -- liftEither $ testInIO
-  -- where
-  --   testInIO =
-  --     fmap (first show) test
-  --   test = Session.run (Session.statement Nothing (plantToSQL 1 fieldList Nothing)) connection
-
--- getPlantList :: IORes e [Plant]
 
 rootResolver
   :: (Connection.Connection, ValidSelectionSet) -> GQLRootResolver IO () Query Undefined Undefined
@@ -122,7 +127,7 @@ massaliaField name deco enco updater = ()
 
 
 -- no filter
-type OrganizationSelectFilter = (Maybe PlantFilter)
+type OrganizationSelectFilter = (Maybe PlantFilter, Maybe Text)
 organizationGlobalSelect :: OrganizationSelectFilter -> ValidSelectionSet -> SQLStructure OrganizationSelectFilter Organization
 organizationGlobalSelect filter = foldr organizationSelection filteredValue
   where
@@ -130,21 +135,21 @@ organizationGlobalSelect filter = foldr organizationSelection filteredValue
     initialValue = defaultSQLStruct {
       Lib.wrapFunctionList = ["row"],
       Lib.fromPart="organization",
-      Lib.statementEncoder = fst >$< plantFilterEncode plantFilterInstance,
-      Lib.statementDecoder = (\val -> organizationDefault {organizationId = val}) <$> (Decoders.field (Decoders.nonNullable Decoders.uuid))
+      Lib.statementEncoder = fst >$< plantFilterEncode (fst filter),
+      Lib.statementDecoder = (pure organizationDefault) :: Decoders.Composite Organization 
     }
     filteredValue = case fst filter of
       Nothing -> initialValue
-      Just (Lib.PlantFilter _ plantIdFilter) -> initialValue {
+      Just (PlantFilter _ plantIdFilter) -> initialValue {
         Lib.joinList = [
-          "JOIN plant ON plant.id=organization.plant_id AND plant.id=?"
+          "JOIN plant ON plant.organization_id=organization.id AND plant.id=($1)::uuid"
         ]
       }
 
 organizationSelection :: (Key, ValidSelection) -> SQLStructure a Organization -> SQLStructure a Organization
 organizationSelection ("orgId", _) = Lib.scalar "organization.id" (\o val -> o { organizationId = val }) Decoders.uuid
 organizationSelection ("plantList", selection) = rs
-  where rs = Lib.compo plantGlobalSelect ("plant.organization_id=organization.id", "organization.id") ((\p val -> p { orgPlantList = val })) selection
+  where rs = Lib.compo plantGlobalSelect ("plant.organization_id=organization.id", "organization.id") (\p val -> p { orgPlantList = val }) selection
   
 
 plantGlobalSelect :: ValidSelectionSet -> SQLStructure () Plant
@@ -156,7 +161,7 @@ plantGlobalSelect = foldr plantSelection initialValue
   }
 
 plantSelection :: (Key, ValidSelection) -> SQLStructure a Plant -> SQLStructure a Plant
-plantSelection ("plantId", _) = Lib.scalar "plant.id" (\p -> (\val -> p { plantId = val })) Decoders.uuid
+plantSelection ("plantId", _) = Lib.scalar "plant.id" (\p val -> p { plantId = val }) Decoders.uuid
 plantSelection ("truckList", selection) = rs
   where rs = Lib.compo truckGlobalSelect ("truck_plant.plant_id=plant.id", "plant.id") (\p val -> p { truckList = val }) selection
 
