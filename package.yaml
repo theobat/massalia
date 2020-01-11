@@ -28,6 +28,7 @@ dependencies:
 - hasql
 - vector
 - uuid
+- tasty
 
 library:
   source-dirs: src
