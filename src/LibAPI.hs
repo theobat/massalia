@@ -46,8 +46,7 @@ import           Hasql.Statement                ( Statement(..) )
 import qualified Hasql.Decoders                as Decoders
 import qualified Hasql.Encoders                as Encoders
 import           Data.Int                       ( Int64 )
-import           Data.Morpheus.Types.Internal.AST.Base
-                                                ( Key )
+import           Data.Morpheus.Types.Internal.AST.Base ( Key )
 import qualified Hasql.Connection              as Connection
 import qualified Hasql.Session                 as Session
 import           Data.Maybe                     ( fromJust )

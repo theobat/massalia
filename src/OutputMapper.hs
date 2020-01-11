@@ -12,8 +12,15 @@ module OutputMapper
     ( OutMapper(..)
     ) where
 
-data OutMapper haskellType fieldType sqlDecoderType = OutMapper {
+import Data.Text
+import qualified Hasql.Decoders as Decoders
+
+
+data OutMapper recordType fieldType sqlDecoderType = OutMapper {
     sqlFieldName :: Text,
-    updater :: haskellType -> fieldType -> haskellType,
+    updater :: recordType -> fieldType -> recordType,
     sqlDecoder :: sqlDecoderType fieldType
 }
+
+type OutMapperUUID = OutMapper recordType UUID Decoders.uuid
+type OutMapperText = OutMapper recordType Text Decoders.text
