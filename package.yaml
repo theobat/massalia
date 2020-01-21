@@ -29,6 +29,7 @@ dependencies:
 - vector
 - uuid
 - tasty
+- tasty-hunit
 
 library:
   source-dirs: src
@@ -47,7 +48,9 @@ executables:
 tests:
   massalia-test:
     main:                Spec.hs
-    source-dirs:         test
+    source-dirs:
+      - test
+      - test/MassaliaSchema
     ghc-options:
     - -threaded
     - -rtsopts

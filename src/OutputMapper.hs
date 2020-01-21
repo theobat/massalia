@@ -10,6 +10,8 @@
 
 module OutputMapper
     ( OutMapper(..)
+    , uuidMapper
+    , textMapper
     ) where
 
 import Data.Text
@@ -17,27 +19,38 @@ import Data.UUID
 import qualified Hasql.Decoders as Decoders
 
 
-data OutMapper recordType fieldType sqlDecoderType = OutMapper {
+data OutMapper recordType = OutMapper {
     sqlExpr :: Text,
+    fieldMapper :: FieldOutMapper recordType
+}
+data FieldOutStruct recordType fieldType = FieldOutStruct {
     updater :: recordType -> fieldType -> recordType,
     acccessor :: recordType -> fieldType,
-    sqlDecoder :: sqlDecoderType fieldType
+    sqlDecoder :: Decoders.Value fieldType 
 }
+data FieldOutMapper recordType =
+    FieldOutUUID (FieldOutStruct recordType UUID) |
+    FieldOutBool (FieldOutStruct recordType Bool) |
+    FieldOutText (FieldOutStruct recordType Text) |
+    FieldOutRec recordType
 
 -- TODO all the others:
-
-type OutMapperUUID recordType = OutMapper recordType UUID Decoders.Value
+uuidMapper :: Text -> (recordType -> UUID -> recordType) -> (recordType -> UUID) -> OutMapper recordType
 uuidMapper fieldName updater accessor = OutMapper {
     sqlExpr = fieldName,
-    updater = updater,
-    acccessor = accessor,
-    sqlDecoder = Decoders.uuid
+    fieldMapper = FieldOutUUID $ FieldOutStruct {
+        updater = updater,
+        acccessor = accessor,
+        sqlDecoder = Decoders.uuid
+    }
 }
 
-type OutMapperText recordType = OutMapper recordType Text Decoders.Value
+textMapper :: Text -> (recordType -> Text -> recordType) -> (recordType -> Text) -> OutMapper recordType
 textMapper fieldName updater accessor = OutMapper {
     sqlExpr = fieldName,
-    updater = updater,
-    acccessor = accessor,
-    sqlDecoder = Decoders.text
+    fieldMapper = FieldOutText $ FieldOutStruct {
+        updater = updater,
+        acccessor = accessor,
+        sqlDecoder = Decoders.text
+    }
 }
