@@ -39,7 +39,10 @@ defaultSQLStruct = SQLStructure {
   limit=0,
   statementEncoder=Encoders.noParams,
   statementDecoder=undefined
-}
+}  
+
+-- join semantics => join two SQLStructure
+-- subquery semantics => select a SQLStructure within another
 
 scalar :: Text -> (decoder -> a -> decoder) -> Decoders.Value a -> SQLStructure encoder decoder -> SQLStructure encoder decoder
 scalar col updater decoderType sqlST = sqlST {
@@ -57,3 +60,4 @@ instance Aggregable SQLStructure encoder decoder where
 
 instance Aggregable (,) Text record where
   simpleCol _ _ getter _ (currentTxt, currentRec) = (currentTxt <> " " <> (pack $ show $ getter currentRec), currentRec)
+  
