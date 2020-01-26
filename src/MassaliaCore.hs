@@ -1,28 +1,61 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE TypeOperators     #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
 module MassaliaCore
-    (
-    MassaliaStruct(..)
-    ) where
+  ( MassaliaStruct (..),
+  )
+where
 
+import Data.Morpheus.Types.Internal.AST.Selection
+  ( Arguments,
+    Selection (..),
+    SelectionContent (SelectionField, SelectionSet),
+    SelectionSet,
+    ValidSelection,
+    ValidSelectionSet,
+  )
+import Data.Text (Text)
 import qualified Hasql.Decoders as Decoders
 import qualified Hasql.Encoders as Encoders
-import Data.Text (Text)
-import           Data.Morpheus.Types.Internal.AST.Selection
-                                                ( ValidSelectionSet, ValidSelection,
-                                                SelectionSet, Selection(..), Arguments,
-                                                SelectionContent(SelectionField, SelectionSet))
-                                                
-type ReUpdater recordType fieldType = (recordType -> fieldType -> recordType)
-type ReEUpdater recordType fieldType wrapper = (recordType -> wrapper fieldType -> recordType)
-type ReGetter recordType fieldType = (recordType -> fieldType)
-  
-class MassaliaStruct wrapper someType recordType where
-  simpleCol :: Show fieldType => Text -> ReUpdater recordType fieldType -> ReGetter recordType fieldType -> Decoders.Value fieldType -> wrapper someType recordType -> wrapper someType recordType
-  subColWrap :: (ValidSelectionSet -> wrapper someType nestedRecordType) -> (Text, Text) -> ReEUpdater recordType nestedRecordType []
-    -> ValidSelection -> wrapper someType recordType -> wrapper someType recordType
 
+type ReUpdater recordType fieldType = (recordType -> fieldType -> recordType)
+
+type ReEUpdater recordType fieldType wrapper = (recordType -> wrapper fieldType -> recordType)
+
+type ReGetter recordType fieldType = (recordType -> fieldType)
+
+class MassaliaStruct wrapper someType recordType where
+  getInitialValue :: (Text, Text) -> recordType -> wrapper someType recordType
+  simpleCol ::
+    Show fieldType =>
+    Text ->
+    ReUpdater recordType fieldType ->
+    ReGetter recordType fieldType ->
+    Decoders.Value fieldType ->
+    wrapper someType recordType ->
+    wrapper someType recordType
+  exprCol ::
+    Show fieldType =>
+    (Text, Text) ->
+    ReUpdater recordType fieldType ->
+    ReGetter recordType fieldType ->
+    Decoders.Value fieldType ->
+    wrapper someType recordType ->
+    wrapper someType recordType
+  subColWrap ::
+    (ValidSelectionSet -> wrapper someType nestedRecordType) ->
+    (Text, Text) ->
+    ReEUpdater recordType nestedRecordType [] ->
+    ValidSelection ->
+    wrapper someType recordType ->
+    wrapper someType recordType
+
+-- class MassaliaFilter someType recordType where
+--   impactFilter ::
+--     MassaliaStruct wrapper someType recordType =>
+--     someType ->
+--     wrapper someType recordType ->
+--     wrapper someType recordType

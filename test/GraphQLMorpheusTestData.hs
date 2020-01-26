@@ -11,6 +11,7 @@
 module GraphQLMorpheusTestData
     ( testSelection
     , orgSelectionSet
+    , truckSelTest
     ) where
 
 import           Data.Morpheus.Kind     (OBJECT, ENUM, SCALAR)
@@ -50,7 +51,8 @@ plantSelTest =
 
 truckSelTest :: ValidSelectionSet
 truckSelTest =
-  [ ("truckId"  , selectionGen [] SelectionField)
+  [ ("id"  , selectionGen [] SelectionField)
+  , ("vehicleId"  , selectionGen [] SelectionField)
   ]
 
 testSelection :: ValidSelectionSet

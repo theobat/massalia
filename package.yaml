@@ -30,6 +30,8 @@ dependencies:
 - uuid
 - tasty
 - tasty-hunit
+- aeson
+- inflections
 
 library:
   source-dirs: src

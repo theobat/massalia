@@ -25,4 +25,5 @@ data Plant = Plant {
 
 plantMassalia :: Aggregable wrapper someType Plant => Text -> wrapper someType Plant -> wrapper someType Plant
 plantMassalia "id" = simpleCol "id" (\e v -> e{id=v}) id Decoders.uuid
+plantMassalia "truckList" = simpleCol "id" (\e v -> e{id=v}) id Decoders.uuid
 plantMassalia _ = Prelude.id

@@ -10,7 +10,12 @@ import qualified Hasql.Decoders as Decoders
 import qualified Hasql.Encoders as Encoders
 import Data.Text (Text, pack)
 import MassaliaCore (MassaliaStruct(..))
-                                                  
+
+colValueToText fieldName _ getter _ (currentTxt, currentRec) = (currentTxt <> ", " <> fieldName <> "=" <> (pack $ show $ getter currentRec), currentRec)
+
 instance MassaliaStruct (,) Text record where
-  simpleCol _ _ getter _ (currentTxt, currentRec) = (currentTxt <> " " <> (pack $ show $ getter currentRec), currentRec)
+  getInitialValue (name, _) defaultRec = (name, defaultRec)
+  simpleCol = colValueToText
+  exprCol (fieldName, _) = colValueToText fieldName
+  subColWrap = undefined
   

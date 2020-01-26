@@ -1,8 +1,13 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import MassaliaSchema.Industry.Truck (Truck)
-
+import MassaliaRec
+import MassaliaSchema.Industry.Truck (Truck, truckInitSQL)
+import GraphQLMorpheusTestData (truckSelTest)
+import MassaliaSQL (SelectStruct, globalStructureToQuery)
+import Data.Text(Text)
 
 main :: IO ()
 main = defaultMain tests
@@ -10,11 +15,19 @@ main = defaultMain tests
 tests :: TestTree
 tests = testGroup "Tests" [unitTests]
 
-unitTests = testGroup "Unit tests"
-  [ testCase "List comparison (different length)" $
-      [1, 2, 3] `compare` [1,2] @?= GT
+testTruckQuery :: SelectStruct () Truck
+testTruckQuery = truckInitSQL truckSelTest
 
+testTruckAcc :: (Text, Truck)
+testTruckAcc = truckInitSQL truckSelTest
+
+unitTests = testGroup "Unit tests"
+  [ testCase "test simple select query" $
+      assertEqual "" (globalStructureToQuery testTruckQuery) "SELECT row(vehicle_id, id) FROM truck "
+
+    , testCase "test simple rec traverse" $
+      assertEqual "" (fst testTruckAcc) " "
   -- the following test does not hold
-  , testCase "List comparison (same length)" $
-      [1, 2, 3] `compare` [1,2,2] @?= LT
+--   , testCase "List comparison (same length)" $
+--       [1, 2, 3] `compare` [1,2,2] @?= LT
   ]
