@@ -50,7 +50,6 @@ tests:
     main:                Spec.hs
     source-dirs:
       - test
-      - test/MassaliaSchema
     ghc-options:
     - -threaded
     - -rtsopts

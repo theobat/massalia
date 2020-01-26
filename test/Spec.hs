@@ -1,6 +1,9 @@
 import Test.Tasty
 import Test.Tasty.HUnit
 
+import MassaliaSchema.Industry.Truck (Truck)
+
+
 main :: IO ()
 main = defaultMain tests
 

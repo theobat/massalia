@@ -9,3 +9,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 
 module MassaliaTestSchema where
+
+import MassaliaSchema.Industry.Truck (Truck)
+
+test = "ok"

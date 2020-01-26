@@ -35,12 +35,12 @@ resolver: lts-14.10
 #  - wai
 packages:
 - .
-- ../morpheus-graphql
 
 # Dependency packages to be pulled from upstream that are not in the resolver
 # using the same syntax as the packages field.
 # (e.g., acme-missiles-0.3)
-# extra-deps: []
+extra-deps:
+- ../morpheus-graphql
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
@@ -60,7 +60,8 @@ packages:
 # arch: x86_64
 #
 # Extra directories used by stack for building
-# extra-include-dirs: [/path/to/dir]
+extra-include-dirs:
+  - src/MassaliaSchema/Industry
 # extra-lib-dirs: [/path/to/dir]
 # extra-lib-dirs:
 #   - ../morpheus-graphql

@@ -3,10 +3,11 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Industry.Truck (
+module MassaliaSchema.Industry.Truck (
     Truck(..)
 ) where
 import Prelude hiding(id)
+import qualified Prelude(id) 
 import Data.UUID (UUID)
 import Data.Text (Text)
 import GHC.Generics (Generic)
@@ -22,4 +23,5 @@ data Truck = Truck {
 truckMassalia :: Aggregable wrapper someType Truck => Text -> wrapper someType Truck -> wrapper someType Truck
 truckMassalia "id" = simpleCol "id" (\e v -> e{id=v}) id Decoders.uuid
 truckMassalia "vehicleId" = simpleCol "vehicle_id" (\e v -> e{vehicleId=v}) vehicleId Decoders.text
+truckMassalia _ = Prelude.id
 

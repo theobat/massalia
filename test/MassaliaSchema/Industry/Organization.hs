@@ -8,7 +8,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 
-module Industry.Organization (
+module MassaliaSchema.Industry.Organization (
     Organization(..)
 ) where
 

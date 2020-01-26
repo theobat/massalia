@@ -1,25 +1,28 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE TypeOperators     #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts #-}
 
-module Industry.Plant (
+module MassaliaSchema.Industry.Plant (
     Plant(..)
 ) where
 
+import Prelude hiding(id)
+import qualified Prelude(id) 
 import Data.UUID (UUID)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import Data.Data (Data)
-import Industry.Truck (Truck)
+import SQL (Aggregable(simpleCol))
+import MassaliaSchema.Industry.Truck (Truck)
+import qualified Hasql.Decoders as Decoders
 
 -- import Truck (Truck)
 
 data Plant = Plant {
-  id :: UUID
-} deriving (Show, Generic, Data)
+  id :: UUID,
+  truckList :: [Truck]
+} deriving (Show, Generic)
+
+plantMassalia :: Aggregable wrapper someType Plant => Text -> wrapper someType Plant -> wrapper someType Plant
+plantMassalia "id" = simpleCol "id" (\e v -> e{id=v}) id Decoders.uuid
+plantMassalia _ = Prelude.id
