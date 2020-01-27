@@ -77,26 +77,39 @@ instance MassaliaStruct SelectStruct encoder decoder where
       Right e -> e
     ) updater
   exprCol (_, sqlName) updater _ = scalar sqlName updater
-  subColWrap = compo
+  subColList = compo
 
-compo :: (ValidSelectionSet -> SelectStruct encoderTypeInA typeInA) -> (Text, Text) -> (typeA -> [typeInA] -> typeA)
-  -> ValidSelection -> SelectStruct encoder typeA -> SelectStruct encoder typeA
-compo generator conditions updater selSet = subQueryMerger $ resolver selSet
+compo ::
+  Monoid (wrapInA typeInA) =>
+  (Decoders.NullableOrNot Decoders.Value typeInA -> Decoders.Value (wrapInA typeInA)) ->
+  (ValidSelectionSet -> SelectStruct encoderTypeInA typeInA) ->
+  (Text, Text) ->
+  (typeA -> wrapInA typeInA -> typeA) ->
+  ValidSelection ->
+  SelectStruct encoder typeA ->
+  SelectStruct encoder typeA
+compo decoder generator conditions updater selSet = subQueryMerger $ resolver selSet
   where
     resolver = generateQuery generator
-    subQueryMerger = mergeSubqueryList conditions (\e v -> updater e (fromMaybe [] v))
+    subQueryMerger = mergeSubqueryList decoder conditions (\e v -> updater e (fromMaybe mempty v))
 
 generateQuery :: (ValidSelectionSet -> SelectStruct a b) -> ValidSelection -> SelectStruct a b
 generateQuery typeHandler nexSelSet = case nexSelSet of
   Selection _ _ _ (SelectionSet selectionSet) -> typeHandler selectionSet
   Selection _ position _ _ -> error $ ("unexpected selection set at position " ++ show position)
 
-mergeSubqueryList :: (Text, Text) -> (typeA -> Maybe [typeInA] -> typeA) -> SelectStruct encoderTypeInA typeInA -> SelectStruct encoder typeA -> SelectStruct encoder typeA
-mergeSubqueryList (whereCond, groupCond) updater valueInA valueA = valueA {
+mergeSubqueryList ::
+  (Decoders.NullableOrNot Decoders.Value typeInA -> Decoders.Value (wrapInA typeInA)) ->
+  (Text, Text) ->
+  (typeA -> Maybe (wrapInA typeInA) -> typeA) ->
+  SelectStruct encoderTypeInA typeInA ->
+  SelectStruct encoder typeA ->
+  SelectStruct encoder typeA
+mergeSubqueryList decoder (whereCond, groupCond) updater valueInA valueA = valueA {
   selectPart = selectPart valueA <> ["(" <> globalStructureToQuery adaptedValueInA <> ")"],
   statementDecoder = do
     entity <- statementDecoder valueA
-    updater entity <$> (Decoders.field (Decoders.nullable $ Decoders.listArray $ Decoders.nonNullable $ Decoders.composite (statementDecoder adaptedValueInA)))
+    updater entity <$> (Decoders.field (Decoders.nullable $ decoder $ Decoders.nonNullable $ Decoders.composite (statementDecoder adaptedValueInA)))
 }
   where adaptedValueInA = valueInA {
     wrapFunctionList = ["array_agg"::Text] <> (wrapFunctionList valueInA),

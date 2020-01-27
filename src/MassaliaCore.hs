@@ -45,10 +45,12 @@ class MassaliaStruct wrapper someType recordType where
     Decoders.Value fieldType ->
     wrapper someType recordType ->
     wrapper someType recordType
-  subColWrap ::
+  subColList ::
+    Monoid (wrapInA nestedRecordType) =>
+    (Decoders.NullableOrNot Decoders.Value nestedRecordType -> Decoders.Value (wrapInA nestedRecordType)) ->
     (ValidSelectionSet -> wrapper someType nestedRecordType) ->
     (Text, Text) ->
-    ReEUpdater recordType nestedRecordType [] ->
+    ReEUpdater recordType nestedRecordType wrapInA ->
     ValidSelection ->
     wrapper someType recordType ->
     wrapper someType recordType

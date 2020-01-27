@@ -31,8 +31,6 @@ truckSelect (fieldName, _) = case fieldName of
   "id" -> simpleCol fieldName (\e v -> e{id=v}) id Decoders.uuid
   "vehicleId" -> simpleCol fieldName (\e v -> e{vehicleId=v}) vehicleId Decoders.text
   _ -> Prelude.id
-  -- where
-  --   snake = 
 
 -- | A function to take into account all the available filters for truck entities
 truckFilter :: MassaliaStruct wrapper someType Truck => Text -> wrapper someType Truck -> wrapper someType Truck

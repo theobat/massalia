@@ -12,6 +12,7 @@ module GraphQLMorpheusTestData
     ( testSelection
     , orgSelectionSet
     , truckSelTest
+    , plantSelTest
     ) where
 
 import           Data.Morpheus.Kind     (OBJECT, ENUM, SCALAR)
@@ -39,13 +40,13 @@ selectionGen a = Selection a (Position 0 0) Nothing
 
 orgSelectionSet :: ValidSelectionSet
 orgSelectionSet =
-  [ ("orgId"  , selectionGen [] SelectionField)
+  [ ("id"  , selectionGen [] SelectionField)
   , ("plantList", selectionGen [] $ SelectionSet plantSelTest)
   ]
 
 plantSelTest :: ValidSelectionSet
 plantSelTest =
-  [ ("plantId"  , selectionGen [] SelectionField)
+  [ ("id"  , selectionGen [] SelectionField)
   , ("truckList", selectionGen [] $ SelectionSet truckSelTest)
   ]
 

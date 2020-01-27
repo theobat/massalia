@@ -17,5 +17,4 @@ instance MassaliaStruct (,) Text record where
   getInitialValue (name, _) defaultRec = (name, defaultRec)
   simpleCol = colValueToText
   exprCol (fieldName, _) = colValueToText fieldName
-  subColWrap = undefined
-  
+  subColList = undefined
