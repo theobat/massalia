@@ -3,7 +3,35 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: hasql-dynamic-statements-0.2.0.1@sha256:e469879ebd539d518b7fb4d025316fa055599c2c14324ef88ac9ac99cf9cd8c1,2673
+    pantry-tree:
+      size: 641
+      sha256: 7a7b24b9797e7489492e99e6f0f92a91030e143036ec40a2f790028db0ca516f
+  original:
+    hackage: hasql-dynamic-statements-0.2.0.1@sha256:e469879ebd539d518b7fb4d025316fa055599c2c14324ef88ac9ac99cf9cd8c1,2673
+- completed:
+    hackage: hasql-implicits-0.1.0.1@sha256:93581bf006dbb2641930c41c647b5a42c87064aa6a4feaa7dee6af8e58ccd7af,1388
+    pantry-tree:
+      size: 310
+      sha256: 5953e48ce2ce0cb31aa188981003768bc129d1401a911c86bc796daaa99f7ad8
+  original:
+    hackage: hasql-implicits-0.1.0.1@sha256:93581bf006dbb2641930c41c647b5a42c87064aa6a4feaa7dee6af8e58ccd7af,1388
+- completed:
+    hackage: ptr-0.16.6.1@sha256:8487350b1db776a94c811590b177e113f34b4e1f26782a158932e57bc5f236ab,2961
+    pantry-tree:
+      size: 1029
+      sha256: eb84a0b095dfa7695164e9619dc43c1b14986baa3d5dfcade91ecd74159a38c7
+  original:
+    hackage: ptr-0.16.6.1@sha256:8487350b1db776a94c811590b177e113f34b4e1f26782a158932e57bc5f236ab,2961
+- completed:
+    hackage: bug-1.0.1@sha256:a516df91c7330d350480a7d338af645f173d1e767450c5f94295020f11c8432c,1395
+    pantry-tree:
+      size: 266
+      sha256: 43405b9fbc2819e7f6bda450a3668fa7314c6b5482d26015831fcc54d680f604
+  original:
+    hackage: bug-1.0.1@sha256:a516df91c7330d350480a7d338af645f173d1e767450c5f94295020f11c8432c,1395
 snapshots:
 - completed:
     size: 524130

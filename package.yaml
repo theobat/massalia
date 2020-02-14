@@ -32,6 +32,8 @@ dependencies:
 - tasty-hunit
 - aeson
 - inflections
+- hasql-dynamic-statements
+- hasql-implicits
 
 library:
   source-dirs: src
