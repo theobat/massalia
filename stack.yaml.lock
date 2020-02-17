@@ -34,7 +34,7 @@ packages:
     hackage: bug-1.0.1@sha256:a516df91c7330d350480a7d338af645f173d1e767450c5f94295020f11c8432c,1395
 snapshots:
 - completed:
-    size: 524130
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/14/10.yaml
-    sha256: 04841e0397d7ce6364f19359fce89aa45ca8684609d665845db80d398002baa9
-  original: lts-14.10
+    size: 488576
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/15/0.yaml
+    sha256: e4b6a87b47ec1cf63a7f1a0884a3b276fce2b0d174a10e8753c4f618e7983568
+  original: lts-15.0
