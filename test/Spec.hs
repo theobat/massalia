@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE DataKinds #-}
 
 import Data.Text (Text)
 import GraphQLMorpheusTestData (plantSelTest, truckSelTest)
@@ -7,20 +9,22 @@ import qualified Hasql.Decoders as Decoders
 import Hasql.DynamicStatements.Session (dynamicallyParameterizedStatement)
 import qualified Hasql.Session as Session
 import MassaliaRec
+import MassaliaFilter (GQLFilterText, defaultScalarFilter)
 import MassaliaSQL (SelectStruct, globalStructureToQuery)
 import MassaliaSQLSelect (RawSelectStruct (..), structToSnippet, RowFunction(ArrayAgg, Row))
 import MassaliaSchema.Industry.Plant (Plant, plantInitSQL)
 import MassaliaSchema.Industry.Truck (Truck, truckInitSQL)
 import Test.Tasty
 import Test.Tasty.HUnit
+import GHC.TypeLits (Symbol)
 
 main :: IO ()
 main = do
-  rawConnection <- Connection.acquire connectionSettings
-  connection <- case rawConnection of
-    Left e -> (error $ show e)
-    Right goodCo -> pure goodCo
-  result <- Session.run (dynamicallyParameterizedStatement (structToSnippet testAnotherQuery) decoder) connection
+  -- rawConnection <- Connection.acquire connectionSettings
+  -- connection <- case rawConnection of
+  --   Left e -> (error $ show e)
+  --   Right goodCo -> pure goodCo
+  -- result <- Session.run (dynamicallyParameterizedStatement (structToSnippet testAnotherQuery) decoder) connection
   _ <- defaultMain tests
   print "ok"
   where
@@ -89,3 +93,11 @@ testAnotherQuery =
       orderByList = ["work.created_at DESC"],
       offsetLimit = Just (10, 10)
     }
+
+data OkFilter = OkFilter {
+  okok :: GQLFilterText "qsd"
+}
+defaultOkFilter = OkFilter {
+  okok = defaultScalarFilter
+}
+

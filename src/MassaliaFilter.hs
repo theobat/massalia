@@ -1,14 +1,20 @@
-{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE TypeOperators     #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
-module MassaliaFilter (GQLFilterUUID, GQLFilterText, GQLScalarFilter(..), defaultScalarFilter) where
+module MassaliaFilter (
+  GQLFilterUUID,
+  GQLFilterText,
+  GQLScalarFilter(..),
+  defaultScalarFilter,
+  filterFieldToSnippet
+) where
 
 import Hasql.Encoders
 import Data.Functor.Contravariant ((>$<))
@@ -17,10 +23,13 @@ import Data.UUID
 import Data.Void
 import Hasql.DynamicStatements.Snippet (Snippet)
 import qualified Hasql.DynamicStatements.Snippet as HasqlDynamic (param)
+import Data.String as StringUtils (IsString(fromString))
 import Hasql.Implicits.Encoders (DefaultParamEncoder(defaultParam))
 import MassaliaUtils (intercalateMap, intercalate)
+import Data.Proxy (Proxy(Proxy))
+import GHC.TypeLits (Symbol, KnownSymbol, symbolVal)
 
-data GQLScalarFilter eqScalarType likeScalarType ordScalarType = GQLScalarFilter {
+data GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType = GQLScalarFilter {
   isEq :: Maybe eqScalarType,
   isNotEq :: Maybe eqScalarType,
   isIn :: Maybe [eqScalarType],
@@ -48,38 +57,45 @@ defaultScalarFilter = GQLScalarFilter {
 }
 
 -- eq
-type GQLFilterUUID = GQLScalarFilter UUID Void Void
-
+type GQLFilterUUID fieldName = GQLScalarFilter fieldName UUID Void Void
 -- eq && like
-type GQLFilterText = GQLScalarFilter Text Text Void
+type GQLFilterText fieldName = GQLScalarFilter fieldName Text Text Void
 
 instance DefaultParamEncoder Void where
   defaultParam = error "cannot call DefaultParamEncoder.defaultParam of Void"
 
-snippetMaybe :: DefaultParamEncoder a => Snippet -> Snippet -> Maybe a -> Snippet
+snippetMaybe :: DefaultParamEncoder a => String -> Snippet -> Maybe a -> Snippet
 snippetMaybe _ _ Nothing = mempty
-snippetMaybe fieldName op (Just a) = fieldName <> " " <> op <> " " <> HasqlDynamic.param a
+snippetMaybe fieldName op (Just a) = (StringUtils.fromString fieldName) <> " " <> op <> " " <> HasqlDynamic.param a
 
 filterFieldToSnippet ::
-  DefaultParamEncoder eqScalarType =>
-  DefaultParamEncoder [eqScalarType] =>
-  DefaultParamEncoder likeScalarType =>
-  DefaultParamEncoder ordScalarType =>
-  DefaultParamEncoder (ordScalarType, ordScalarType) =>
-  Snippet -> GQLScalarFilter eqScalarType likeScalarType ordScalarType -> Snippet
-filterFieldToSnippet fieldName GQLScalarFilter {isEq = (Just eqValue)} = snippetMaybe fieldName "=" (Just eqValue)
-filterFieldToSnippet fieldName GQLScalarFilter {
-    isNotEq = isNotEqValue,
-    isIn = isInValue,
-    isNotIn = isNotInValue,
-    isLike = isLikeValue,
-    isIlike = isIlikeValue,
-    isGT = isGTValue,
-    isLT = isLTValue,
-    isBetween = isBetweenValue,
-    isBetweenInclusive = isBetweenInclusiveValue
-  } = intercalate " AND " [
-      snippetMaybe fieldName "!=" isNotEqValue,
-      snippetMaybe fieldName "in" isInValue,
-      snippetMaybe fieldName "not in" isInValue
-    ]
+  forall fieldName. KnownSymbol (fieldName :: Symbol) =>
+  forall eqScalarType likeScalarType ordScalarType.
+    ( DefaultParamEncoder eqScalarType,
+      DefaultParamEncoder [eqScalarType],
+      DefaultParamEncoder likeScalarType,
+      DefaultParamEncoder ordScalarType,
+      DefaultParamEncoder (ordScalarType, ordScalarType)) =>
+  GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType -> Snippet
+filterFieldToSnippet filter = case filter of
+  GQLScalarFilter {isEq = (Just eqValue)} -> snippetMaybe actualFieldName "=" (Just eqValue)
+  where
+    actualFieldName = symbolVal $ (Proxy :: Proxy (fieldName :: Symbol))
+    -- fieldNameToString = symbolVal :: (Proxy (fieldName :: Symbol) -> String)
+
+-- filterFieldToSnippet fieldName 
+-- filterFieldToSnippet fieldName GQLScalarFilter {
+--     isNotEq = isNotEqValue,
+--     isIn = isInValue,
+--     isNotIn = isNotInValue,
+--     isLike = isLikeValue,
+--     isIlike = isIlikeValue,
+--     isGT = isGTValue,
+--     isLT = isLTValue,
+--     isBetween = isBetweenValue,
+--     isBetweenInclusive = isBetweenInclusiveValue
+--   } = intercalate " AND " [
+--       snippetMaybe fieldName "!=" isNotEqValue,
+--       snippetMaybe fieldName "in" isInValue,
+--       snippetMaybe fieldName "not in" isInValue
+--     ]
