@@ -7,6 +7,9 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module MassaliaFilter (
   GQLFilterUUID,
@@ -21,6 +24,8 @@ import Data.Functor.Contravariant ((>$<))
 import Data.Text (Text)
 import Data.UUID
 import Data.Void
+import Data.Aeson (FromJSON, ToJSON)
+import GHC.Generics (Generic)
 import Hasql.DynamicStatements.Snippet (Snippet)
 import qualified Hasql.DynamicStatements.Snippet as HasqlDynamic (param)
 import Data.String as StringUtils (IsString(fromString))
@@ -40,7 +45,20 @@ data GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalar
   isLT :: Maybe ordScalarType, -- is lesser than
   isBetween :: Maybe (ordScalarType, ordScalarType), -- [0, 1[
   isBetweenInclusive :: Maybe (ordScalarType, ordScalarType) -- [0, 1]
-}
+} deriving (Eq, Show, Generic)
+
+-- deriving instance Generic
+--   (Generic eqScalarType, Generic likeScalarType, Generic ordScalarType)
+--   => GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType
+
+deriving instance
+  (FromJSON eqScalarType, FromJSON likeScalarType, FromJSON ordScalarType)
+  => FromJSON (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
+
+deriving instance
+  (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType) =>
+  ToJSON (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
+-- deriving instance ToJSON (GQLScalarFilter fieldName eqScalarType likeScalarType ordScalarType)
 
 -- Filter with no effect
 defaultScalarFilter = GQLScalarFilter {
@@ -57,16 +75,17 @@ defaultScalarFilter = GQLScalarFilter {
 }
 
 -- eq
-type GQLFilterUUID fieldName = GQLScalarFilter fieldName UUID Void Void
+type GQLFilterUUID (fieldName :: Symbol) = GQLScalarFilter (fieldName :: Symbol) UUID Void Void
+
 -- eq && like
-type GQLFilterText fieldName = GQLScalarFilter fieldName Text Text Void
+type GQLFilterText (fieldName :: Symbol) = GQLScalarFilter (fieldName :: Symbol) Text Text Void
 
 instance DefaultParamEncoder Void where
   defaultParam = error "cannot call DefaultParamEncoder.defaultParam of Void"
 
 snippetMaybe :: DefaultParamEncoder a => String -> Snippet -> Maybe a -> Snippet
 snippetMaybe _ _ Nothing = mempty
-snippetMaybe fieldName op (Just a) = (StringUtils.fromString fieldName) <> " " <> op <> " " <> HasqlDynamic.param a
+snippetMaybe fieldName op (Just a) = StringUtils.fromString fieldName <> " " <> op <> " " <> HasqlDynamic.param a
 
 filterFieldToSnippet ::
   forall fieldName. KnownSymbol (fieldName :: Symbol) =>
@@ -80,7 +99,7 @@ filterFieldToSnippet ::
 filterFieldToSnippet filter = case filter of
   GQLScalarFilter {isEq = (Just eqValue)} -> snippetMaybe actualFieldName "=" (Just eqValue)
   where
-    actualFieldName = symbolVal $ (Proxy :: Proxy (fieldName :: Symbol))
+    actualFieldName = symbolVal (Proxy :: Proxy (fieldName :: Symbol))
     -- fieldNameToString = symbolVal :: (Proxy (fieldName :: Symbol) -> String)
 
 -- filterFieldToSnippet fieldName 

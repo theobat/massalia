@@ -1,6 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 import Data.Text (Text)
 import GraphQLMorpheusTestData (plantSelTest, truckSelTest)
@@ -9,6 +14,8 @@ import qualified Hasql.Decoders as Decoders
 import Hasql.DynamicStatements.Session (dynamicallyParameterizedStatement)
 import qualified Hasql.Session as Session
 import MassaliaRec
+import GHC.Generics (Generic)
+import Data.Aeson (decode, encode, FromJSON, ToJSON)
 import MassaliaFilter (GQLFilterText, defaultScalarFilter)
 import MassaliaSQL (SelectStruct, globalStructureToQuery)
 import MassaliaSQLSelect (RawSelectStruct (..), structToSnippet, RowFunction(ArrayAgg, Row))
@@ -57,7 +64,9 @@ unitTests =
       testCase "test simple rec traverse" $
         assertEqual "" (fst testTruckAcc) " ",
       testCase "test nested query" $
-        assertEqual "" (globalStructureToQuery testPlantQuery) " "
+        assertEqual "" (globalStructureToQuery testPlantQuery) " ",
+      testCase "encode decode filter" $
+        assertEqual "" (Just defaultOkFilter) qsd
       -- the following test does not hold
       --   , testCase "List comparison (same length)" $
       --       [1, 2, 3] `compare` [1,2,2] @?= LT
@@ -95,9 +104,14 @@ testAnotherQuery =
     }
 
 data OkFilter = OkFilter {
-  okok :: GQLFilterText "qsd"
-}
+  okok :: Maybe (GQLFilterText "qsd")
+} deriving (Generic, Show, Eq)
+deriving instance FromJSON OkFilter
+deriving instance ToJSON OkFilter
+
 defaultOkFilter = OkFilter {
-  okok = defaultScalarFilter
+  okok = Nothing
 }
 
+qsd :: Maybe OkFilter
+qsd = decode "{}"
