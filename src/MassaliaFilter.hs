@@ -10,6 +10,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE TypeApplications #-}
 
 module MassaliaFilter (
   GQLFilterUUID,
@@ -33,23 +34,20 @@ import Hasql.Implicits.Encoders (DefaultParamEncoder(defaultParam))
 import MassaliaUtils (intercalateMap, intercalate)
 import Data.Proxy (Proxy(Proxy))
 import GHC.TypeLits (Symbol, KnownSymbol, symbolVal)
+import Data.Morpheus.Types (GQLType(description))
 
 data GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType = GQLScalarFilter {
   isEq :: Maybe eqScalarType,
   isNotEq :: Maybe eqScalarType,
   isIn :: Maybe [eqScalarType],
   isNotIn :: Maybe [eqScalarType],
+  isNull :: Maybe Bool,
   isLike :: Maybe likeScalarType,
   isIlike :: Maybe likeScalarType,
   isGT :: Maybe ordScalarType, -- is greater than
   isLT :: Maybe ordScalarType, -- is lesser than
-  isBetween :: Maybe (ordScalarType, ordScalarType), -- [0, 1[
-  isBetweenInclusive :: Maybe (ordScalarType, ordScalarType) -- [0, 1]
+  isBetween :: Maybe (ordScalarType, ordScalarType, RangeInclusivity) -- [0, 1[
 } deriving (Eq, Show, Generic)
-
--- deriving instance Generic
---   (Generic eqScalarType, Generic likeScalarType, Generic ordScalarType)
---   => GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType
 
 deriving instance
   (FromJSON eqScalarType, FromJSON likeScalarType, FromJSON ordScalarType)
@@ -58,34 +56,34 @@ deriving instance
 deriving instance
   (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType) =>
   ToJSON (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
--- deriving instance ToJSON (GQLScalarFilter fieldName eqScalarType likeScalarType ordScalarType)
 
 -- Filter with no effect
 defaultScalarFilter = GQLScalarFilter {
   isEq = Nothing,
   isNotEq = Nothing,
+  isNull = Nothing,
   isIn = Nothing,
   isNotIn = Nothing,
   isLike = Nothing,
   isIlike = Nothing,
   isGT = Nothing,
   isLT = Nothing,
-  isBetween = Nothing,
-  isBetweenInclusive = Nothing
+  isBetween = Nothing
 }
 
 -- eq
 type GQLFilterUUID (fieldName :: Symbol) = GQLScalarFilter (fieldName :: Symbol) UUID Void Void
+instance (KnownSymbol (fieldName :: Symbol)) => GQLType (GQLFilterUUID (fieldName :: Symbol)) where
+  description = const $ Just "All the common operation you can think of for UUIDs"
 
 -- eq && like
 type GQLFilterText (fieldName :: Symbol) = GQLScalarFilter (fieldName :: Symbol) Text Text Void
+instance (KnownSymbol (fieldName :: Symbol)) => GQLType (GQLFilterText (fieldName :: Symbol)) where
+  description = const $ Just "All the common operation you can think of for Text"
 
 instance DefaultParamEncoder Void where
   defaultParam = error "cannot call DefaultParamEncoder.defaultParam of Void"
 
-snippetMaybe :: DefaultParamEncoder a => String -> Snippet -> Maybe a -> Snippet
-snippetMaybe _ _ Nothing = mempty
-snippetMaybe fieldName op (Just a) = StringUtils.fromString fieldName <> " " <> op <> " " <> HasqlDynamic.param a
 
 filterFieldToSnippet ::
   forall fieldName. KnownSymbol (fieldName :: Symbol) =>
@@ -94,27 +92,77 @@ filterFieldToSnippet ::
       DefaultParamEncoder [eqScalarType],
       DefaultParamEncoder likeScalarType,
       DefaultParamEncoder ordScalarType,
-      DefaultParamEncoder (ordScalarType, ordScalarType)) =>
+      PostgresRange ordScalarType) =>
   GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType -> Snippet
 filterFieldToSnippet filter = case filter of
   GQLScalarFilter {isEq = (Just eqValue)} -> snippetMaybe actualFieldName "=" (Just eqValue)
+  GQLScalarFilter {isNull = (Just True)} -> StringUtils.fromString actualFieldName <> " IS NULL"
+  GQLScalarFilter {
+    isNotEq = isNotEqValue,
+    isIn = isInValue,
+    isNotIn = isNotInValue,
+    isLike = isLikeValue,
+    isIlike = isIlikeValue,
+    isNull = shouldFieldBeNull,
+    isGT = isGTValue,
+    isLT = isLTValue,
+    isBetween = isBetweenValue
+  } -> intercalate " AND " (
+      scalarFieldEq "!=" isNotEqValue "" <>
+      listField "=ANY(" isInValue ")" <>
+      listField "!=ALL(" isNotInValue ")" <>
+      scalarFieldLike "like" isLikeValue "" <>
+      scalarFieldLike "ilike" isIlikeValue "" <>
+      scalarFieldOrd ">" isGTValue "" <>
+      scalarFieldOrd "<" isLTValue "" <>
+      betweenAsSnippetList actualFieldName isBetweenValue
+    )
   where
+    scalarFieldEq = scalarAsSnippetList actualFieldName
+    scalarFieldLike = scalarAsSnippetList actualFieldName
+    scalarFieldOrd = scalarAsSnippetList actualFieldName
+    listField = listAsSnippetList actualFieldName
     actualFieldName = symbolVal (Proxy :: Proxy (fieldName :: Symbol))
-    -- fieldNameToString = symbolVal :: (Proxy (fieldName :: Symbol) -> String)
 
--- filterFieldToSnippet fieldName 
--- filterFieldToSnippet fieldName GQLScalarFilter {
---     isNotEq = isNotEqValue,
---     isIn = isInValue,
---     isNotIn = isNotInValue,
---     isLike = isLikeValue,
---     isIlike = isIlikeValue,
---     isGT = isGTValue,
---     isLT = isLTValue,
---     isBetween = isBetweenValue,
---     isBetweenInclusive = isBetweenInclusiveValue
---   } = intercalate " AND " [
---       snippetMaybe fieldName "!=" isNotEqValue,
---       snippetMaybe fieldName "in" isInValue,
---       snippetMaybe fieldName "not in" isInValue
---     ]
+
+snippetMaybe :: DefaultParamEncoder a => String -> Snippet -> Maybe a -> Snippet
+snippetMaybe _ _ Nothing = mempty
+snippetMaybe fieldName op (Just a) = StringUtils.fromString fieldName <> " " <> op <> " " <> HasqlDynamic.param a
+
+scalarAsSnippetList :: DefaultParamEncoder a => String -> Snippet -> Maybe a -> String -> [Snippet]
+scalarAsSnippetList _ _ Nothing _ = []
+scalarAsSnippetList fieldName op (Just a) suffix = [
+    StringUtils.fromString fieldName <> " " <> op <> " " <> HasqlDynamic.param a <> StringUtils.fromString suffix
+  ]
+
+listAsSnippetList :: DefaultParamEncoder [a] => String -> Snippet -> Maybe [a] -> String -> [Snippet]
+listAsSnippetList _ _ Nothing _ = []
+listAsSnippetList fieldName op (Just a) suffix = [
+    StringUtils.fromString fieldName <> " " <> op <> " " <> HasqlDynamic.param a <> StringUtils.fromString suffix
+  ]
+
+betweenAsSnippetList :: forall a. (PostgresRange a, DefaultParamEncoder a) => String -> Maybe (a, a, RangeInclusivity) -> [Snippet] 
+betweenAsSnippetList _ Nothing = []
+betweenAsSnippetList fieldName (Just (lower, upper, _)) = [
+    StringUtils.fromString fieldName <> " <@ " <> rangePart
+  ]
+  where rangePart = StringUtils.fromString (getRangeKeyword @a) <> "(" <> HasqlDynamic.param lower <> ", " <> HasqlDynamic.param upper <> ")" 
+  
+
+
+-- int4range — Range of integer
+-- int8range — Range of bigint
+-- numrange — Range of numeric
+-- tsrange — Range of timestamp without time zone
+-- tstzrange — Range of timestamp with time zone
+-- daterange — Range of date
+-- TODO: map the proper ranges with Hasql/haskell types
+class DefaultParamEncoder a => PostgresRange a where
+  -- First param is the classname
+  getRangeKeyword :: String
+
+instance PostgresRange Void where
+  getRangeKeyword = error "EA1: should never call PostgresRange for Void"
+
+
+data RangeInclusivity = Inclusive | Exclusive | RightInclusive | LeftInclusive deriving (Eq, Show, Generic, FromJSON, ToJSON)

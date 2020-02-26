@@ -16,14 +16,15 @@ import qualified Hasql.Session as Session
 import MassaliaRec
 import GHC.Generics (Generic)
 import Data.Aeson (decode, encode, FromJSON, ToJSON)
-import MassaliaFilter (GQLFilterText, defaultScalarFilter)
+import MassaliaFilter (GQLFilterText, defaultScalarFilter, GQLScalarFilter(isEq))
 import MassaliaSQL (SelectStruct, globalStructureToQuery)
-import MassaliaSQLSelect (RawSelectStruct (..), structToSnippet, RowFunction(ArrayAgg, Row))
+import MassaliaSQLSelect (RawSelectStruct (..), RowFunction(ArrayAgg, Row))
 import MassaliaSchema.Industry.Plant (Plant, plantInitSQL)
 import MassaliaSchema.Industry.Truck (Truck, truckInitSQL)
 import Test.Tasty
 import Test.Tasty.HUnit
 import GHC.TypeLits (Symbol)
+import qualified SpecStaticSelect
 
 main :: IO ()
 main = do
@@ -45,7 +46,10 @@ main = do
         )
 
 tests :: TestTree
-tests = testGroup "Tests" [unitTests]
+tests = testGroup "Tests" [
+    unitTests,
+    SpecStaticSelect.unitTests
+  ]
 
 testTruckQuery :: SelectStruct () Truck
 testTruckQuery = truckInitSQL truckSelTest
@@ -61,10 +65,6 @@ unitTests =
     "Unit tests"
     [ testCase "test simple select query" $
         assertEqual "" (globalStructureToQuery testTruckQuery) "SELECT row(vehicle_id, id) FROM truck ",
-      testCase "test simple rec traverse" $
-        assertEqual "" (fst testTruckAcc) " ",
-      testCase "test nested query" $
-        assertEqual "" (globalStructureToQuery testPlantQuery) " ",
       testCase "encode decode filter" $
         assertEqual "" (Just defaultOkFilter) qsd
       -- the following test does not hold
@@ -72,46 +72,15 @@ unitTests =
       --       [1, 2, 3] `compare` [1,2,2] @?= LT
     ]
 
-testSimpleQuery =
-  RawSelectStruct
-    { wrapFunctionList = [ArrayAgg, Row], -- either: "row" or "array_agg", "row"
-      selectPart = ["truck.id", "truck.vehicle_id", "truck.equipment"],
-      fromPart = "truck",
-      joinList =
-        [ "LEFT JOIN truck_plant ON truck_plant.truck_id=truck.id",
-          "LEFT JOIN plant ON plant.id = truck_plant.plant_id"
-        ],
-      whereConditions = "truck.deleted_at > now() AND truck.deleted_at IS NOT NULL",
-      groupByList = ["plant.id"],
-      havingConditions = "true",
-      orderByList = ["plant.created_at"],
-      offsetLimit = Just (0, 2)
-    }
-testAnotherQuery =
-  RawSelectStruct
-    { wrapFunctionList = [Row], -- either: "row" or "array_agg", "row"
-      selectPart = ["work.id", "array_agg(row(projection.id, projection.plant_id))"],
-      fromPart = "work",
-      joinList =
-        [ "LEFT JOIN quotation ON quotation.work_id=work.id",
-          "LEFT JOIN projection ON projection.quotation_id = quotation.id"
-        ],
-      whereConditions = "true",
-      groupByList = ["work.id"],
-      havingConditions = "true",
-      orderByList = ["work.created_at DESC"],
-      offsetLimit = Just (10, 10)
-    }
 
 data OkFilter = OkFilter {
   okok :: Maybe (GQLFilterText "qsd")
-} deriving (Generic, Show, Eq)
-deriving instance FromJSON OkFilter
-deriving instance ToJSON OkFilter
-
+} deriving (Generic, Show, Eq, FromJSON, ToJSON)
+  
+defaultOkFilter :: OkFilter
 defaultOkFilter = OkFilter {
-  okok = Nothing
+  okok = Just (defaultScalarFilter {isEq = Just "whoot"})
 }
 
 qsd :: Maybe OkFilter
-qsd = decode "{}"
+qsd = decode "{ \"okok\": {\"isEq\": \"whoot\"} }"
