@@ -15,7 +15,8 @@ module MassaliaSQLSelect
     defaultAssemblingOptions,
     testAssemblingOptions,
     furtherQualifyWhereJoin,
-    structToSubquery
+    structToSubquery,
+    ASelectQueryPart(SelectQueryPart)
   )
 where
 
@@ -30,6 +31,7 @@ import MassaliaCore (MassaliaStruct (..))
 import MassaliaUtils (intercalate, intercalateMap)
 import Text.Inflections (toUnderscore)
 import Hasql.Implicits.Encoders (DefaultParamEncoder(defaultParam))
+import MassaliaEncoder (DynamicParameters(param))
 
 data SelectStruct decoder content
   = SelectStruct
@@ -64,16 +66,6 @@ data SQLGroupBy
 
 data SQLOrderBy
 
-class DynamicParameters content where
-  param :: (Show a, DefaultParamEncoder a) => a -> content
-
-instance DynamicParameters Snippet where
-  param = Snippet.param
-instance DynamicParameters Text where
-  param = pack . show
-instance DynamicParameters String where
-  param = show
-  
 newtype ASelectQueryPart partType content = SelectQueryPart content
 type SelectQueryPartSnippet partType = ASelectQueryPart partType Snippet
 type SelectQueryPartText partType = ASelectQueryPart partType Text

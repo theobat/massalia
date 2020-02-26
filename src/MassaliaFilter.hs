@@ -11,13 +11,15 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module MassaliaFilter (
   GQLFilterUUID,
   GQLFilterText,
   GQLScalarFilter(..),
   defaultScalarFilter,
-  filterFieldToSnippet
+  filterFieldToContent,
+  filterFieldToQueryPart
 ) where
 
 import Hasql.Encoders
@@ -35,6 +37,8 @@ import MassaliaUtils (intercalateMap, intercalate)
 import Data.Proxy (Proxy(Proxy))
 import GHC.TypeLits (Symbol, KnownSymbol, symbolVal)
 import Data.Morpheus.Types (GQLType(description))
+import MassaliaEncoder (DynamicParameters(param), TextEncoder, DefaultParamEncoder)
+import MassaliaSQLSelect (ASelectQueryPart(SelectQueryPart))
 
 data GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType = GQLScalarFilter {
   isEq :: Maybe eqScalarType,
@@ -84,18 +88,22 @@ instance (KnownSymbol (fieldName :: Symbol)) => GQLType (GQLFilterText (fieldNam
 instance DefaultParamEncoder Void where
   defaultParam = error "cannot call DefaultParamEncoder.defaultParam of Void"
 
+filterFieldToQueryPart maybeField = SelectQueryPart $ filterFieldToContent maybeField
 
-filterFieldToSnippet ::
+filterFieldToContent ::
   forall fieldName. KnownSymbol (fieldName :: Symbol) =>
-  forall eqScalarType likeScalarType ordScalarType.
-    ( DefaultParamEncoder eqScalarType,
+  forall eqScalarType likeScalarType ordScalarType content.
+    ( TextEncoder eqScalarType, DefaultParamEncoder eqScalarType,
       DefaultParamEncoder [eqScalarType],
-      DefaultParamEncoder likeScalarType,
-      DefaultParamEncoder ordScalarType,
-      PostgresRange ordScalarType) =>
-  GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType -> Snippet
-filterFieldToSnippet filter = case filter of
-  GQLScalarFilter {isEq = (Just eqValue)} -> snippetMaybe actualFieldName "=" (Just eqValue)
+      TextEncoder likeScalarType, DefaultParamEncoder likeScalarType,
+      TextEncoder ordScalarType, DefaultParamEncoder ordScalarType,
+      PostgresRange ordScalarType,
+      Monoid content, IsString content, DynamicParameters content
+    ) =>
+  Maybe (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType) -> content
+filterFieldToContent Nothing = mempty
+filterFieldToContent (Just filter) = case filter of
+  GQLScalarFilter {isEq = (Just eqValue)} -> snippetContent actualFieldName "=" (Just eqValue)
   GQLScalarFilter {isNull = (Just True)} -> StringUtils.fromString actualFieldName <> " IS NULL"
   GQLScalarFilter {
     isNotEq = isNotEqValue,
@@ -108,45 +116,44 @@ filterFieldToSnippet filter = case filter of
     isLT = isLTValue,
     isBetween = isBetweenValue
   } -> intercalate " AND " (
-      scalarFieldEq "!=" isNotEqValue "" <>
-      listField "=ANY(" isInValue ")" <>
-      listField "!=ALL(" isNotInValue ")" <>
-      scalarFieldLike "like" isLikeValue "" <>
-      scalarFieldLike "ilike" isIlikeValue "" <>
-      scalarFieldOrd ">" isGTValue "" <>
-      scalarFieldOrd "<" isLTValue "" <>
-      betweenAsSnippetList actualFieldName isBetweenValue
+      wrappedContent actualFieldName "!=" isNotEqValue "" <>
+      wrappedContent actualFieldName "=ANY(" isInValue ")" <>
+      wrappedContent actualFieldName "!=ALL(" isNotInValue ")" <>
+      wrappedContent actualFieldName "like" isLikeValue "" <>
+      wrappedContent actualFieldName "ilike" isIlikeValue ""
+      -- scalarFieldOrd ">" isGTValue "" <>
+      -- scalarFieldOrd "<" isLTValue "" <>
+      -- betweenAsSnippetList actualFieldName isBetweenValue
     )
   where
-    scalarFieldEq = scalarAsSnippetList actualFieldName
-    scalarFieldLike = scalarAsSnippetList actualFieldName
-    scalarFieldOrd = scalarAsSnippetList actualFieldName
-    listField = listAsSnippetList actualFieldName
+    -- scalarFieldEq = wrappedContent actualFieldName
+    -- scalarFieldLike = wrappedContent actualFieldName
+    -- scalarFieldOrd = wrappedContent actualFieldName
+    -- listField = wrappedContent actualFieldName
     actualFieldName = symbolVal (Proxy :: Proxy (fieldName :: Symbol))
 
+snippetContent ::
+  (DynamicParameters content, Monoid content, IsString content,
+  TextEncoder a, DefaultParamEncoder a) =>
+  String -> content -> Maybe a -> content
+snippetContent _ _ Nothing = mempty
+snippetContent fieldName op (Just a) = StringUtils.fromString fieldName <> " " <> op <> " " <> MassaliaEncoder.param a
 
-snippetMaybe :: DefaultParamEncoder a => String -> Snippet -> Maybe a -> Snippet
-snippetMaybe _ _ Nothing = mempty
-snippetMaybe fieldName op (Just a) = StringUtils.fromString fieldName <> " " <> op <> " " <> HasqlDynamic.param a
-
-scalarAsSnippetList :: DefaultParamEncoder a => String -> Snippet -> Maybe a -> String -> [Snippet]
-scalarAsSnippetList _ _ Nothing _ = []
-scalarAsSnippetList fieldName op (Just a) suffix = [
-    StringUtils.fromString fieldName <> " " <> op <> " " <> HasqlDynamic.param a <> StringUtils.fromString suffix
+wrappedContent :: 
+  (DynamicParameters content, Monoid content, IsString content,
+  TextEncoder a, DefaultParamEncoder a) =>
+  String -> content -> Maybe a -> content -> [content]
+wrappedContent _ _ Nothing _ = []
+wrappedContent fieldName op (Just a) suffix = [
+    StringUtils.fromString fieldName <> " " <> op <> " " <> MassaliaEncoder.param a <> suffix
   ]
 
-listAsSnippetList :: DefaultParamEncoder [a] => String -> Snippet -> Maybe [a] -> String -> [Snippet]
-listAsSnippetList _ _ Nothing _ = []
-listAsSnippetList fieldName op (Just a) suffix = [
-    StringUtils.fromString fieldName <> " " <> op <> " " <> HasqlDynamic.param a <> StringUtils.fromString suffix
-  ]
-
-betweenAsSnippetList :: forall a. (PostgresRange a, DefaultParamEncoder a) => String -> Maybe (a, a, RangeInclusivity) -> [Snippet] 
-betweenAsSnippetList _ Nothing = []
-betweenAsSnippetList fieldName (Just (lower, upper, _)) = [
-    StringUtils.fromString fieldName <> " <@ " <> rangePart
-  ]
-  where rangePart = StringUtils.fromString (getRangeKeyword @a) <> "(" <> HasqlDynamic.param lower <> ", " <> HasqlDynamic.param upper <> ")" 
+-- betweenAsSnippetList :: forall a. (PostgresRange a, DefaultParamEncoder a) => String -> Maybe (a, a, RangeInclusivity) -> [Snippet] 
+-- betweenAsSnippetList _ Nothing = []
+-- betweenAsSnippetList fieldName (Just (lower, upper, _)) = [
+--     StringUtils.fromString fieldName <> " <@ " <> rangePart
+--   ]
+--   where rangePart = StringUtils.fromString (getRangeKeyword @a) <> "(" <> HasqlDynamic.param lower <> ", " <> HasqlDynamic.param upper <> ")" 
   
 
 

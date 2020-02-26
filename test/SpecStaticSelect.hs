@@ -15,7 +15,7 @@ realStructToSubquery = structToSubquery testAssemblingOptions
 
 unitTests =
   testGroup
-    "Simple SQL select queries"
+    "SQL select queries (no params)"
     [ testCase "static query with aggregation and where condition" $
         assertEqual "" (realStructToContent testSimpleQuery) "SELECT array_agg(row(truck.id, truck.vehicle_id, truck.equipment)) FROM truck LEFT JOIN truck_plant ON truck_plant.truck_id=truck.id LEFT JOIN plant ON plant.id = truck_plant.plant_id WHERE truck.deleted_at > now() AND truck.deleted_at IS NOT NULL GROUP BY plant.id ORDER BY plant.created_at LIMIT 2",
       testCase "static query with aggregation and select subquery" $

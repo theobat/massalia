@@ -25,6 +25,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import GHC.TypeLits (Symbol)
 import qualified SpecStaticSelect
+import qualified SpecDynamicSelect
 
 main :: IO ()
 main = do
@@ -48,7 +49,8 @@ main = do
 tests :: TestTree
 tests = testGroup "Tests" [
     unitTests,
-    SpecStaticSelect.unitTests
+    SpecStaticSelect.unitTests,
+    SpecDynamicSelect.unitTests
   ]
 
 testTruckQuery :: SelectStruct () Truck
