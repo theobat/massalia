@@ -1,11 +1,9 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE StandaloneDeriving #-}
 
 module MassaliaSQLSelect
   ( SelectStruct (..),
@@ -32,6 +30,15 @@ import MassaliaUtils (intercalate, intercalateMap)
 import Text.Inflections (toUnderscore)
 import Hasql.Implicits.Encoders (DefaultParamEncoder(defaultParam))
 import MassaliaEncoder (DynamicParameters(param))
+import MassaliaSQLPart (
+    ASelectQueryPart(SelectQueryPart),
+    getContent,
+    getListContent,
+    getMaybeContent,
+    AssemblingOptions(..),
+    defaultAssemblingOptions,
+    testAssemblingOptions
+  )
 
 data SelectStruct decoder content
   = SelectStruct
@@ -65,24 +72,6 @@ data SQLWhere
 data SQLGroupBy
 
 data SQLOrderBy
-
-newtype ASelectQueryPart partType content = SelectQueryPart content
-type SelectQueryPartSnippet partType = ASelectQueryPart partType Snippet
-type SelectQueryPartText partType = ASelectQueryPart partType Text
-deriving instance (IsString content) => IsString (ASelectQueryPart partType content)
-deriving instance (Semigroup content) => Semigroup (ASelectQueryPart partType content)
-deriving instance (Monoid content) => Monoid (ASelectQueryPart partType content)
-
-getContent :: ASelectQueryPart partType content -> content
-getContent (SelectQueryPart content) = content
-
-getListContent :: (Monoid content) => content -> ASelectQueryPart partType content -> [ASelectQueryPart partType content] -> [content]
-getListContent separator _ [] = []
-getListContent separator prefix valueList = [(getContent prefix) <> intercalate separator (getContent <$> valueList)]
-
-getMaybeContent :: (Monoid content) => ASelectQueryPart partType content -> Maybe (ASelectQueryPart partType content) -> [content]
-getMaybeContent _ Nothing = []
-getMaybeContent prefix (Just value) = [(getContent prefix) <> getContent value]
 
 data RowFunction = Row | ArrayAgg
 
@@ -162,15 +151,3 @@ furtherQualifyWhereJoin whereAddition joinAddition currentQuery = currentQuery {
     joinList = joinList currentQuery <> joinAddition
   }
 
-data AssemblingOptions content = AssemblingOptions {
-  partSeparator :: content,
-  innerSeparator :: content
-}
-defaultAssemblingOptions = AssemblingOptions {
-  partSeparator = "\n",
-  innerSeparator = ","
-}
-testAssemblingOptions = AssemblingOptions {
-  partSeparator = " ",
-  innerSeparator = ", "
-}
