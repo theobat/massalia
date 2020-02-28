@@ -50,18 +50,23 @@ getInitialValueSelect rawStruct defaultRecord = SelectStruct {
 type Updater a decoder = decoder -> a -> decoder
 type ValueDec a = Decoders.Value a
 
-selectCol :: (IsTextOrString queryFormat) => Text -> Updater a decoder -> ValueDec a -> SelectStruct decoder queryFormat -> SelectStruct decoder queryFormat
-selectCol column updater hasqlValue selectStruct = selectStruct {
-    query = addSelectColumns [fromText snakeColumn] (query selectStruct),
-    decoder = do
-      entity <- decoder selectStruct
-      updater entity <$> Decoders.field (Decoders.nonNullable hasqlValue)
-  }
+snakeCol :: (IsTextOrString queryFormat) => Text -> Updater a decoder -> ValueDec a -> SelectStruct decoder queryFormat -> SelectStruct decoder queryFormat
+snakeCol column = exprCol snakeColumn
   where
     snakeColumn = case toUnderscore column of
         Left _ -> error "Failed at transforming field name to underscore = " <> column
         Right e -> e
-    
+
+exprCol :: (IsTextOrString queryFormat) => Text -> Updater a decoder -> ValueDec a -> SelectStruct decoder queryFormat -> SelectStruct decoder queryFormat
+exprCol expr updater hasqlValue selectStruct = selectStruct {
+    query = addSelectColumns [fromText expr] (query selectStruct),
+    decoder = do
+      entity <- decoder selectStruct
+      updater entity <$> Decoders.field (Decoders.nonNullable hasqlValue)
+  }
+
+
+-- subColList
 -- exprCol :: 
 
 -- simpleCol
