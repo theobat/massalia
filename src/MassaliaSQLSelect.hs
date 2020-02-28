@@ -18,136 +18,52 @@ module MassaliaSQLSelect
   )
 where
 
-import Data.Int (Int64)
-import Data.String (IsString (..))
-import Data.Text (Text, pack)
+import MassaliaSQLRawSelect (
+    RawSelectStruct (..),
+    structToContent,
+    RowFunction (..),
+    defaultAssemblingOptions,
+    testAssemblingOptions,
+    furtherQualifyWhereJoin,
+    structToSubquery,
+    ASelectQueryPart(SelectQueryPart),
+    addSelectColumns
+  )
 import qualified Hasql.Decoders as Decoders
-import Hasql.DynamicStatements.Snippet (Snippet)
+import Data.Text(Text)
 import qualified Hasql.DynamicStatements.Snippet as Snippet (param)
 import qualified Hasql.Encoders as Encoders
-import MassaliaCore (MassaliaStruct (..))
-import MassaliaUtils (intercalate, intercalateMap)
+import MassaliaSQLPart (IsTextOrString(fromText))
 import Text.Inflections (toUnderscore)
-import Hasql.Implicits.Encoders (DefaultParamEncoder(defaultParam))
-import MassaliaEncoder (DynamicParameters(param))
-import MassaliaSQLPart (
-    ASelectQueryPart(SelectQueryPart),
-    getContent,
-    getListContent,
-    getMaybeContent,
-    AssemblingOptions(..),
-    defaultAssemblingOptions,
-    testAssemblingOptions
-  )
 
-data SelectStruct decoder content
+data SelectStruct decoder queryFormat
   = SelectStruct
-      { query :: RawSelectStruct content,
+      { query :: RawSelectStruct queryFormat,
         decoder :: Decoders.Composite decoder
       }
 
--- | A simple data structure to model an SQL select query.
--- | The 'content' type parameter is meant to either be Text or 
-data RawSelectStruct content
-  = RawSelectStruct
-      { wrapFunctionList :: [RowFunction], -- either: "row" or "array_agg", "row"
-        selectPart :: [ASelectQueryPart SQLSelect content],
-        fromPart :: ASelectQueryPart SQLFrom content,
-        joinList :: [ASelectQueryPart SQLJoin content],
-        whereConditions :: Maybe (ASelectQueryPart SQLWhere content),
-        groupByList :: [ASelectQueryPart SQLGroupBy content],
-        havingConditions :: Maybe (ASelectQueryPart SQLWhere content),
-        orderByList :: [ASelectQueryPart SQLOrderBy content],
-        offsetLimit :: Maybe (Int, Int)
-      }
+getInitialValueSelect :: RawSelectStruct queryFormat -> recordType -> SelectStruct recordType queryFormat
+getInitialValueSelect rawStruct defaultRecord = SelectStruct {
+  query = rawStruct,
+  decoder = pure defaultRecord
+}
+type Updater a decoder = decoder -> a -> decoder
+type ValueDec a = Decoders.Value a
 
-data SQLSelect
-
-data SQLFrom
-
-data SQLJoin
-
-data SQLWhere
-
-data SQLGroupBy
-
-data SQLOrderBy
-
-data RowFunction = Row | ArrayAgg
-
-rowFunctionToContent :: (IsString content) => RowFunction -> content
-rowFunctionToContent Row = "row"
-rowFunctionToContent ArrayAgg = "array_agg"
-
-offsetLimitToContent :: (Monoid content, IsString content, DynamicParameters content) => Maybe (Int, Int) -> [content]
-offsetLimitToContent Nothing = []
-offsetLimitToContent (Just tuple) = pure $ case tuple of
-  (0, _) -> limitSnippet
-  (x, _) -> "OFFSET " <> (param $ toInt64 x) <> " " <> limitSnippet
-  where
-    limitSnippet = "LIMIT " <> (param $ toInt64 $ snd tuple)
-    toInt64 x = fromIntegral x :: Int64
-
--- selectFields = foldr (\(SelectQueryPart fieldSnippet) acc -> joinSnippet fieldSnippet acc) mempty
---   where
---     joinSnippet fieldSnippet "" = fieldSnippet
---     joinSnippet fieldSnippet acc = acc <> "," <> fieldSnippet
-
-selectGroup :: (Monoid content, IsString content) => [ASelectQueryPart SQLSelect content] -> [RowFunction] -> content
-selectGroup selectList functionList = "SELECT " <> rawGroup
-  where
-    rawGroup = foldr (\rowFunc acc -> rowFunctionToContent rowFunc <> "(" <> acc <> ")") joinedColumns functionList
-    joinedColumns = intercalateMap getContent ", " selectList
-
--- | An “assembly” function to transform a structured query to a
--- | content (which is either Text or Snippet)
--- |
-structToContent ::
-  (DynamicParameters content, IsString content, Monoid content) =>
-  AssemblingOptions content -> RawSelectStruct content -> content
-structToContent options
-  RawSelectStruct
-    { wrapFunctionList = wrapFunctionListValue,
-      selectPart = selectPartValue,
-      fromPart = fromPartValue,
-      joinList = joinListValue,
-      whereConditions = whereConditionsValue,
-      groupByList = groupByListValue,
-      havingConditions = havingConditionsValue,
-      orderByList = orderByListValue,
-      offsetLimit = offsetLimitValue
-    } =
-    intercalate
-      partSepValue
-      (
-          basicQueryParts <>
-          getListContent partSepValue "" joinListValue <>
-          getMaybeContent "WHERE " whereConditionsValue <>
-          getListContent innerSepValue "GROUP BY " groupByListValue <>
-          getMaybeContent "HAVING " havingConditionsValue <>
-          getListContent innerSepValue "ORDER BY " orderByListValue <>
-          offsetLimitToContent offsetLimitValue
-      )
-    where
-      basicQueryParts = [
-          selectGroup selectPartValue wrapFunctionListValue,
-          "FROM " <> getContent fromPartValue
-        ]
-      partSepValue = partSeparator options
-      innerSepValue = innerSeparator options
-
-structToSubquery ::
-  (DynamicParameters content, IsString content, Monoid content) =>
-  AssemblingOptions content -> RawSelectStruct content -> ASelectQueryPart partType content
-structToSubquery a b = SelectQueryPart ( "(" <> structToContent a b <> ")" )
-
-furtherQualifyWhereJoin :: (Monoid content) =>
-  ASelectQueryPart SQLWhere content ->
-  [ASelectQueryPart SQLJoin content] ->
-  RawSelectStruct content ->
-  RawSelectStruct content
-furtherQualifyWhereJoin whereAddition joinAddition currentQuery = currentQuery {
-    whereConditions = (\currentWhere -> currentWhere <> whereAddition) <$> whereConditions currentQuery,
-    joinList = joinList currentQuery <> joinAddition
+selectCol :: (IsTextOrString queryFormat) => Text -> Updater a decoder -> ValueDec a -> SelectStruct decoder queryFormat -> SelectStruct decoder queryFormat
+selectCol column updater hasqlValue selectStruct = selectStruct {
+    query = addSelectColumns [fromText snakeColumn] (query selectStruct),
+    decoder = do
+      entity <- decoder selectStruct
+      updater entity <$> Decoders.field (Decoders.nonNullable hasqlValue)
   }
+  where
+    snakeColumn = case toUnderscore column of
+        Left _ -> error "Failed at transforming field name to underscore = " <> column
+        Right e -> e
+    
+-- exprCol :: 
 
+-- simpleCol
+-- exprCol
+-- subColList  

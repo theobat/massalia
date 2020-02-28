@@ -26,18 +26,19 @@ data Truck = Truck {
 
 -- | change interface for simpleCol fieldName ...
 -- | exprCol (fieldName, sqlName)
-truckSelect :: MassaliaStruct wrapper someType Truck => (Key, ValidSelection) -> wrapper someType Truck -> wrapper someType Truck
-truckSelect (fieldName, _) = case fieldName of
-  "id" -> simpleCol fieldName (\e v -> e{id=v}) id Decoders.uuid
-  "vehicleId" -> simpleCol fieldName (\e v -> e{vehicleId=v}) vehicleId Decoders.text
-  _ -> Prelude.id
+-- truckSelect :: MassaliaStruct wrapper someType Truck => (Key, ValidSelection) -> wrapper someType Truck -> wrapper someType Truck
+-- truckSelect (fieldName, _) = case fieldName of
+--   "id" -> simpleCol fieldName (\e v -> e{id=v}) id Decoders.uuid
+--   "vehicleId" -> simpleCol fieldName (\e v -> e{vehicleId=v}) vehicleId Decoders.text
+--   _ -> Prelude.id
 
 -- | A function to take into account all the available filters for truck entities
-truckFilter :: MassaliaStruct wrapper someType Truck => Text -> wrapper someType Truck -> wrapper someType Truck
-truckFilter = undefined
+-- truckFilter :: MassaliaStruct wrapper someType Truck => Text -> wrapper someType Truck -> wrapper someType Truck
+-- truckFilter = undefined
 
-truckInitSQL :: MassaliaStruct wrapper someType Truck => ValidSelectionSet -> wrapper someType Truck
-truckInitSQL = foldr truckSelect initialValue
-  where initialValue = getInitialValue (dupe "truck") (Truck{ id=nil, vehicleId="" }) 
+truckInitSQL = undefined
+-- truckInitSQL :: MassaliaStruct wrapper someType Truck => ValidSelectionSet -> wrapper someType Truck
+-- truckInitSQL = foldr truckSelect initialValue
+--   where initialValue = getInitialValue (dupe "truck") (Truck{ id=nil, vehicleId="" }) 
 
 dupe x = (x,x)

@@ -24,22 +24,25 @@ data Plant = Plant {
   truckList :: [Truck]
 } deriving (Show, Generic)
 
-plantSelect ::
-  MassaliaStruct wrapper someType Plant =>
-  MassaliaStruct wrapper someType Truck =>
-  (Key, ValidSelection) -> wrapper someType Plant -> wrapper someType Plant
-plantSelect (fieldName, sel) = case fieldName of
-  "id" -> simpleCol fieldName (\e v -> e{id=v}) id Decoders.uuid
-  "truckList" -> subColList Decoders.listArray truckInitSQL (
-      "EXISTS(SELECT 1 FROM truck_plant where truck_plant.plant_id=plant.id AND truck_plant.truck_id=truck.id)"
-    , "plant.id") (\e v -> e{truckList=v}) sel
-  _ -> Prelude.id
+plantSelect = undefined
 
-plantInitSQL ::
-  MassaliaStruct wrapper someType Plant =>
-  MassaliaStruct wrapper someType Truck =>
-  ValidSelectionSet -> wrapper someType Plant
-plantInitSQL = foldr plantSelect initialValue
-  where initialValue = getInitialValue (dupe "plant") (Plant{ id=nil, truckList=mempty })
+-- plantSelect ::
+--   MassaliaStruct wrapper someType Plant =>
+--   MassaliaStruct wrapper someType Truck =>
+--   (Key, ValidSelection) -> wrapper someType Plant -> wrapper someType Plant
+-- plantSelect (fieldName, sel) = case fieldName of
+--   "id" -> simpleCol fieldName (\e v -> e{id=v}) id Decoders.uuid
+--   "truckList" -> subColList Decoders.listArray truckInitSQL (
+--       "EXISTS(SELECT 1 FROM truck_plant where truck_plant.plant_id=plant.id AND truck_plant.truck_id=truck.id)"
+--     , "plant.id") (\e v -> e{truckList=v}) sel
+--   _ -> Prelude.id
+
+plantInitSQL = undefined
+-- plantInitSQL ::
+--   MassaliaStruct wrapper someType Plant =>
+--   MassaliaStruct wrapper someType Truck =>
+--   ValidSelectionSet -> wrapper someType Plant
+-- plantInitSQL = foldr plantSelect initialValue
+--   where initialValue = getInitialValue (dupe "plant") (Plant{ id=nil, truckList=mempty })
 
 dupe x = (x, x)

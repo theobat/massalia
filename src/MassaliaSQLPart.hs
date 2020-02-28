@@ -1,12 +1,33 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module MassaliaSQLPart where
 
-import Data.String (IsString (..))
+import Data.String (IsString)
+import Data.Text (Text, unpack, pack)
+import qualified Data.String as String (IsString(fromString))
 import MassaliaUtils (intercalate, intercalateMap)
+import Hasql.DynamicStatements.Snippet (Snippet)
+
+class (IsString content) => IsTextOrString content where  
+  fromString :: String -> content
+  fromText :: Text -> content
+
+instance IsTextOrString [Char] where
+  fromString = id
+  fromText = unpack
+
+instance IsTextOrString Text where
+  fromString = pack
+  fromText = id
+
+instance IsTextOrString Snippet where
+  fromString = String.fromString
+  fromText =  String.fromString . unpack -- THIS IS BAD, TODO use a direct encoding from text
 
 newtype ASelectQueryPart partType content = SelectQueryPart content
+deriving instance (IsTextOrString content) => IsTextOrString (ASelectQueryPart partType content)
 deriving instance (IsString content) => IsString (ASelectQueryPart partType content)
 deriving instance (Semigroup content) => Semigroup (ASelectQueryPart partType content)
 deriving instance (Monoid content) => Monoid (ASelectQueryPart partType content)
