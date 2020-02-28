@@ -85,6 +85,11 @@ type GQLFilterText (fieldName :: Symbol) = GQLScalarFilter (fieldName :: Symbol)
 instance (KnownSymbol (fieldName :: Symbol)) => GQLType (GQLFilterText (fieldName :: Symbol)) where
   description = const $ Just "All the common operation you can think of for Text"
 
+-- eq && ord
+type GQLFilterInt (fieldName :: Symbol) = GQLScalarFilter (fieldName :: Symbol) Int Void Int
+instance (KnownSymbol (fieldName :: Symbol)) => GQLType (GQLFilterInt (fieldName :: Symbol)) where
+  description = const $ Just "All the common operation you can think of for Text"
+
 instance DefaultParamEncoder Void where
   defaultParam = error "cannot call DefaultParamEncoder.defaultParam of Void"
 
@@ -120,9 +125,9 @@ filterFieldToContent (Just filter) = case filter of
       wrappedContent actualFieldName "=ANY(" isInValue ")" <>
       wrappedContent actualFieldName "!=ALL(" isNotInValue ")" <>
       wrappedContent actualFieldName "like" isLikeValue "" <>
-      wrappedContent actualFieldName "ilike" isIlikeValue ""
-      -- scalarFieldOrd ">" isGTValue "" <>
-      -- scalarFieldOrd "<" isLTValue "" <>
+      wrappedContent actualFieldName "ilike" isIlikeValue "" <>
+      wrappedContent actualFieldName ">" isGTValue "" <>
+      wrappedContent actualFieldName "<" isLTValue ""
       -- betweenAsSnippetList actualFieldName isBetweenValue
     )
   where

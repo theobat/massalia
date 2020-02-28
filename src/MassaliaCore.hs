@@ -28,7 +28,7 @@ type ReEUpdater recordType fieldType wrapper = (recordType -> wrapper fieldType 
 type ReGetter recordType fieldType = (recordType -> fieldType)
 
 class MassaliaStruct wrapper someType recordType where
-  getInitialValue :: (Text, Text) -> recordType -> wrapper someType recordType
+  getInitialValue :: wrapper someType recordType -> recordType -> wrapper someType recordType
   simpleCol ::
     Show fieldType =>
     Text ->
