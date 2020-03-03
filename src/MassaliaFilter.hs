@@ -12,6 +12,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 
 module MassaliaFilter (
   GQLFilterUUID,
@@ -39,7 +40,8 @@ import GHC.TypeLits (Symbol, KnownSymbol, symbolVal)
 import Data.Morpheus.Types (GQLType(description))
 import MassaliaQueryFormat (QueryFormat(param), TextEncoder, DefaultParamEncoder)
 import MassaliaSQLSelect (ASelectQueryPart(SelectQueryPart))
-
+import Data.Data (Data)
+  
 data GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType = GQLScalarFilter {
   isEq :: Maybe eqScalarType,
   isNotEq :: Maybe eqScalarType,
@@ -61,6 +63,10 @@ deriving instance
   (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType) =>
   ToJSON (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
 
+deriving instance
+  (KnownSymbol (fieldName :: Symbol), Data eqScalarType, Data likeScalarType, Data ordScalarType) =>
+  Data (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
+  
 -- Filter with no effect
 defaultScalarFilter = GQLScalarFilter {
   isEq = Nothing,
@@ -172,4 +178,4 @@ instance PostgresRange Void where
   getRangeKeyword = error "EA1: should never call PostgresRange for Void"
 
 
-data RangeInclusivity = Inclusive | Exclusive | RightInclusive | LeftInclusive deriving (Eq, Show, Generic, FromJSON, ToJSON)
+data RangeInclusivity = Inclusive | Exclusive | RightInclusive | LeftInclusive deriving (Eq, Show, Data, Generic, FromJSON, ToJSON)

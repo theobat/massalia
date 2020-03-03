@@ -37,6 +37,7 @@ testPlantQuery = plantInitSQL () plantSelTest
 testTruckList :: SelectStruct Truck String
 testTruckList = truckInitSQL () truckSelTest
 
+  
 
 unitTests =
   testGroup

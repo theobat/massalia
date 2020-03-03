@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DataKinds #-}
 
 module MassaliaSchema.Industry.TruckFilter (
     TruckFilter(..)
@@ -16,10 +17,11 @@ import Data.Data (Data)
 import MassaliaCore (MassaliaStruct(..))
 import qualified Hasql.Decoders as Decoders
 import qualified Data.Aeson as JSON
+import MassaliaFilter (GQLFilterUUID, GQLFilterText, defaultScalarFilter, GQLScalarFilter(isIn), filterFieldToQueryPart)
 
 data TruckFilter = TruckFilter {
-  id :: UUID
-  , vehicleId :: Text
+  id :: GQLFilterUUID "id",
+  vehicleId :: GQLFilterText "vehicle_id"
 } deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON)
 
 

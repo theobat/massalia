@@ -44,10 +44,10 @@ testSimpleQuery =
     }
   where
     renderedTruckFilter = filterFieldToQueryPart (id truckFilter)
-    truckFilter = TruckFilter $ Just $ simpleEqFilter (fromString "5a7478bc-4190-44b1-86ce-206f0ca64f43")
 
 data TruckFilter = TruckFilter {
   id :: Maybe (GQLFilterUUID "id")
 }
 
+truckFilter = TruckFilter $ Just $ simpleEqFilter (fromString "5a7478bc-4190-44b1-86ce-206f0ca64f43")
 simpleEqFilter maybeUUID = defaultScalarFilter { isIn = (\a -> [a]) <$> maybeUUID }

@@ -20,7 +20,9 @@ import MassaliaQueryFormat (
 import qualified Hasql.Decoders as Decoders
 import Data.Morpheus.Types.Internal.AST.Selection (ValidSelection, ValidSelectionSet)
 import Data.Morpheus.Types.Internal.AST.Base (Key)
-  
+import MassaliaSchema.Industry.TruckFilter (TruckFilter)
+import qualified MassaliaSchema.Industry.TruckFilter as TruckFilter
+
 data Truck = Truck {
   id :: UUID
   , vehicleId :: Text
@@ -42,3 +44,8 @@ initialTruckQuery _ = getInitialValueSelect defaultSelect{
       } defaultTruck
 
 defaultTruck = Truck nil "test_id"
+
+
+data TruckListFilter = TruckListFilter {
+  truck :: Maybe TruckFilter
+}

@@ -63,7 +63,6 @@ initialPlantQuery _ = getInitialValueSelect defaultSelect{
 
 defaultPlant = Plant{}
 
-
 validSelectionToSelectionSet (Selection{ selectionContent = selection }) = case selection of
   SelectionField -> error "graphql validation should prevent this, it should not exist"
   (SelectionSet deeperSel) -> deeperSel
