@@ -27,7 +27,8 @@ import MassaliaSQLRawSelect (
     furtherQualifyWhereJoin,
     structToSubquery,
     ASelectQueryPart(SelectQueryPart),
-    addSelectColumns
+    addSelectColumns,
+    AssemblingOptions(..)
   )
 import qualified Hasql.Decoders as Decoders
 import Data.Text(Text)
@@ -35,6 +36,7 @@ import qualified Hasql.DynamicStatements.Snippet as Snippet (param)
 import qualified Hasql.Encoders as Encoders
 import MassaliaSQLPart (IsTextOrString(fromText))
 import Text.Inflections (toUnderscore)
+import Data.Maybe (fromMaybe)
 
 data SelectStruct decoder queryFormat
   = SelectStruct
@@ -50,14 +52,24 @@ getInitialValueSelect rawStruct defaultRecord = SelectStruct {
 type Updater a decoder = decoder -> a -> decoder
 type ValueDec a = Decoders.Value a
 
-snakeCol :: (IsTextOrString queryFormat) => Text -> Updater a decoder -> ValueDec a -> SelectStruct decoder queryFormat -> SelectStruct decoder queryFormat
+scalar :: (IsTextOrString queryFormat) =>
+  Text ->
+  Updater a decoder ->
+  ValueDec a ->
+  SelectStruct decoder queryFormat ->
+  SelectStruct decoder queryFormat
 snakeCol column = exprCol snakeColumn
   where
     snakeColumn = case toUnderscore column of
         Left _ -> error "Failed at transforming field name to underscore = " <> column
         Right e -> e
 
-exprCol :: (IsTextOrString queryFormat) => Text -> Updater a decoder -> ValueDec a -> SelectStruct decoder queryFormat -> SelectStruct decoder queryFormat
+object :: (IsTextOrString queryFormat) =>
+  Text ->
+  Updater a decoder ->
+  ValueDec a ->
+  SelectStruct decoder queryFormat ->
+  SelectStruct decoder queryFormat
 exprCol expr updater hasqlValue selectStruct = selectStruct {
     query = addSelectColumns [fromText expr] (query selectStruct),
     decoder = do
@@ -65,10 +77,21 @@ exprCol expr updater hasqlValue selectStruct = selectStruct {
       updater entity <$> Decoders.field (Decoders.nonNullable hasqlValue)
   }
 
+type DecoderContainer wrapperType nestedRecordType = Decoders.NullableOrNot Decoders.Value nestedRecordType -> Decoders.Value (wrapperType nestedRecordType)
+type UpdaterWrap nestedRecordType decoder = decoder -> nestedRecordType -> decoder
 
--- subColList
--- exprCol :: 
+collection :: (IsTextOrString queryFormat, Monoid (wrapperType nestedRecordType)) =>
+    AssemblingOptions queryFormat ->
+    DecoderContainer wrapperType nestedRecordType ->
+    SelectStruct nestedRecordType queryFormat ->
+    Updater (wrapperType nestedRecordType) recordType ->
+    SelectStruct recordType queryFormat ->
+    SelectStruct recordType queryFormat
+subExpr assemblingOptions decoderInstance subQuery updater currentQuery = currentQuery {
+    query = addSelectColumns [structToSubquery assemblingOptions subQuery] (query currentQuery),
+    decoder = do
+      entity <- decoder currentQuery
+      (\e v -> updater e (fromMaybe mempty v)) entity <$> subQueryListDecoder
+  }
+  where subQueryListDecoder = Decoders.field (Decoders.nullable $ decoderInstance $ Decoders.nonNullable $ Decoders.composite (decoder subQuery))
 
--- simpleCol
--- exprCol
--- subColList  

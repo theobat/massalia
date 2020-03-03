@@ -14,7 +14,8 @@ module MassaliaSQLRawSelect
     furtherQualifyWhereJoin,
     structToSubquery,
     ASelectQueryPart(SelectQueryPart),
-    addSelectColumns
+    addSelectColumns,
+    AssemblingOptions(..)
   )
 where
 
