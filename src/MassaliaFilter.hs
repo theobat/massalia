@@ -22,7 +22,7 @@ module MassaliaFilter (
   filterFieldToQueryPart
 ) where
 
-import Hasql.Encoders
+-- import Hasql.Encoders
 import Data.Functor.Contravariant ((>$<))
 import Data.Text (Text)
 import Data.UUID
@@ -30,14 +30,14 @@ import Data.Void
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
 import Hasql.DynamicStatements.Snippet (Snippet)
-import qualified Hasql.DynamicStatements.Snippet as HasqlDynamic (param)
+-- import qualified Hasql.DynamicStatements.Snippet as HasqlDynamic (param)
 import Data.String as StringUtils (IsString(fromString))
-import Hasql.Implicits.Encoders (DefaultParamEncoder(defaultParam))
+-- import Hasql.Implicits.Encoders (DefaultParamEncoder(defaultParam))
 import MassaliaUtils (intercalateMap, intercalate)
 import Data.Proxy (Proxy(Proxy))
 import GHC.TypeLits (Symbol, KnownSymbol, symbolVal)
 import Data.Morpheus.Types (GQLType(description))
-import MassaliaEncoder (DynamicParameters(param), TextEncoder, DefaultParamEncoder)
+import MassaliaQueryFormat (QueryFormat(param), TextEncoder, DefaultParamEncoder)
 import MassaliaSQLSelect (ASelectQueryPart(SelectQueryPart))
 
 data GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType = GQLScalarFilter {
@@ -90,9 +90,6 @@ type GQLFilterInt (fieldName :: Symbol) = GQLScalarFilter (fieldName :: Symbol) 
 instance (KnownSymbol (fieldName :: Symbol)) => GQLType (GQLFilterInt (fieldName :: Symbol)) where
   description = const $ Just "All the common operation you can think of for Text"
 
-instance DefaultParamEncoder Void where
-  defaultParam = error "cannot call DefaultParamEncoder.defaultParam of Void"
-
 filterFieldToQueryPart maybeField = SelectQueryPart $ filterFieldToContent maybeField
 
 filterFieldToContent ::
@@ -103,7 +100,7 @@ filterFieldToContent ::
       TextEncoder likeScalarType, DefaultParamEncoder likeScalarType,
       TextEncoder ordScalarType, DefaultParamEncoder ordScalarType,
       PostgresRange ordScalarType,
-      Monoid content, IsString content, DynamicParameters content
+      QueryFormat content
     ) =>
   Maybe (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType) -> content
 filterFieldToContent Nothing = mempty
@@ -111,8 +108,8 @@ filterFieldToContent (Just filter) = case filter of
   GQLScalarFilter {isEq = (Just eqValue)} -> snippetContent actualFieldName "=" (Just eqValue)
   GQLScalarFilter {isNull = (Just True)} -> StringUtils.fromString actualFieldName <> " IS NULL"
   GQLScalarFilter {
-    isNotEq = isNotEqValue,
     isIn = isInValue,
+    isNotEq = isNotEqValue,
     isNotIn = isNotInValue,
     isLike = isLikeValue,
     isIlike = isIlikeValue,
@@ -138,19 +135,17 @@ filterFieldToContent (Just filter) = case filter of
     actualFieldName = symbolVal (Proxy :: Proxy (fieldName :: Symbol))
 
 snippetContent ::
-  (DynamicParameters content, Monoid content, IsString content,
-  TextEncoder a, DefaultParamEncoder a) =>
+  (QueryFormat content, TextEncoder a, DefaultParamEncoder a) =>
   String -> content -> Maybe a -> content
 snippetContent _ _ Nothing = mempty
-snippetContent fieldName op (Just a) = StringUtils.fromString fieldName <> " " <> op <> " " <> MassaliaEncoder.param a
+snippetContent fieldName op (Just a) = StringUtils.fromString fieldName <> " " <> op <> " " <> param a
 
 wrappedContent :: 
-  (DynamicParameters content, Monoid content, IsString content,
-  TextEncoder a, DefaultParamEncoder a) =>
+  (QueryFormat content, TextEncoder a, DefaultParamEncoder a) =>
   String -> content -> Maybe a -> content -> [content]
 wrappedContent _ _ Nothing _ = []
 wrappedContent fieldName op (Just a) suffix = [
-    StringUtils.fromString fieldName <> " " <> op <> " " <> MassaliaEncoder.param a <> suffix
+    StringUtils.fromString fieldName <> " " <> op <> " " <> param a <> suffix
   ]
 
 -- betweenAsSnippetList :: forall a. (PostgresRange a, DefaultParamEncoder a) => String -> Maybe (a, a, RangeInclusivity) -> [Snippet] 

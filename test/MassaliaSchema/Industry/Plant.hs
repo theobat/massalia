@@ -14,17 +14,21 @@ import Data.UUID (UUID, nil)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import MassaliaSchema.Industry.Truck (Truck, truckInitSQL)
-import qualified Hasql.Decoders as Decoders
-import Data.Morpheus.Types.Internal.AST.Selection (ValidSelection, ValidSelectionSet)
+import Data.Morpheus.Types.Internal.AST.Selection (ValidSelection, ValidSelectionSet, Selection(Selection, selectionContent), SelectionContent(..))
 import Data.Morpheus.Types.Internal.AST.Base (Key)
-import MassaliaCore (MassaliaStruct(..))
+import MassaliaSQLSelect (
+    SelectStruct, getInitialValueSelect, scalar, RawSelectStruct(RawSelectStruct, fromPart),
+    defaultSelect, collection, testAssemblingOptions, transformWhereJoinGroup
+  )
+import MassaliaQueryFormat (
+    QueryFormat(param, fromText)
+  )
+import qualified Hasql.Decoders as Decoders
 
 data Plant = Plant {
   id :: UUID,
   truckList :: [Truck]
 } deriving (Show, Generic)
-
-plantSelect = undefined
 
 -- plantSelect ::
 --   MassaliaStruct wrapper someType Plant =>
@@ -37,12 +41,29 @@ plantSelect = undefined
 --     , "plant.id") (\e v -> e{truckList=v}) sel
 --   _ -> Prelude.id
 
-plantInitSQL = undefined
--- plantInitSQL ::
---   MassaliaStruct wrapper someType Plant =>
---   MassaliaStruct wrapper someType Truck =>
---   ValidSelectionSet -> wrapper someType Plant
--- plantInitSQL = foldr plantSelect initialValue
---   where initialValue = getInitialValue (dupe "plant") (Plant{ id=nil, truckList=mempty })
 
-dupe x = (x, x)
+plantSelect :: QueryFormat queryFormat => (Key, ValidSelection) -> SelectStruct Plant queryFormat -> SelectStruct Plant queryFormat
+plantSelect (fieldName, sel) = case fieldName of
+  "id" -> scalar fieldName (\e v -> e{id=v}) Decoders.uuid
+  "truckList" -> collection testAssemblingOptions Decoders.listArray truckSubquery (\e v -> e{truckList=v})
+    where
+      truckBasicSubquery = (truckInitSQL () (validSelectionToSelectionSet sel))
+      truckSubquery = transformWhereJoinGroup "truck_plant.plant_id=plant.id" [
+          "JOIN truck_plant ON truck.id=truck_plant.truck_id"
+        ] ["plant.id"] truckBasicSubquery
+  _ -> Prelude.id
+
+plantInitSQL :: QueryFormat queryFormat => () -> ValidSelectionSet -> SelectStruct Plant queryFormat
+plantInitSQL filters = foldr plantSelect (initialPlantQuery filters)
+
+initialPlantQuery :: QueryFormat queryFormat => () -> SelectStruct Plant queryFormat
+initialPlantQuery _ = getInitialValueSelect defaultSelect{
+        fromPart = "plant"
+      } defaultPlant
+
+defaultPlant = Plant{}
+
+
+validSelectionToSelectionSet (Selection{ selectionContent = selection }) = case selection of
+  SelectionField -> error "graphql validation should prevent this, it should not exist"
+  (SelectionSet deeperSel) -> deeperSel

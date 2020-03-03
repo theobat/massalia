@@ -13,7 +13,10 @@ import Data.UUID (UUID, nil)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Data.Data (Data)
-import MassaliaCore (MassaliaStruct(..))
+import MassaliaSQLSelect (SelectStruct, getInitialValueSelect, scalar, RawSelectStruct(RawSelectStruct, fromPart), defaultSelect)
+import MassaliaQueryFormat (
+    QueryFormat(param, fromText)
+  )
 import qualified Hasql.Decoders as Decoders
 import Data.Morpheus.Types.Internal.AST.Selection (ValidSelection, ValidSelectionSet)
 import Data.Morpheus.Types.Internal.AST.Base (Key)
@@ -24,21 +27,18 @@ data Truck = Truck {
 } deriving (Show, Generic)
 
 
--- | change interface for simpleCol fieldName ...
--- | exprCol (fieldName, sqlName)
--- truckSelect :: MassaliaStruct wrapper someType Truck => (Key, ValidSelection) -> wrapper someType Truck -> wrapper someType Truck
--- truckSelect (fieldName, _) = case fieldName of
---   "id" -> simpleCol fieldName (\e v -> e{id=v}) id Decoders.uuid
---   "vehicleId" -> simpleCol fieldName (\e v -> e{vehicleId=v}) vehicleId Decoders.text
---   _ -> Prelude.id
+truckSelect :: QueryFormat content => (Key, ValidSelection) -> SelectStruct Truck content -> SelectStruct Truck content
+truckSelect (fieldName, _) = case fieldName of
+  "id" -> scalar fieldName (\e v -> e{id=v}) Decoders.uuid
+  -- "vehicleId" -> simpleCol fieldName (\e v -> e{vehicleId=v}) vehicleId Decoders.text
+  _ -> Prelude.id
 
--- | A function to take into account all the available filters for truck entities
--- truckFilter :: MassaliaStruct wrapper someType Truck => Text -> wrapper someType Truck -> wrapper someType Truck
--- truckFilter = undefined
+truckInitSQL :: QueryFormat content => () -> ValidSelectionSet -> SelectStruct Truck content
+truckInitSQL filters = foldr truckSelect (initialTruckQuery filters)
 
-truckInitSQL = undefined
--- truckInitSQL :: MassaliaStruct wrapper someType Truck => ValidSelectionSet -> wrapper someType Truck
--- truckInitSQL = foldr truckSelect initialValue
---   where initialValue = getInitialValue (dupe "truck") (Truck{ id=nil, vehicleId="" }) 
+initialTruckQuery :: QueryFormat content => () -> SelectStruct Truck content
+initialTruckQuery _ = getInitialValueSelect defaultSelect{
+        fromPart = "truck"
+      } defaultTruck
 
-dupe x = (x,x)
+defaultTruck = Truck nil "test_id"

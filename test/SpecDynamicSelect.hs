@@ -11,7 +11,7 @@ module SpecDynamicSelect (unitTests) where
 import Data.Text (Text)
 import MassaliaSQLSelect (
     RawSelectStruct (..), structToContent, RowFunction(ArrayAgg, Row), testAssemblingOptions,
-    furtherQualifyWhereJoin, structToSubquery
+    structToSubquery, AssemblingOptions
   )
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -19,8 +19,8 @@ import Prelude hiding (id)
 import MassaliaFilter (GQLFilterUUID, defaultScalarFilter, GQLScalarFilter(isIn), filterFieldToQueryPart)
 import Data.UUID
 
-realStructToContent = structToContent testAssemblingOptions
-realStructToSubquery = structToSubquery testAssemblingOptions
+realStructToContent = structToContent (testAssemblingOptions :: AssemblingOptions String)
+realStructToSubquery = structToSubquery (testAssemblingOptions :: AssemblingOptions String) 
 
 unitTests =
   testGroup

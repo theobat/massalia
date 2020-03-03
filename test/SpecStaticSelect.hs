@@ -5,7 +5,7 @@ module SpecStaticSelect (unitTests) where
 import Data.Text (Text)
 import MassaliaSQLSelect (
     RawSelectStruct (..), structToContent, RowFunction(ArrayAgg, Row), testAssemblingOptions,
-    furtherQualifyWhereJoin, structToSubquery
+    addWhereJoinGroup, structToSubquery
   )
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -57,4 +57,4 @@ testAnotherQuery =
     }
   where
     nestedQuery = realStructToSubquery nestedFilter
-    nestedFilter = furtherQualifyWhereJoin " AND projection.plant_id=plant.id" [] testSimpleQuery
+    nestedFilter = addWhereJoinGroup " AND projection.plant_id=plant.id" [] [] testSimpleQuery

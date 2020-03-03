@@ -11,11 +11,13 @@ module MassaliaSQLRawSelect
     RowFunction (..),
     defaultAssemblingOptions,
     testAssemblingOptions,
-    furtherQualifyWhereJoin,
+    addOrderLimit,
+    addWhereJoinGroup,
     structToSubquery,
     ASelectQueryPart(SelectQueryPart),
     addSelectColumns,
-    AssemblingOptions(..)
+    AssemblingOptions(..),
+    defaultSelect
   )
 where
 
@@ -25,8 +27,9 @@ import Data.Text (Text, pack)
 import MassaliaCore (MassaliaStruct (..))
 import MassaliaUtils (intercalate, intercalateMap)
 import Text.Inflections (toUnderscore)
-import Hasql.Implicits.Encoders (DefaultParamEncoder(defaultParam))
-import MassaliaEncoder (DynamicParameters(param))
+import MassaliaQueryFormat (
+    QueryFormat(param)
+  )
 import MassaliaSQLPart (
     ASelectQueryPart(SelectQueryPart),
     getContent,
@@ -49,7 +52,22 @@ data RawSelectStruct content
         groupByList :: [ASelectQueryPart SQLGroupBy content],
         havingConditions :: Maybe (ASelectQueryPart SQLWhere content),
         orderByList :: [ASelectQueryPart SQLOrderBy content],
-        offsetLimit :: Maybe (Int, Int)
+        offsetLimit :: OffsetLimit
+      }
+
+type OffsetLimit = Maybe (Int, Int)
+
+defaultSelect :: (QueryFormat content) => RawSelectStruct content  
+defaultSelect = RawSelectStruct
+      { wrapFunctionList = [Row], -- either: "row" or "array_agg", "row"
+        selectPart = [],
+        fromPart = "NOT_A_VALID_FROM",
+        joinList = [],
+        whereConditions = Nothing,
+        groupByList = [],
+        havingConditions = Nothing,
+        orderByList = [],
+        offsetLimit = Nothing
       }
 
 data SQLSelect
@@ -70,7 +88,7 @@ rowFunctionToContent :: (IsString content) => RowFunction -> content
 rowFunctionToContent Row = "row"
 rowFunctionToContent ArrayAgg = "array_agg"
 
-offsetLimitToContent :: (Monoid content, IsString content, DynamicParameters content) => Maybe (Int, Int) -> [content]
+offsetLimitToContent :: (Monoid content, QueryFormat content) => Maybe (Int, Int) -> [content]
 offsetLimitToContent Nothing = []
 offsetLimitToContent (Just tuple) = pure $ case tuple of
   (0, _) -> limitSnippet
@@ -79,22 +97,17 @@ offsetLimitToContent (Just tuple) = pure $ case tuple of
     limitSnippet = "LIMIT " <> (param $ toInt64 $ snd tuple)
     toInt64 x = fromIntegral x :: Int64
 
--- selectFields = foldr (\(SelectQueryPart fieldSnippet) acc -> joinSnippet fieldSnippet acc) mempty
---   where
---     joinSnippet fieldSnippet "" = fieldSnippet
---     joinSnippet fieldSnippet acc = acc <> "," <> fieldSnippet
-
-selectGroup :: (Monoid content, IsString content) => [ASelectQueryPart SQLSelect content] -> [RowFunction] -> content
+selectGroup :: (Monoid content, QueryFormat content) => [ASelectQueryPart SQLSelect content] -> [RowFunction] -> content
 selectGroup selectList functionList = "SELECT " <> rawGroup
   where
     rawGroup = foldr (\rowFunc acc -> rowFunctionToContent rowFunc <> "(" <> acc <> ")") joinedColumns functionList
     joinedColumns = intercalateMap getContent ", " selectList
 
--- | An “assembly” function to transform a structured query to a
+-- | An assembly function to transform a structured query to a
 -- | content (which is either Text or Snippet)
 -- |
 structToContent ::
-  (DynamicParameters content, IsString content, Monoid content) =>
+  (QueryFormat content, Monoid content) =>
   AssemblingOptions content -> RawSelectStruct content -> content
 structToContent options
   RawSelectStruct
@@ -128,21 +141,37 @@ structToContent options
       innerSepValue = innerSeparator options
 
 structToSubquery ::
-  (DynamicParameters content, IsString content, Monoid content) =>
+  (QueryFormat content, Monoid content) =>
   AssemblingOptions content -> RawSelectStruct content -> ASelectQueryPart partType content
 structToSubquery a b = SelectQueryPart ( "(" <> structToContent a b <> ")" )
 
-furtherQualifyWhereJoin :: (Monoid content) =>
+addWhereJoinGroup :: (Monoid content) =>
   ASelectQueryPart SQLWhere content ->
   [ASelectQueryPart SQLJoin content] ->
+  [ASelectQueryPart SQLGroupBy content] ->
   RawSelectStruct content ->
   RawSelectStruct content
-furtherQualifyWhereJoin whereAddition joinAddition currentQuery = currentQuery {
-    whereConditions = (\currentWhere -> currentWhere <> whereAddition) <$> whereConditions currentQuery,
-    joinList = joinList currentQuery <> joinAddition
+addWhereJoinGroup whereAddition joinAddition groupByAddition currentQuery = currentQuery {
+    whereConditions = case whereConditions currentQuery of
+      Nothing -> Just whereAddition
+      Just currentWhere -> Just $ currentWhere <> whereAddition,
+    joinList = joinList currentQuery <> joinAddition,
+    groupByList = groupByList currentQuery <> groupByAddition
   }
 
-addSelectColumns :: [ASelectQueryPart SQLSelect content] -> RawSelectStruct content -> RawSelectStruct content
-addSelectColumns columnList currentQuery = currentQuery {
-    selectPart = selectPart currentQuery <> columnList
+
+addOrderLimit :: (Monoid content) =>
+  [ASelectQueryPart SQLOrderBy content] ->
+  OffsetLimit ->
+  RawSelectStruct content ->
+  RawSelectStruct content
+addOrderLimit orderByAddition offsetLimitAddition currentQuery = currentQuery{
+    offsetLimit = offsetLimitAddition,
+    orderByList = orderByList currentQuery <> orderByAddition
+  }
+
+addSelectColumns :: [ASelectQueryPart SQLSelect content] -> [RowFunction] -> RawSelectStruct content -> RawSelectStruct content
+addSelectColumns columnList rowFunctionList currentQuery = currentQuery{
+    selectPart = selectPart currentQuery <> columnList,
+    wrapFunctionList = rowFunctionList <> wrapFunctionList currentQuery
   }
