@@ -9,7 +9,7 @@ module MassaliaCore
   )
 where
 
-import Data.Morpheus.Types.Internal.AST.Selection
+import MorpheusTypes
   ( Arguments,
     Selection (..),
     SelectionContent (SelectionField, SelectionSet),

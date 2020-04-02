@@ -9,7 +9,7 @@
 module SpecGraphQLSelect (unitTests) where
 
 import Data.Text (Text)
-import GraphQLMorpheusTestData (plantSelTest, truckSelTest)
+import GraphQLMorpheusTestData (plantSelection, truckSelection)
 import qualified Hasql.Connection as Connection
 import qualified Hasql.Decoders as Decoders
 import Hasql.DynamicStatements.Session (dynamicallyParameterizedStatement)
@@ -29,13 +29,13 @@ import qualified SpecDynamicSelect
 
 
 -- testTruckQuery :: SelectStruct () Truck
--- testTruckQuery = truckInitSQL truckSelTest
+-- testTruckQuery = truckInitSQL truckSelection
 
 testPlantQuery :: SelectStruct Plant String
-testPlantQuery = plantInitSQL () plantSelTest
+testPlantQuery = plantInitSQL Nothing plantSelection
 
 testTruckList :: SelectStruct Truck String
-testTruckList = truckInitSQL () truckSelTest
+testTruckList = truckInitSQL Nothing truckSelection
 
   
 

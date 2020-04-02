@@ -16,7 +16,7 @@ import MassaliaSQLSelect (
 import Test.Tasty
 import Test.Tasty.HUnit
 import Prelude hiding (id)
-import MassaliaFilter (GQLFilterUUID, defaultScalarFilter, GQLScalarFilter(isIn), filterFieldToQueryPart)
+import MassaliaFilter (GQLFilterUUID, defaultScalarFilter, GQLScalarFilter(isIn), filterFieldToMaybeQueryPart)
 import Data.UUID
 
 realStructToContent = structToContent (testAssemblingOptions :: AssemblingOptions String)
@@ -36,14 +36,14 @@ testSimpleQuery =
       selectPart = ["truck.id", "truck.vehicle_id"],
       fromPart = "truck",
       joinList = [],
-      whereConditions = Just renderedTruckFilter,
+      whereConditions = renderedTruckFilter,
       groupByList = [],
       havingConditions = Nothing,
       orderByList = [],
       offsetLimit = Nothing
     }
   where
-    renderedTruckFilter = filterFieldToQueryPart (id truckFilter)
+    renderedTruckFilter = filterFieldToMaybeQueryPart (id truckFilter)
 
 data TruckFilter = TruckFilter {
   id :: Maybe (GQLFilterUUID "id")

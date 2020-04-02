@@ -40,7 +40,8 @@ instance QueryFormat Text where
 
 instance QueryFormat Snippet where
   fromText =  String.fromString . unpack -- THIS IS BAD, TODO use a direct encoding from text
-  param = Snippet.param
+  param = Snippet.param 
+
 
 class TextEncoder a where
   paramEncode :: a -> Text

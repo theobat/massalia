@@ -14,7 +14,7 @@ import Data.UUID (UUID, nil)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import MassaliaSchema.Industry.Truck (Truck, truckInitSQL)
-import Data.Morpheus.Types.Internal.AST.Selection (ValidSelection, ValidSelectionSet, Selection(Selection, selectionContent), SelectionContent(..))
+import MorpheusTypes (ValidSelection, ValidSelectionSet, Selection(Selection, selectionName, selectionContent), SelectionContent(..))
 import Data.Morpheus.Types.Internal.AST.Base (Key)
 import MassaliaSQLSelect (
     SelectStruct, getInitialValueSelect, scalar, RawSelectStruct(RawSelectStruct, fromPart),
@@ -30,33 +30,26 @@ data Plant = Plant {
   truckList :: [Truck]
 } deriving (Show, Generic)
 
--- plantSelect ::
---   MassaliaStruct wrapper someType Plant =>
---   MassaliaStruct wrapper someType Truck =>
---   (Key, ValidSelection) -> wrapper someType Plant -> wrapper someType Plant
--- plantSelect (fieldName, sel) = case fieldName of
---   "id" -> simpleCol fieldName (\e v -> e{id=v}) id Decoders.uuid
---   "truckList" -> subColList Decoders.listArray truckInitSQL (
---       "EXISTS(SELECT 1 FROM truck_plant where truck_plant.plant_id=plant.id AND truck_plant.truck_id=truck.id)"
---     , "plant.id") (\e v -> e{truckList=v}) sel
---   _ -> Prelude.id
+type SelectStructPlant queryFormat = SelectStruct Plant queryFormat
 
-
-plantSelect :: QueryFormat queryFormat => (Key, ValidSelection) -> SelectStruct Plant queryFormat -> SelectStruct Plant queryFormat
-plantSelect (fieldName, sel) = case fieldName of
+plantSelect :: QueryFormat queryFormat => ValidSelection -> SelectStructPlant queryFormat -> SelectStructPlant queryFormat
+plantSelect selection = case fieldName of
   "id" -> scalar fieldName (\e v -> e{id=v}) Decoders.uuid
   "truckList" -> collection testAssemblingOptions Decoders.listArray truckSubquery (\e v -> e{truckList=v})
     where
-      truckBasicSubquery = (truckInitSQL () (validSelectionToSelectionSet sel))
+      truckBasicSubquery = (truckInitSQL Nothing (validSelectionToSelectionSet selection))
       truckSubquery = transformWhereJoinGroup "truck_plant.plant_id=plant.id" [
           "JOIN truck_plant ON truck.id=truck_plant.truck_id"
         ] ["plant.id"] truckBasicSubquery
   _ -> Prelude.id
+  where
+    fieldName = selectionName selection
 
-plantInitSQL :: QueryFormat queryFormat => () -> ValidSelectionSet -> SelectStruct Plant queryFormat
+
+plantInitSQL :: QueryFormat queryFormat => Maybe () -> ValidSelectionSet -> SelectStructPlant queryFormat
 plantInitSQL filters = foldr plantSelect (initialPlantQuery filters)
 
-initialPlantQuery :: QueryFormat queryFormat => () -> SelectStruct Plant queryFormat
+initialPlantQuery :: QueryFormat queryFormat => Maybe () -> SelectStructPlant queryFormat
 initialPlantQuery _ = getInitialValueSelect defaultSelect{
         fromPart = "plant"
       } defaultPlant

@@ -13,7 +13,7 @@ module MassaliaSQLSelect
     defaultAssemblingOptions,
     testAssemblingOptions,
     structToSubquery,
-    ASelectQueryPart(SelectQueryPart),
+    AQueryPart(AQueryPartConst),
     getInitialValueSelect,
     AssemblingOptions(..),
     defaultSelect,
@@ -36,7 +36,7 @@ import MassaliaSQLRawSelect (
     addOrderLimit,
     addWhereJoinGroup,
     structToSubquery,
-    ASelectQueryPart(SelectQueryPart),
+    AQueryPart(AQueryPartConst),
     addSelectColumns,
     AssemblingOptions(..),
     defaultSelect
@@ -111,7 +111,7 @@ collection assemblingOptions decoderInstance subQuery updater currentQuery = cur
     subQueryListDecoder = Decoders.field (Decoders.nullable $ decoderInstance $ Decoders.nonNullable $ Decoders.composite (decoder subQuery))
 
 selectStructToContent :: (QueryFormat content) => AssemblingOptions content -> SelectStruct decoder content -> content
-selectStructToContent options = (structToContent options) . query
+selectStructToContent options = structToContent options . query
 
 transformQuery :: (QueryFormat content) => (RawSelectStruct content -> RawSelectStruct content) -> SelectStruct decoder content -> SelectStruct decoder content
 transformQuery transformer currentQuery = currentQuery{

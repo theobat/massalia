@@ -9,61 +9,64 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 
 module GraphQLMorpheusTestData
-    ( testSelection
-    , orgSelectionSet
-    , truckSelTest
-    , plantSelTest
+    ( testSelection,
+      organizationQuery,
+      organizationContent,
+      organizationSelection,
+      plantQuery,
+      plantContent,
+      plantSelection,
+      truckQuery,
+      truckContent,
+      truckSelection
     ) where
 
 import           Data.Morpheus.Kind     (OBJECT, ENUM, SCALAR)
 import           Data.Morpheus.Types        (ScalarValue(String), GQLScalar(..), ResolveQ, liftEither, GQLRequest(..),
   GQLResponse, Resolver (..), IORes, GQLRootResolver (..), GQLType(..), Undefined (..))
-import           Data.Morpheus.Types.Internal.AST.Selection
+import MorpheusTypes
                                                 (
                                                   ValidArguments,
                                                 SelectionContent(SelectionField, SelectionSet),
-                                                ValidSelectionRec,
+                                                ValidSelectionContent,
                                                 ValidSelectionSet,
                                                 ValidSelection,
                                                 SelectionSet,
                                                 Selection(..),
-                                                Arguments
+                                                Key, Position(Position),
+                                                Name,
+                                                Arguments,
+                                                validSelectionField,
+                                                safeFromList,
+                                                selectionGen,
+                                                MergeSet(MergeSet)
                                                 )
-import           Data.Morpheus.Types.Internal.AST.Base
-                                                ( Key, Position(Position) )
 
 
--- require ValidSelectionSet
 
-selectionGen :: ValidArguments -> ValidSelectionRec -> ValidSelection
-selectionGen a = Selection a (Position 0 0) Nothing
+norAgs = undefined
 
-orgSelectionSet :: ValidSelectionSet
-orgSelectionSet =
-  [ ("id"  , selectionGen [] SelectionField)
-  , ("plantList", selectionGen [] $ SelectionSet plantSelTest)
+organizationQuery = selectionGen "organizationList" norAgs organizationContent
+organizationContent = SelectionSet organizationSelection
+organizationSelection = MergeSet
+  [ selectionGen "id" norAgs validSelectionField
+  , plantQuery
   ]
 
-plantSelTest :: ValidSelectionSet
-plantSelTest =
-  [ ("id"  , selectionGen [] SelectionField)
-  , ("truckList", selectionGen [] $ SelectionSet truckSelTest)
+-- plantSelection :: ValidSelectionSet
+-- plantSelection = undefined
+plantQuery = selectionGen "plantList" norAgs plantContent
+plantContent = SelectionSet plantSelection
+plantSelection = MergeSet
+  [ selectionGen "id" norAgs validSelectionField
+  , truckQuery
   ]
 
-truckSelTest :: ValidSelectionSet
-truckSelTest =
-  [ ("id"  , selectionGen [] SelectionField)
-  , ("vehicleId"  , selectionGen [] SelectionField)
+truckQuery = selectionGen "truckList" norAgs truckContent
+truckContent = SelectionSet truckSelection
+truckSelection = MergeSet [
+  selectionGen "id" norAgs validSelectionField
+  , selectionGen "vehicleId" norAgs validSelectionField
   ]
 
-testSelection :: ValidSelectionSet
-testSelection = orgSelectionSet
-
--- selectionSetToString :: Text -> Text -> ValidSelectionSet -> Text
--- selectionSetToString queryName nodeName selset =
---   "query " <> queryName <> " { " <> nodeName <> resolveList selset <> " }"
---   where
---     resolveList partialSelset = (foldr resolved " { " partialSelset) <> " } "
---     resolved (key, Selection{ selectionRec = selectionRec }) queryRes = case selectionRec of
---           SelectionField -> queryRes <> key
---           (ValidSelectionSet deeperSel) -> queryRes <> resolveList deeperSel
+testSelection = organizationSelection

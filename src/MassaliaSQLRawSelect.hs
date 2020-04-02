@@ -14,7 +14,7 @@ module MassaliaSQLRawSelect
     addOrderLimit,
     addWhereJoinGroup,
     structToSubquery,
-    ASelectQueryPart(SelectQueryPart),
+    AQueryPart(AQueryPartConst),
     addSelectColumns,
     AssemblingOptions(..),
     defaultSelect
@@ -31,7 +31,7 @@ import MassaliaQueryFormat (
     QueryFormat(param)
   )
 import MassaliaSQLPart (
-    ASelectQueryPart(SelectQueryPart),
+    AQueryPart(AQueryPartConst),
     getContent,
     getListContent,
     getMaybeContent,
@@ -45,13 +45,13 @@ import MassaliaSQLPart (
 data RawSelectStruct content
   = RawSelectStruct
       { wrapFunctionList :: [RowFunction], -- either: "row" or "array_agg", "row"
-        selectPart :: [ASelectQueryPart SQLSelect content],
-        fromPart :: ASelectQueryPart SQLFrom content,
-        joinList :: [ASelectQueryPart SQLJoin content],
-        whereConditions :: Maybe (ASelectQueryPart SQLWhere content),
-        groupByList :: [ASelectQueryPart SQLGroupBy content],
-        havingConditions :: Maybe (ASelectQueryPart SQLWhere content),
-        orderByList :: [ASelectQueryPart SQLOrderBy content],
+        selectPart :: [AQueryPart SQLSelect content],
+        fromPart :: AQueryPart SQLFrom content,
+        joinList :: [AQueryPart SQLJoin content],
+        whereConditions :: Maybe (AQueryPart SQLWhere content),
+        groupByList :: [AQueryPart SQLGroupBy content],
+        havingConditions :: Maybe (AQueryPart SQLWhere content),
+        orderByList :: [AQueryPart SQLOrderBy content],
         offsetLimit :: OffsetLimit
       }
 
@@ -97,7 +97,7 @@ offsetLimitToContent (Just tuple) = pure $ case tuple of
     limitSnippet = "LIMIT " <> (param $ toInt64 $ snd tuple)
     toInt64 x = fromIntegral x :: Int64
 
-selectGroup :: (Monoid content, QueryFormat content) => [ASelectQueryPart SQLSelect content] -> [RowFunction] -> content
+selectGroup :: (Monoid content, QueryFormat content) => [AQueryPart SQLSelect content] -> [RowFunction] -> content
 selectGroup selectList functionList = "SELECT " <> rawGroup
   where
     rawGroup = foldr (\rowFunc acc -> rowFunctionToContent rowFunc <> "(" <> acc <> ")") joinedColumns functionList
@@ -142,13 +142,13 @@ structToContent options
 
 structToSubquery ::
   (QueryFormat content, Monoid content) =>
-  AssemblingOptions content -> RawSelectStruct content -> ASelectQueryPart partType content
-structToSubquery a b = SelectQueryPart ( "(" <> structToContent a b <> ")" )
+  AssemblingOptions content -> RawSelectStruct content -> AQueryPart partType content
+structToSubquery a b = AQueryPartConst ( "(" <> structToContent a b <> ")" )
 
 addWhereJoinGroup :: (Monoid content) =>
-  ASelectQueryPart SQLWhere content ->
-  [ASelectQueryPart SQLJoin content] ->
-  [ASelectQueryPart SQLGroupBy content] ->
+  AQueryPart SQLWhere content ->
+  [AQueryPart SQLJoin content] ->
+  [AQueryPart SQLGroupBy content] ->
   RawSelectStruct content ->
   RawSelectStruct content
 addWhereJoinGroup whereAddition joinAddition groupByAddition currentQuery = currentQuery {
@@ -161,7 +161,7 @@ addWhereJoinGroup whereAddition joinAddition groupByAddition currentQuery = curr
 
 
 addOrderLimit :: (Monoid content) =>
-  [ASelectQueryPart SQLOrderBy content] ->
+  [AQueryPart SQLOrderBy content] ->
   OffsetLimit ->
   RawSelectStruct content ->
   RawSelectStruct content
@@ -170,7 +170,7 @@ addOrderLimit orderByAddition offsetLimitAddition currentQuery = currentQuery{
     orderByList = orderByList currentQuery <> orderByAddition
   }
 
-addSelectColumns :: [ASelectQueryPart SQLSelect content] -> [RowFunction] -> RawSelectStruct content -> RawSelectStruct content
+addSelectColumns :: [AQueryPart SQLSelect content] -> [RowFunction] -> RawSelectStruct content -> RawSelectStruct content
 addSelectColumns columnList rowFunctionList currentQuery = currentQuery{
     selectPart = selectPart currentQuery <> columnList,
     wrapFunctionList = rowFunctionList <> wrapFunctionList currentQuery

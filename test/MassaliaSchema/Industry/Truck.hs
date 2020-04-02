@@ -13,12 +13,12 @@ import Data.UUID (UUID, nil)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Data.Data (Data)
-import MassaliaSQLSelect (SelectStruct, getInitialValueSelect, scalar, RawSelectStruct(RawSelectStruct, fromPart), defaultSelect)
+import MassaliaSQLSelect (SelectStruct, getInitialValueSelect, scalar, RawSelectStruct(RawSelectStruct, fromPart, whereConditions), defaultSelect)
 import MassaliaQueryFormat (
     QueryFormat(param, fromText)
   )
 import qualified Hasql.Decoders as Decoders
-import Data.Morpheus.Types.Internal.AST.Selection (ValidSelection, ValidSelectionSet)
+import MorpheusTypes (ValidSelection, ValidSelectionSet, Selection(selectionName))
 import Data.Morpheus.Types.Internal.AST.Base (Key)
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
 import qualified MassaliaSchema.Industry.TruckFilter as TruckFilter
@@ -29,23 +29,30 @@ data Truck = Truck {
 } deriving (Show, Generic)
 
 
-truckSelect :: QueryFormat content => (Key, ValidSelection) -> SelectStruct Truck content -> SelectStruct Truck content
-truckSelect (fieldName, _) = case fieldName of
+truckSelect :: QueryFormat content => ValidSelection -> SelectStruct Truck content -> SelectStruct Truck content
+truckSelect selection = case fieldName of
   "id" -> scalar fieldName (\e v -> e{id=v}) Decoders.uuid
   -- "vehicleId" -> simpleCol fieldName (\e v -> e{vehicleId=v}) vehicleId Decoders.text
   _ -> Prelude.id
+  where fieldName = selectionName selection
 
-truckInitSQL :: QueryFormat content => () -> ValidSelectionSet -> SelectStruct Truck content
+truckInitSQL :: QueryFormat content => Maybe TruckListFilter -> ValidSelectionSet -> SelectStruct Truck content
 truckInitSQL filters = foldr truckSelect (initialTruckQuery filters)
 
-initialTruckQuery :: QueryFormat content => () -> SelectStruct Truck content
-initialTruckQuery _ = getInitialValueSelect defaultSelect{
-        fromPart = "truck"
+initialTruckQuery :: QueryFormat content => Maybe TruckListFilter -> SelectStruct Truck content
+initialTruckQuery filterw = getInitialValueSelect defaultSelect{
+        fromPart = "truck",
+        whereConditions = toQueryPart filterw
       } defaultTruck
 
-defaultTruck = Truck nil "test_id"
+defaultTruck = Truck nil ""
 
 
 data TruckListFilter = TruckListFilter {
   truck :: Maybe TruckFilter
 }
+
+toQueryPart Nothing = mempty
+toQueryPart (Just listFilter) = (
+    TruckFilter.toQueryPart (truck listFilter) <> mempty
+  )

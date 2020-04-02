@@ -12,7 +12,7 @@ module MassaliaSQLInsert
 where
 
 import Data.Maybe (fromMaybe)
-import Data.Morpheus.Types.Internal.AST.Selection
+import MorpheusTypes
   ( Arguments,
     Selection (..),
     SelectionContent (SelectionField, SelectionSet),
@@ -27,34 +27,44 @@ import Data.UUID
 import qualified Hasql.Decoders as Decoders
 import Hasql.DynamicStatements.Snippet (Snippet)
 import qualified Hasql.Encoders as Encoders
-import MassaliaCore (MassaliaStruct (..))
 import Text.Inflections (toUnderscore)
+import MassaliaSQLPart (
+    AQueryPart(AQueryPartConst),
+    getContent,
+    getListContent,
+    getMaybeContent,
+    AssemblingOptions(..),
+    defaultAssemblingOptions,
+    testAssemblingOptions
+  )
 
-data InsertStruct decoder
+data InsertStruct decoder content
   = InsertStruct
-      { query :: RawInsertStruct,
+      { query :: RawInsertStruct content,
         decoder :: Decoders.Composite decoder
       }
 
-data RawInsertStruct
+data RawInsertStruct content
   = RawInsertStruct
-      { intoPart :: SelectQueryPart SQLTableName,
-        columnList :: [SelectQueryPart SQLColumn],
-        valueList :: [[SelectQueryPart SQLValues]],
-        returningList :: [SelectQueryPart SQLReturning]
+      { intoPart :: AQueryPart SQLTableName content,
+        columnList :: [AQueryPart SQLColumn content],
+        valueList :: [[AQueryPart SQLValues content]],
+        returningList :: [AQueryPart SQLReturning content]
       }
 
+-- | A type to represent SQL values used in canonical insert statements such as
+-- insert into dummy (..) values (this is what we are talking about)
 data SQLValues
 
+-- | A type to represent SQL values returned after insertion
+-- insert into dummy (..) values (..) returning this, is, what, we ,are, talking, about
 data SQLReturning
 
 data SQLColumn
 
 data SQLTableName
 
-newtype SelectQueryPart a = SelectQueryPart Snippet deriving (IsString, Semigroup)
-
-test :: [[SelectQueryPart SQLValues]]
+test :: [[AQueryPart SQLValues String]]
 test =
   [ ["DEFAULT", "1"]
   ]

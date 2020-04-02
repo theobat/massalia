@@ -9,8 +9,5 @@
 
 module Main where
 
--- import MorpheusTestdata
-import Lib
-
 main :: IO ()
-main = someFunc
+main = pure ()

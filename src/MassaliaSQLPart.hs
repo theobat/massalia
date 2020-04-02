@@ -10,11 +10,11 @@ import qualified Data.String as String (IsString(fromString))
 import MassaliaUtils (intercalate, intercalateMap)
 import MassaliaQueryFormat (QueryFormat)
 
-newtype ASelectQueryPart partType content = SelectQueryPart content
-deriving instance (QueryFormat content) => QueryFormat (ASelectQueryPart partType content)
-deriving instance (IsString content) => IsString (ASelectQueryPart partType content)
-deriving instance (Semigroup content) => Semigroup (ASelectQueryPart partType content)
-deriving instance (Monoid content) => Monoid (ASelectQueryPart partType content)
+newtype AQueryPart partType content = AQueryPartConst content
+deriving instance (QueryFormat content) => QueryFormat (AQueryPart partType content)
+deriving instance (IsString content) => IsString (AQueryPart partType content)
+deriving instance (Semigroup content) => Semigroup (AQueryPart partType content)
+deriving instance (Monoid content) => Monoid (AQueryPart partType content)
 
 data AssemblingOptions content = AssemblingOptions {
   partSeparator :: content,
@@ -32,14 +32,14 @@ testAssemblingOptions = AssemblingOptions {
   innerSeparator = ", "
 }
 
-getContent :: ASelectQueryPart partType content -> content
-getContent (SelectQueryPart content) = content
+getContent :: AQueryPart partType content -> content
+getContent (AQueryPartConst content) = content
 
-getListContent :: (Monoid content) => content -> ASelectQueryPart partType content -> [ASelectQueryPart partType content] -> [content]
+getListContent :: (Monoid content) => content -> AQueryPart partType content -> [AQueryPart partType content] -> [content]
 getListContent separator _ [] = []
 getListContent separator prefix valueList = [(getContent prefix) <> intercalate separator (getContent <$> valueList)]
 
-getMaybeContent :: (Monoid content) => ASelectQueryPart partType content -> Maybe (ASelectQueryPart partType content) -> [content]
+getMaybeContent :: (Monoid content) => AQueryPart partType content -> Maybe (AQueryPart partType content) -> [content]
 getMaybeContent _ Nothing = []
 getMaybeContent prefix (Just value) = [(getContent prefix) <> getContent value]
 

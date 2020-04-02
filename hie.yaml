@@ -1,3 +1,3 @@
 cradle:
   stack:
-    component: "massalia:massalia-test"
+    component: "massalia:test:massalia-test"
