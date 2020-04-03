@@ -24,7 +24,6 @@ where
 import Data.Int (Int64)
 import Data.String (IsString (..))
 import Data.Text (Text, pack)
-import MassaliaCore (MassaliaStruct (..))
 import MassaliaUtils (intercalate, intercalateMap)
 import Text.Inflections (toUnderscore)
 import MassaliaQueryFormat (

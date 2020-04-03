@@ -35,6 +35,7 @@ dependencies:
 - hasql-dynamic-statements
 - hasql-implicits
 - range
+- postgresql-binary
 
 library:
   source-dirs: src

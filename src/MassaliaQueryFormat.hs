@@ -6,7 +6,8 @@
 module MassaliaQueryFormat
   (QueryFormat(param, fromText),
   TextEncoder(paramEncode),
-  DefaultParamEncoder
+  DefaultParamEncoder,
+  HasqlSnippet
   )
 where
 
@@ -20,8 +21,11 @@ import Data.Text hiding (intercalate)
 import Data.UUID
 import Data.Int (Int64)
 import Data.Void (Void)
+import PostgreSQL.Binary.Data (LocalTime)
 import qualified Hasql.DynamicStatements.Snippet as Snippet
 
+
+type HasqlSnippet = Snippet
 
 instance DefaultParamEncoder Void where
   defaultParam = error "cannot call DefaultParamEncoder.defaultParam of Void"
@@ -55,6 +59,8 @@ instance TextEncoder Text where
 instance TextEncoder Int64 where
   paramEncode = pack . show
 instance TextEncoder Int where
+  paramEncode = pack . show
+instance TextEncoder LocalTime where
   paramEncode = pack . show
 
 instance (TextEncoder a) => TextEncoder [a] where

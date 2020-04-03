@@ -1,7 +1,8 @@
 {-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE DeriveAnyClass    #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts  #-}
 
 module MassaliaSchema.Industry.Truck (
     Truck(..),
@@ -18,16 +19,16 @@ import MassaliaQueryFormat (
     QueryFormat(param, fromText)
   )
 import qualified Hasql.Decoders as Decoders
-import MorpheusTypes (ValidSelection, ValidSelectionSet, Selection(selectionName))
-import Data.Morpheus.Types.Internal.AST.Base (Key)
+import MorpheusTypes (ValidSelection, ValidSelectionSet, Selection(selectionName), Key)
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
 import qualified MassaliaSchema.Industry.TruckFilter as TruckFilter
+
+import Data.Morpheus.Types (GQLRootResolver (..), GQLType)
 
 data Truck = Truck {
   id :: UUID
   , vehicleId :: Text
-} deriving (Show, Generic)
-
+} deriving (Show, Generic, GQLType)
 
 truckSelect :: QueryFormat content => ValidSelection -> SelectStruct Truck content -> SelectStruct Truck content
 truckSelect selection = case fieldName of
@@ -47,12 +48,10 @@ initialTruckQuery filterw = getInitialValueSelect defaultSelect{
 
 defaultTruck = Truck nil ""
 
-
 data TruckListFilter = TruckListFilter {
   truck :: Maybe TruckFilter
 }
 
 toQueryPart Nothing = mempty
-toQueryPart (Just listFilter) = (
-    TruckFilter.toQueryPart (truck listFilter) <> mempty
-  )
+toQueryPart (Just listFilter) =
+    TruckFilter.toQueryPart (truck listFilter)

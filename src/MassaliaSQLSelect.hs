@@ -18,6 +18,8 @@ module MassaliaSQLSelect
     AssemblingOptions(..),
     defaultSelect,
     selectStructToContent,
+    selectStructToContentDefault,
+    selectStructToSession,
     transformOrderLimit,
     transformWhereJoinGroup,
     addOrderLimit,
@@ -43,10 +45,14 @@ import MassaliaSQLRawSelect (
   )
 import qualified Hasql.Decoders as Decoders
 import Data.Text(Text)
+import Hasql.DynamicStatements.Session (dynamicallyParameterizedStatement)
+import Hasql.DynamicStatements.Statement (dynamicallyParameterized)
+import Hasql.Session (Session)
+import Hasql.Statement (Statement)
 import qualified Hasql.DynamicStatements.Snippet as Snippet (param)
 import qualified Hasql.Encoders as Encoders
 import MassaliaQueryFormat (
-    QueryFormat(param, fromText)
+    QueryFormat(param, fromText), HasqlSnippet
   )
 import Text.Inflections (toUnderscore)
 import Data.Maybe (fromMaybe)
@@ -112,6 +118,29 @@ collection assemblingOptions decoderInstance subQuery updater currentQuery = cur
 
 selectStructToContent :: (QueryFormat content) => AssemblingOptions content -> SelectStruct decoder content -> content
 selectStructToContent options = structToContent options . query
+
+selectStructToContentDefault :: (QueryFormat content) => SelectStruct decoder content -> content
+selectStructToContentDefault = structToContent defaultAssemblingOptions . query
+
+
+-- | select query to a HASQL Statement, which can be executed in a Session.
+selectSnippetToStatement :: SelectStruct decoder HasqlSnippet -> Statement () [decoder]
+selectSnippetToStatement selectSt = dynamicallyParameterized snippet result
+  where
+    (snippet, result) = selectStructToSnippetAndResult selectSt
+
+-- | select query to a HASQL Statement, which can be executed in a Session.
+selectStructToSession :: SelectStruct decoder HasqlSnippet -> Session [decoder]
+selectStructToSession selectSt = dynamicallyParameterizedStatement snippet result
+  where
+    (snippet, result) = selectStructToSnippetAndResult selectSt
+
+-- | select query to a HASQL Statement, which can be executed in a Session.
+selectStructToSnippetAndResult :: SelectStruct decoder HasqlSnippet -> (HasqlSnippet, Decoders.Result [decoder])
+selectStructToSnippetAndResult selectSt = (content, decoderValue)
+  where
+    content = selectStructToContentDefault selectSt
+    decoderValue = Decoders.rowList (Decoders.column $ Decoders.nonNullable $ Decoders.composite $ decoder selectSt)
 
 transformQuery :: (QueryFormat content) => (RawSelectStruct content -> RawSelectStruct content) -> SelectStruct decoder content -> SelectStruct decoder content
 transformQuery transformer currentQuery = currentQuery{

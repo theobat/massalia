@@ -14,14 +14,20 @@ import Test.Tasty.HUnit
 import qualified SpecStaticSelect
 import qualified SpecDynamicSelect
 import qualified SpecGraphQLSelect
+import qualified SpecAPI
+import MassaliaSchema.TestAPI
+import MassaliaSchema.TestAPI (api)
+import Data.Morpheus.Types (GQLRequest (..))
 
 main :: IO ()
 main = do
-  -- rawConnection <- Connection.acquire connectionSettings
-  -- connection <- case rawConnection of
-  --   Left e -> (error $ show e)
-  --   Right goodCo -> pure goodCo
-  -- result <- Session.run (dynamicallyParameterizedStatement (structToSnippet testAnotherQuery) decoder) connection
+  let quer = GQLRequest {
+        query = "query plantList_test { plantListPaginated (first: 10, offset: 0) { name createdAt } }",
+        operationName = Nothing,
+        variables = Nothing
+      }
+  res <- api quer
+  print res
   _ <- defaultMain tests
   print "ok"
   -- where
@@ -29,6 +35,7 @@ main = do
 
 tests :: TestTree
 tests = testGroup "Tests" [
+    SpecAPI.unitTests,
     SpecStaticSelect.unitTests,
     SpecDynamicSelect.unitTests,
     SpecGraphQLSelect.unitTests

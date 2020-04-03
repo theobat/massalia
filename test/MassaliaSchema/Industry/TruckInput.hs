@@ -13,7 +13,6 @@ import Data.UUID (UUID)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Data.Data (Data)
-import MassaliaCore (MassaliaStruct(..))
 import qualified Hasql.Decoders as Decoders
 import qualified Data.Aeson as JSON
 

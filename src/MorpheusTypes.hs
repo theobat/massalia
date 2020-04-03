@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+
 module MorpheusTypes (
   Arguments,
   ValidArguments,
@@ -13,7 +15,8 @@ module MorpheusTypes (
   safeFromList,
   Name,
   selectionGen,
-  MergeSet(MergeSet)
+  MergeSet(MergeSet),
+  validSelectionToSelectionSet
 ) where
 
 import Data.Morpheus.Types.Internal.AST.Selection
@@ -25,6 +28,14 @@ import Data.Morpheus.Types.Internal.AST.Selection
   
 import Data.Morpheus.Types.Internal.AST.MergeSet (MergeSet(MergeSet), safeFromList)
 import Data.Morpheus.Types.Internal.AST.Base (VALID, Key, Position(Position), Name)
+
+import Data.UUID (nil, toText, fromText, UUID)
+import Data.Text (Text, unpack, pack)
+import Data.Morpheus.Types (KIND, GQLType, GQLScalar(parseValue, serialize))
+import qualified Data.Morpheus.Types as GQLT
+import Data.Morpheus.Kind (SCALAR)
+
+import PostgreSQL.Binary.Data (LocalTime)
 
 type ValidSelection = Selection VALID
 type ValidSelectionSet = SelectionSet VALID
@@ -43,5 +54,22 @@ selectionGen name a content = Selection {
     selectionContent = content
   }
 
--- makeValidSelectionSet :: [(Key, a)] -> MergeSet a
--- makeValidSelectionSet = safeFromList
+validSelectionToSelectionSet (Selection{ selectionContent = selection }) = case selection of
+  SelectionField -> error "graphql validation should prevent this, it should not exist"
+  (SelectionSet deeperSel) -> deeperSel
+
+instance GQLScalar UUID where
+  parseValue (GQLT.String x) = pure $ case fromText x of
+    Nothing -> nil
+    Just iid -> iid
+  serialize = GQLT.String . toText
+
+instance GQLType UUID where
+  type KIND UUID = SCALAR
+
+instance GQLScalar LocalTime where
+  parseValue (GQLT.String x) = undefined
+  serialize = GQLT.String . (pack . show)
+
+instance GQLType LocalTime where
+  type KIND LocalTime = SCALAR
