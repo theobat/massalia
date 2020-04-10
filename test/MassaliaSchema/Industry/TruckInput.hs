@@ -15,6 +15,9 @@ import GHC.Generics (Generic)
 import Data.Data (Data)
 import qualified Hasql.Decoders as Decoders
 import qualified Data.Aeson as JSON
+import MassaliaQueryFormat (
+    QueryFormat(param, fromText), HasqlSnippet
+  )
 
 data TruckInput = TruckInput {
   id :: UUID
@@ -22,3 +25,7 @@ data TruckInput = TruckInput {
 } deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON)
 
 
+truckInputToQueryFormat :: QueryFormat queryFormat => TruckInput -> queryFormat
+truckInputToQueryFormat truckInput = convert $ id truckInput <> convert vehicleId truckInput
+
+convert :: QueryFormat queryFormat => UUID -> queryFormat

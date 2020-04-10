@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module MorpheusTypes (
   Arguments,
@@ -19,6 +20,7 @@ module MorpheusTypes (
   validSelectionToSelectionSet
 ) where
 
+import Protolude
 import Data.Morpheus.Types.Internal.AST.Selection
   ( Arguments,
     Selection (..),
@@ -29,12 +31,15 @@ import Data.Morpheus.Types.Internal.AST.Selection
 import Data.Morpheus.Types.Internal.AST.MergeSet (MergeSet(MergeSet), safeFromList)
 import Data.Morpheus.Types.Internal.AST.Base (VALID, Key, Position(Position), Name)
 
-import Data.UUID (nil, toText, fromText, UUID)
 import Data.Text (Text, unpack, pack)
 import Data.Morpheus.Types (KIND, GQLType, GQLScalar(parseValue, serialize))
 import qualified Data.Morpheus.Types as GQLT
 import Data.Morpheus.Kind (SCALAR)
 
+-- morpheus additional scalar definitions
+import Data.UUID (nil, toText, fromText, UUID)
+import Text.Email.Validate (EmailAddress)
+import qualified Text.Email.Validate as EmailAddress
 import PostgreSQL.Binary.Data (LocalTime)
 
 type ValidSelection = Selection VALID
@@ -55,8 +60,10 @@ selectionGen name a content = Selection {
   }
 
 validSelectionToSelectionSet (Selection{ selectionContent = selection }) = case selection of
-  SelectionField -> error "graphql validation should prevent this, it should not exist"
+  SelectionField -> undefined -- error "graphql validation should prevent this, it should not exist"
   (SelectionSet deeperSel) -> deeperSel
+
+-- GQL Scalar useful definitions
 
 instance GQLScalar UUID where
   parseValue (GQLT.String x) = pure $ case fromText x of
@@ -73,3 +80,10 @@ instance GQLScalar LocalTime where
 
 instance GQLType LocalTime where
   type KIND LocalTime = SCALAR
+
+instance GQLScalar EmailAddress where
+  parseValue (GQLT.String x) = first pack $ EmailAddress.validate $ encodeUtf8 x
+  serialize = GQLT.String . (decodeUtf8 . EmailAddress.toByteString)
+
+instance GQLType EmailAddress where
+  type KIND EmailAddress = SCALAR

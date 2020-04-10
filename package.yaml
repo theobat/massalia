@@ -21,21 +21,23 @@ description:         Please see the README on GitHub at <https://github.com/theo
 
 dependencies:
 - base >= 4.7 && < 5
+- protolude
 - text
 - mtl
 - morpheus-graphql
 - bytestring
-- hasql
 - vector
 - uuid
 - tasty
 - tasty-hunit
 - aeson
 - inflections
+- hasql
 - hasql-dynamic-statements
 - hasql-implicits
 - range
 - postgresql-binary
+- email-validate
 
 library:
   source-dirs: src
