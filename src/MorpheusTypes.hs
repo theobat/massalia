@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module MorpheusTypes (
   Arguments,
@@ -13,7 +14,6 @@ module MorpheusTypes (
   Key,
   Position(Position),
   validSelectionField,
-  safeFromList,
   Name,
   selectionGen,
   MergeSet(MergeSet),
@@ -22,13 +22,14 @@ module MorpheusTypes (
 
 import Protolude
 import Data.Morpheus.Types.Internal.AST.Selection
-  ( Arguments,
+  (
+    Arguments,
     Selection (..),
     SelectionContent (SelectionField, SelectionSet),
     SelectionSet,
   )
   
-import Data.Morpheus.Types.Internal.AST.MergeSet (MergeSet(MergeSet), safeFromList)
+import Data.Morpheus.Types.Internal.AST.MergeSet (MergeSet(MergeSet))
 import Data.Morpheus.Types.Internal.AST.Base (VALID, Key, Position(Position), Name)
 
 import Data.Text (Text, unpack, pack)
@@ -41,6 +42,8 @@ import Data.UUID (nil, toText, fromText, UUID)
 import Text.Email.Validate (EmailAddress)
 import qualified Text.Email.Validate as EmailAddress
 import PostgreSQL.Binary.Data (LocalTime)
+import Data.Aeson (eitherDecode)
+import qualified Data.Aeson as JSON
 
 type ValidSelection = Selection VALID
 type ValidSelectionSet = SelectionSet VALID
@@ -75,8 +78,8 @@ instance GQLType UUID where
   type KIND UUID = SCALAR
 
 instance GQLScalar LocalTime where
-  parseValue (GQLT.String x) = undefined
-  serialize = GQLT.String . (pack . show)
+  parseValue (GQLT.String x) = first pack $ eitherDecode $ JSON.encode x
+  serialize = GQLT.String . (fromMaybe "" . JSON.decode . JSON.encode)
 
 instance GQLType LocalTime where
   type KIND LocalTime = SCALAR

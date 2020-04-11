@@ -30,8 +30,10 @@ type HasqlSnippet = Snippet
 instance DefaultParamEncoder Void where
   defaultParam = error "cannot call DefaultParamEncoder.defaultParam of Void"
 
-class (IsString content, Monoid content) => QueryFormat content where  
+class (IsString content, Monoid content) => QueryFormat content where
+  -- | A function to transform any 'Text' to the current content type.  
   fromText :: Text -> content
+  -- | A function to safely encode any variable value into the current content type.
   param :: (TextEncoder a, DefaultParamEncoder a) => a -> content
 
 instance QueryFormat [Char] where

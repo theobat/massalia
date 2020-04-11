@@ -40,7 +40,8 @@ import MassaliaSQLPart (
   )
 
 -- | A simple data structure to model an SQL select query.
--- | The 'content' type parameter is meant to either be Text or 
+-- The 'content' type parameter is meant to either be Text or Hasql's snippet type,
+-- but it could be anything that's a 'QueryFormat' really.
 data RawSelectStruct content
   = RawSelectStruct
       { wrapFunctionList :: [RowFunction], -- either: "row" or "array_agg", "row"
@@ -103,8 +104,7 @@ selectGroup selectList functionList = "SELECT " <> rawGroup
     joinedColumns = intercalateMap getContent ", " selectList
 
 -- | An assembly function to transform a structured query to a
--- | content (which is either Text or Snippet)
--- |
+-- content (which is either Text or Snippet)
 structToContent ::
   (QueryFormat content, Monoid content) =>
   AssemblingOptions content -> RawSelectStruct content -> content

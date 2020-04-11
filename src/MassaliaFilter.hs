@@ -74,7 +74,7 @@ deriving instance
   (KnownSymbol (fieldName :: Symbol), Data eqScalarType, Data likeScalarType, Data ordScalarType) =>
   Data (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
 
--- Filter with no effect
+-- | Filter with no effect
 defaultScalarFilter =
   GQLScalarFilter
     { isEq = Nothing,
