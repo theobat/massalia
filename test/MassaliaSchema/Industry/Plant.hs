@@ -73,7 +73,7 @@ initialPlantQuery filter = getInitialValueSelect defaultSelect{
         offsetLimit = Just (offset filter, first filter)
       } defaultPlant
 
-defaultPlant = Plant{id=nil, truckList=mempty, name ="", createdAt=LocalTime.}
+defaultPlant = Plant{id=nil, truckList=mempty, name =""}
 
 plantListQuery queryArgs = do
   Context { currentSelection = selection } <- unsafeInternalContext

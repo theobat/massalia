@@ -33,10 +33,16 @@ main = do
   -- where
   --   connectionSettings = Connection.settings "localhost" 5432 "postgres" "" "beton_direct_web"
 
-tests :: TestTree
-tests = testGroup "Tests" [
-    SpecAPI.unitTests,
-    SpecStaticSelect.unitTests,
-    SpecDynamicSelect.unitTests,
-    SpecGraphQLSelect.unitTests
+tests :: IO TestTree
+tests = 
+  apiTest <- pure SpecAPI.unitTests
+  staticSelect <- pure SpecStaticSelect.unitTests
+  dynamicSelect <- pure SpecDynamicSelect.unitTests
+  graphqlSelect <- pure SpecGraphQLSelect.unitTests
+  let tests = join [
+    apiTest,
+    staticSelect,
+    dynamicSelect,
+    graphqlSelect
   ]
+  testGroup "Tests" <$> tests

@@ -37,7 +37,6 @@ import MorpheusTypes
                                                 Name,
                                                 Arguments,
                                                 validSelectionField,
-                                                safeFromList,
                                                 selectionGen,
                                                 MergeSet(MergeSet)
                                                 )
