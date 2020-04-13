@@ -90,3 +90,10 @@ instance GQLScalar EmailAddress where
 
 instance GQLType EmailAddress where
   type KIND EmailAddress = SCALAR
+
+-- instance GQLScalar (Range a) where
+--   parseValue (GQLT.String x) = first pack $ EmailAddress.validate $ encodeUtf8 x
+--   serialize = GQLT.String . (decodeUtf8 . EmailAddress.toByteString)
+
+-- instance GQLType EmailAddress where
+--   type KIND EmailAddress = SCALAR

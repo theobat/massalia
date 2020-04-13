@@ -19,11 +19,16 @@ import qualified Prelude(id)
 import Data.UUID (UUID, nil)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import Data.Data (Data)
 import qualified Hasql.Decoders as Decoders
 import qualified Data.Aeson as JSON
 import GHC.TypeLits (Symbol, KnownSymbol, symbolVal)
-
+import MassaliaQueryFormat
+  ( HasqlSnippet,
+    QueryFormat (fromText, param),
+  )
+import MassaliaSQLPart (
+    AQueryPart
+  )
 import MassaliaFilter (
   GQLFilterUUID,
   GQLFilterText,
@@ -45,13 +50,15 @@ testInstance = TruckFilter {
   vehicleId = Nothing
 }
 
+toQueryPart :: (QueryFormat content) => Maybe TruckFilter -> Maybe (MassaliaSQLPart.AQueryPart partType content)
 toQueryPart Nothing = mempty
 toQueryPart (Just TruckFilter{
     id = idVal,
     vehicleId = vehicleIdVal
   }) = (
-      filterFieldToMaybeQueryPart idVal <>
-      filterFieldToMaybeQueryPart vehicleIdVal
+      filterFieldToMaybeQueryPart tableName idVal <>
+      filterFieldToMaybeQueryPart tableName vehicleIdVal
     )
+  where tableName = Just "truck"
 
   

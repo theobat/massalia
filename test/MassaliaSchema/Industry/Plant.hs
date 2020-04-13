@@ -26,19 +26,22 @@ import MorpheusTypes (
 import MassaliaSQLSelect (
     selectStructToSession,
     SelectStruct, getInitialValueSelect, scalar, RawSelectStruct(RawSelectStruct, fromPart, offsetLimit),
-    defaultSelect, collection, testAssemblingOptions, transformWhereJoinGroup, selectStructToContentDefault    
+    initSelect, collection, testAssemblingOptions, transformWhereJoinGroup, selectStructToContentDefault    
   )
 import MassaliaQueryFormat (
     QueryFormat(param, fromText), HasqlSnippet
   )
 import MassaliaUtils (QueryArgsPaginated(QueryArgsPaginated, first, offset))
   
+import qualified Hasql.Encoders as Encoders
+import qualified Hasql.Statement as Statement
 import qualified Hasql.Connection as Connection
 import qualified Hasql.Decoders as Decoders
 import qualified Hasql.Session as Session
 import Data.Morpheus.Types (GQLRootResolver (..), GQLType, unsafeInternalContext, Context(Context, currentSelection))
 import           Control.Monad.Trans            ( lift )
 import PostgreSQL.Binary.Data (LocalTime)
+import qualified Data.Vector as Vector
 
 data Plant = Plant {
   id :: UUID,
@@ -51,10 +54,10 @@ type SelectStructPlant queryFormat = SelectStruct Plant queryFormat
 
 plantSelect :: QueryFormat queryFormat => ValidSelection -> SelectStructPlant queryFormat -> SelectStructPlant queryFormat
 plantSelect selection = case fieldName of
-  "id" -> scalar fieldName (\e v -> e{id=v}) Decoders.uuid
-  "name" -> scalar fieldName (\e v -> e{name=v}) Decoders.text
-  "createdAt" -> scalar fieldName (\e v -> e{createdAt=v}) Decoders.timestamp
-  "truckList" -> collection testAssemblingOptions Decoders.listArray truckSubquery (\e v -> e{truckList=v})
+  "id" -> scalarField (\e v -> e{id=v}) Decoders.uuid
+  "name" -> scalarField (\e v -> e{name=v}) Decoders.text
+  "createdAt" -> scalarField (\e v -> e{createdAt=v}) Decoders.timestamp
+  "truckList" -> collectionWithOptions Decoders.listArray truckSubquery (\e v -> e{truckList=v})
     where
       truckBasicSubquery = (truckInitSQL Nothing (validSelectionToSelectionSet selection))
       truckSubquery = transformWhereJoinGroup "truck_plant.plant_id=plant.id" [
@@ -62,13 +65,15 @@ plantSelect selection = case fieldName of
         ] ["plant.id"] truckBasicSubquery
   _ -> Prelude.id
   where
+    collectionWithOptions = collection testAssemblingOptions
+    scalarField = scalar "plant" fieldName
     fieldName = selectionName selection
 
 plantInitSQL :: QueryFormat queryFormat => PlantListQueryFilter -> ValidSelectionSet -> SelectStructPlant queryFormat
 plantInitSQL filters = foldr plantSelect (initialPlantQuery filters)
 
 initialPlantQuery :: QueryFormat queryFormat => PlantListQueryFilter -> SelectStructPlant queryFormat
-initialPlantQuery filter = getInitialValueSelect defaultSelect{
+initialPlantQuery filter = getInitialValueSelect initSelect{
         fromPart = "plant",
         offsetLimit = Just (offset filter, first filter)
       } defaultPlant
@@ -85,6 +90,7 @@ plantListQuery queryArgs = do
         Left e -> (error $ show e)
         Right goodCo -> pure goodCo
       res <- Session.run (statement validSel) connection
+      res <- Session.run (statement validSel) connection
       case res of
         Left e -> (error $ show e)
         Right listRes -> pure listRes
@@ -98,3 +104,4 @@ defaultFilter = QueryArgsPaginated {
   first = 20,
   offset = 0
 }
+

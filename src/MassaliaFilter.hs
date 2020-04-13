@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -10,7 +11,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -24,14 +25,12 @@ module MassaliaFilter
   )
 where
 
+import Protolude
+
 -- import Hasql.Encoders
 
 import Data.Aeson (FromJSON, ToJSON)
--- import qualified Hasql.DynamicStatements.Snippet as HasqlDynamic (param)
-
--- import Hasql.Implicits.Encoders (DefaultParamEncoder(defaultParam))
-
-import Data.Data (Data, gmapQ)
+import Data.Data (Data)
 import Data.Functor.Contravariant ((>$<))
 import Data.Morpheus.Types (GQLType (description))
 import Data.Proxy (Proxy (Proxy))
@@ -39,7 +38,6 @@ import Data.String as StringUtils (IsString (fromString))
 import Data.Text (Text)
 import Data.UUID
 import Data.Void
-import GHC.Generics (Generic)
 import GHC.Generics ((:*:) ((:*:)), C1, Generic, K1 (K1), M1 (M1), Rep (Rep), from)
 import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import Hasql.DynamicStatements.Snippet (Snippet)
@@ -56,6 +54,8 @@ data GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalar
         isNull :: Maybe Bool,
         isLike :: Maybe likeScalarType,
         isIlike :: Maybe likeScalarType,
+        isInSet :: Maybe (Set ordScalarType),
+        isNotInSet :: Maybe (Set ordScalarType),
         isGT :: Maybe ordScalarType, -- is greater than
         isLT :: Maybe ordScalarType, -- is lesser than
         isBetween :: Maybe (ordScalarType, ordScalarType, RangeInclusivity) -- [0, 1[
@@ -63,15 +63,15 @@ data GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalar
   deriving (Eq, Show, Generic)
 
 deriving instance
-  (FromJSON eqScalarType, FromJSON likeScalarType, FromJSON ordScalarType) =>
+  (FromJSON eqScalarType, FromJSON likeScalarType, FromJSON ordScalarType, Ord ordScalarType) =>
   FromJSON (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
 
 deriving instance
-  (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType) =>
+  (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType, Ord ordScalarType) =>
   ToJSON (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
 
 deriving instance
-  (KnownSymbol (fieldName :: Symbol), Data eqScalarType, Data likeScalarType, Data ordScalarType) =>
+  (KnownSymbol (fieldName :: Symbol), Data eqScalarType, Data likeScalarType, Data ordScalarType, Ord ordScalarType) =>
   Data (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
 
 -- | Filter with no effect
@@ -84,6 +84,8 @@ defaultScalarFilter =
       isNotIn = Nothing,
       isLike = Nothing,
       isIlike = Nothing,
+      isInSet = Nothing,
+      isNotInSet = Nothing,
       isGT = Nothing,
       isLT = Nothing,
       isBetween = Nothing
@@ -105,17 +107,17 @@ instance (KnownSymbol (fieldName :: Symbol)) => GQLType (GQLFilterText (fieldNam
 type GQLFilterInt (fieldName :: Symbol) = GQLScalarFilter (fieldName :: Symbol) Int Void Int
 
 instance (KnownSymbol (fieldName :: Symbol)) => GQLType (GQLFilterInt (fieldName :: Symbol)) where
-  description = const $ Just "All the common operation you can think of for Text"
+  description = const $ Just "All the common operation you can think of for Int"
 
 maybeToQueryFormat :: (QueryFormat content) => Maybe content -> content
 maybeToQueryFormat Nothing = mempty
 maybeToQueryFormat (Just content) = content
 
-filterFieldToQueryPart maybeField = AQueryPartConst $ filterFieldToContent maybeField
+filterFieldToQueryPart maybePrefix maybeField = AQueryPartConst $ filterFieldToContent maybePrefix maybeField
 
-filterFieldToMaybeQueryPart maybeField = AQueryPartConst <$> filterFieldToMabeContent maybeField
+filterFieldToMaybeQueryPart maybePrefix maybeField = AQueryPartConst <$> filterFieldToMabeContent maybePrefix maybeField
 
-filterFieldToContent maybeField = maybeToQueryFormat $ filterFieldToMabeContent maybeField
+filterFieldToContent maybePrefix maybeField = maybeToQueryFormat $ filterFieldToMabeContent maybePrefix maybeField
 
 filterFieldToMabeContent ::
   forall fieldName.
@@ -132,12 +134,13 @@ filterFieldToMabeContent ::
     QueryFormat content,
     Data (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
   ) =>
+  Maybe content ->
   Maybe (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType) ->
   Maybe content
-filterFieldToMabeContent Nothing = Nothing
-filterFieldToMabeContent (Just filter) = case filter of
+filterFieldToMabeContent _ Nothing = Nothing
+filterFieldToMabeContent maybeNamespace (Just filter) = case filter of
   GQLScalarFilter {isEq = (Just eqValue)} -> snippetContent actualFieldName "=" (Just eqValue)
-  GQLScalarFilter {isNull = (Just True)} -> Just (StringUtils.fromString actualFieldName <> " IS NULL")
+  GQLScalarFilter {isNull = (Just True)} -> Just (prefixedFieldName <> " IS NULL")
   GQLScalarFilter
     { isIn = isInValue,
       isNotEq = isNotEqValue,
@@ -148,40 +151,45 @@ filterFieldToMabeContent (Just filter) = case filter of
       isGT = isGTValue,
       isLT = isLTValue,
       isBetween = isBetweenValue
-    } -> case ( wrappedContent actualFieldName "!=" isNotEqValue ""
-                  <> wrappedContent actualFieldName "=ANY(" isInValue ")"
-                  <> wrappedContent actualFieldName "!=ALL(" isNotInValue ")"
-                  <> wrappedContent actualFieldName "like" isLikeValue ""
-                  <> wrappedContent actualFieldName "ilike" isIlikeValue ""
-                  <> wrappedContent actualFieldName ">" isGTValue ""
-                  <> wrappedContent actualFieldName "<" isLTValue ""
+    } -> case ( wrappedContent prefixedFieldName "!=" isNotEqValue ""
+                  <> wrappedContent prefixedFieldName "=ANY(" isInValue ")"
+                  <> wrappedContent prefixedFieldName "!=ALL(" isNotInValue ")"
+                  <> wrappedContent prefixedFieldName "like" isLikeValue ""
+                  <> wrappedContent prefixedFieldName "ilike" isIlikeValue ""
+                  <> wrappedContent prefixedFieldName ">" isGTValue ""
+                  <> wrappedContent prefixedFieldName "<" isLTValue ""
                   <> []
               ) of
       [] -> Nothing
-      list -> Just (intercalate " AND " list)
+      list -> Just (MassaliaUtils.intercalate " AND " list)
   where
-    actualFieldName = symbolVal (Proxy :: Proxy (fieldName :: Symbol))
+    prefixedFieldName = actualPrefix <> actualFieldName
+    actualPrefix = maybe "" (<> ".") maybeNamespace
+    actualFieldName = StringUtils.fromString (symbolVal (Proxy :: Proxy (fieldName :: Symbol)))
 
 snippetContent ::
   (QueryFormat content, TextEncoder a, DefaultParamEncoder a) =>
-  String ->
+  content ->
   content ->
   Maybe a ->
   Maybe content
 snippetContent fieldName op maybeVal = effectFunc <$> maybeVal
   where
-    effectFunc parameterVal = StringUtils.fromString fieldName <> " " <> op <> " " <> param parameterVal
+    effectFunc parameterVal = fieldName <> " " <> op <> " " <> param parameterVal
 
 wrappedContent ::
-  (QueryFormat content, TextEncoder a, DefaultParamEncoder a) =>
-  String ->
+  forall content.
+  (QueryFormat content) =>
   content ->
-  Maybe a ->
-  content ->
-  [content]
+  (forall filterValue. (TextEncoder filterValue, DefaultParamEncoder filterValue) =>
+    content ->
+    Maybe filterValue ->
+    content ->
+    [content]
+  )
 wrappedContent _ _ Nothing _ = []
 wrappedContent fieldName op (Just a) suffix =
-  [ StringUtils.fromString fieldName <> " " <> op <> " " <> param a <> suffix
+  [ fieldName <> " " <> op <> " " <> param a <> suffix
   ]
 
 -- int4range — Range of integer
@@ -193,9 +201,9 @@ wrappedContent fieldName op (Just a) suffix =
 -- TODO: map the proper ranges with Hasql/haskell types
 class DefaultParamEncoder a => PostgresRange a where
   -- First param is the classname
-  getRangeKeyword :: String
+  getRangeKeyword :: b
 
 instance PostgresRange Void where
-  getRangeKeyword = error "EA1: should never call PostgresRange for Void"
+  getRangeKeyword = panic "EA1: should never call PostgresRange for Void"
 
 data RangeInclusivity = Inclusive | Exclusive | RightInclusive | LeftInclusive deriving (Eq, Show, Data, Generic, FromJSON, ToJSON)

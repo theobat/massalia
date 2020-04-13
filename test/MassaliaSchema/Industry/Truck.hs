@@ -14,7 +14,7 @@ import Data.UUID (UUID, nil)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Data.Data (Data)
-import MassaliaSQLSelect (SelectStruct, getInitialValueSelect, scalar, RawSelectStruct(RawSelectStruct, fromPart, whereConditions), defaultSelect)
+import MassaliaSQLSelect (SelectStruct, getInitialValueSelect, scalar, RawSelectStruct(RawSelectStruct, fromPart, whereConditions), initSelect)
 import MassaliaQueryFormat (
     QueryFormat(param, fromText)
   )
@@ -32,16 +32,18 @@ data Truck = Truck {
 
 truckSelect :: QueryFormat content => ValidSelection -> SelectStruct Truck content -> SelectStruct Truck content
 truckSelect selection = case fieldName of
-  "id" -> scalar fieldName (\e v -> e{id=v}) Decoders.uuid
+  "id" -> scalarField (\e v -> e{id=v}) Decoders.uuid
   -- "vehicleId" -> simpleCol fieldName (\e v -> e{vehicleId=v}) vehicleId Decoders.text
   _ -> Prelude.id
-  where fieldName = selectionName selection
+  where
+    scalarField = scalar "truck" fieldName
+    fieldName = selectionName selection
 
 truckInitSQL :: QueryFormat content => Maybe TruckListFilter -> ValidSelectionSet -> SelectStruct Truck content
 truckInitSQL filters = foldr truckSelect (initialTruckQuery filters)
 
 initialTruckQuery :: QueryFormat content => Maybe TruckListFilter -> SelectStruct Truck content
-initialTruckQuery filterw = getInitialValueSelect defaultSelect{
+initialTruckQuery filterw = getInitialValueSelect initSelect{
         fromPart = "truck",
         whereConditions = toQueryPart filterw
       } defaultTruck

@@ -16,7 +16,7 @@ module MassaliaSQLSelect
     AQueryPart(AQueryPartConst),
     getInitialValueSelect,
     AssemblingOptions(..),
-    defaultSelect,
+    initSelect,
     selectStructToContent,
     selectStructToContentDefault,
     selectStructToSession,
@@ -41,7 +41,7 @@ import MassaliaSQLRawSelect (
     AQueryPart(AQueryPartConst),
     addSelectColumns,
     AssemblingOptions(..),
-    defaultSelect
+    initSelect
   )
 import qualified Hasql.Decoders as Decoders
 import Data.Text(Text)
@@ -73,11 +73,12 @@ type ValueDec a = Decoders.Value a
 
 scalar :: (QueryFormat queryFormat) =>
   Text ->
+  Text ->
   Updater a decoder ->
   ValueDec a ->
   SelectStruct decoder queryFormat ->
   SelectStruct decoder queryFormat
-scalar column = object snakeColumn
+scalar tableName column = object $ tableName <> "." <> snakeColumn
   where
     snakeColumn = case toUnderscore column of
         Left _ -> error "Failed at transforming field name to underscore = " <> column

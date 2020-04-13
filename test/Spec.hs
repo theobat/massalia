@@ -4,8 +4,9 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
-import Data.Text (Text)
+import Protolude
 import qualified Hasql.Connection as Connection
 import Hasql.DynamicStatements.Session (dynamicallyParameterizedStatement)
 import qualified Hasql.Session as Session
@@ -28,21 +29,21 @@ main = do
       }
   res <- api quer
   print res
-  _ <- defaultMain tests
+  defaultMain =<< tests
   print "ok"
   -- where
   --   connectionSettings = Connection.settings "localhost" 5432 "postgres" "" "beton_direct_web"
 
 tests :: IO TestTree
-tests = 
-  apiTest <- pure SpecAPI.unitTests
-  staticSelect <- pure SpecStaticSelect.unitTests
-  dynamicSelect <- pure SpecDynamicSelect.unitTests
-  graphqlSelect <- pure SpecGraphQLSelect.unitTests
-  let tests = join [
-    apiTest,
-    staticSelect,
-    dynamicSelect,
-    graphqlSelect
-  ]
-  testGroup "Tests" <$> tests
+tests = do
+  let apiTest = SpecAPI.unitTests
+  let staticSelect = SpecStaticSelect.unitTests
+  let dynamicSelect = SpecDynamicSelect.unitTests
+  let graphqlSelect = SpecGraphQLSelect.unitTests
+  tests <- sequence [
+      pure apiTest,
+      pure staticSelect,
+      pure dynamicSelect,
+      pure graphqlSelect
+    ]
+  pure $ testGroup "Tests" tests

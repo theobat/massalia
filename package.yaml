@@ -38,6 +38,10 @@ dependencies:
 - range
 - postgresql-binary
 - email-validate
+- range
+- containers
+- unordered-containers
+
 
 library:
   source-dirs: src

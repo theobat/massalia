@@ -17,7 +17,8 @@ module MassaliaSQLRawSelect
     AQueryPart(AQueryPartConst),
     addSelectColumns,
     AssemblingOptions(..),
-    defaultSelect
+    initSelect,
+    emptySelect
   )
 where
 
@@ -57,18 +58,37 @@ data RawSelectStruct content
 
 type OffsetLimit = Maybe (Int, Int)
 
-defaultSelect :: (QueryFormat content) => RawSelectStruct content  
-defaultSelect = RawSelectStruct
-      { wrapFunctionList = [Row], -- either: "row" or "array_agg", "row"
-        selectPart = [],
-        fromPart = "NOT_A_VALID_FROM",
-        joinList = [],
-        whereConditions = Nothing,
-        groupByList = [],
-        havingConditions = Nothing,
-        orderByList = [],
-        offsetLimit = Nothing
-      }
+-- | The initial select struct for Massalia use cases.
+initSelect :: (QueryFormat content) => RawSelectStruct content  
+initSelect = RawSelectStruct
+  { wrapFunctionList = [Row],
+    selectPart = [],
+    fromPart = "NOT_A_VALID_FROM",
+    joinList = [],
+    whereConditions = Nothing,
+    groupByList = [],
+    havingConditions = Nothing,
+    orderByList = [],
+    offsetLimit = Nothing
+  }
+
+-- | This is the neutral element for the monoid instance of the 'RawSelectStruct' struct.
+emptySelect :: (QueryFormat content) => RawSelectStruct content  
+emptySelect = RawSelectStruct
+  { wrapFunctionList = [], -- either: "row" or "array_agg", "row"
+    selectPart = [],
+    fromPart = "",
+    joinList = [],
+    whereConditions = Nothing,
+    groupByList = [],
+    havingConditions = Nothing,
+    orderByList = [],
+    offsetLimit = Nothing
+  }
+
+-- | A fusion which keep the left values for values with non sensible semigroup instances (such as fromPart).
+leftFusion :: (QueryFormat content) => RawSelectStruct content -> RawSelectStruct content -> RawSelectStruct content
+leftFusion a b = undefined
 
 data SQLSelect
 
@@ -141,7 +161,7 @@ structToContent options
 
 structToSubquery ::
   (QueryFormat content, Monoid content) =>
-  AssemblingOptions content -> RawSelectStruct content -> AQueryPart partType content
+  AssemblingOptions content -> RawSelectStruct content -> AQueryPart SQLSelect content
 structToSubquery a b = AQueryPartConst ( "(" <> structToContent a b <> ")" )
 
 addWhereJoinGroup :: (Monoid content) =>
