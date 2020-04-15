@@ -32,6 +32,20 @@ packages:
       sha256: 43405b9fbc2819e7f6bda450a3668fa7314c6b5482d26015831fcc54d680f604
   original:
     hackage: bug-1.0.1@sha256:a516df91c7330d350480a7d338af645f173d1e767450c5f94295020f11c8432c,1395
+- completed:
+    cabal-file:
+      size: 2799
+      sha256: 6ca4cc6c89834bb79eb9f15b504774043b5b3994336bd86a9d79e59da6d54963
+    name: hasql-migration
+    version: 0.3.0
+    git: git@github.com:tvh/hasql-migration.git
+    pantry-tree:
+      size: 689
+      sha256: 70342dc8dc7d388695d33793d6147cce80de6af54583f4916f4c250686fc249d
+    commit: 58c90f7c5c0e829708c35db9d2c8bc47e86621eb
+  original:
+    git: git@github.com:tvh/hasql-migration.git
+    commit: 58c90f7c5c0e829708c35db9d2c8bc47e86621eb
 snapshots:
 - completed:
     size: 491372

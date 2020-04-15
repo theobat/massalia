@@ -41,7 +41,8 @@ dependencies:
 - range
 - containers
 - unordered-containers
-
+- hasql-migration
+- hasql-transaction
 
 library:
   source-dirs: src
@@ -58,8 +59,8 @@ executables:
     - massalia
 
 tests:
-  massalia-test:
-    main:                Spec.hs
+  massalia-unit-test:
+    main:                unit/Spec.hs
     source-dirs:
       - test
     ghc-options:
@@ -68,3 +69,16 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - massalia
+  massalia-integration-test:
+    main:                integration/SpecAPI.hs
+    source-dirs:
+      - test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - massalia
+    - hasql-migration
+    - hasql-transaction
+    - pretty-simple

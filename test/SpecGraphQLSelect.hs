@@ -43,8 +43,8 @@ unitTests =
   testGroup
     "Test graphql AST to SQL query"
     [ testCase "test simple Truck query" $
-        assertEqual "" (selectStructToContent testAssemblingOptions testTruckList) "SELECT row(id) FROM truck",
+        assertEqual "" (selectStructToContent testAssemblingOptions testTruckList) "SELECT row(truck.id) FROM truck",
       testCase "test simple Plant->Truck query" $
-        assertEqual "" (selectStructToContent testAssemblingOptions testPlantQuery) "SELECT row((SELECT array_agg(row(id)) FROM truck JOIN truck_plant ON truck.id=truck_plant.truck_id WHERE truck_plant.plant_id=plant.id GROUP BY plant.id), id) FROM plant LIMIT 20"
+        assertEqual "" (selectStructToContent testAssemblingOptions testPlantQuery) "SELECT row((SELECT array_agg(row(truck.id)) FROM truck JOIN truck_plant ON truck.id=truck_plant.truck_id WHERE truck_plant.plant_id=plant.id GROUP BY plant.id), plant.id) FROM plant LIMIT 20"
     ]
 
