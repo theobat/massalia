@@ -31,9 +31,9 @@ main = do
     Left e -> panic $ show e
     Right goodCo -> pure goodCo
   r <- runTx connection $ runMigration $ MigrationInitialization
-  migrationFile <- loadMigrationFromFile "schema.sql" "./test/MassaliaSchema/schema.sql"
-  res <- runTx connection $ runMigration migrationFile
-  pPrint res
+  -- migrationFile <- loadMigrationFromFile "schema.sql" "./test/MassaliaSchema/schema.sql"
+  -- res <- runTx connection $ runMigration migrationFile
+  -- pPrint res
   runTx connection (Tx.sql "SELECT 1")
   runTx connection (Tx.sql "SELECT 'this is HASQL !!'")
   Connection.withLibPQConnection connection (const $ defaultMain unitTests) 
