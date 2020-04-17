@@ -14,15 +14,16 @@ import MorpheusTypes
 import MassaliaSchema.Industry.Plant (Plant)
 import MassaliaSchema.Industry.Truck (Truck)
 import GHC.Generics (Generic)
+import Hasql.Connection (Connection)
 import MassaliaSchema.Industry.Plant (plantListQuery, PlantListQueryFilter)
 
-api :: GQLRequest -> IO GQLResponse
-api = interpreter rootResolver
+api :: Connection -> GQLRequest -> IO GQLResponse
+api dbConnection = interpreter $ rootResolver dbConnection
 
-rootResolver :: GQLRootResolver IO () Query Undefined Undefined
-rootResolver =
+rootResolver :: Connection -> GQLRootResolver IO () Query Undefined Undefined
+rootResolver dbConnection =
   GQLRootResolver
-    { queryResolver = rootQuery,
+    { queryResolver = rootQuery dbConnection,
       mutationResolver = Undefined,
       subscriptionResolver = Undefined
     }
@@ -33,9 +34,9 @@ data Query m
       }
   deriving (Generic, GQLType)
 
-rootQuery :: Query (Resolver QUERY () IO)
-rootQuery = Query {
-  plantListPaginated = plantListQuery
+rootQuery :: Connection -> Query (Resolver QUERY () IO)
+rootQuery dbConnection = Query {
+  plantListPaginated = plantListQuery dbConnection
 }
 
   

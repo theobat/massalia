@@ -36,7 +36,14 @@ main = do
   -- pPrint res
   runTx connection (Tx.sql "SELECT 1")
   runTx connection (Tx.sql "SELECT 'this is HASQL !!'")
-  Connection.withLibPQConnection connection (const $ defaultMain unitTests) 
+  let quer = GQLRequest {
+        query = "query plantList_test { plantListPaginated (first: 10, offset: 0) { id name } }",
+        operationName = Nothing,
+        variables = Nothing
+      }
+  res <- api connection quer
+  pPrint res
+  -- Connection.withLibPQConnection connection (const $ defaultMain unitTests) 
   Connection.release connection
 
 unitTests :: TestTree

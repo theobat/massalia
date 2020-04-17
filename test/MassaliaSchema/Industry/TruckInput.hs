@@ -19,6 +19,9 @@ import qualified Hasql.Decoders as Decoders
 import MassaliaQueryFormat
   ( HasqlSnippet,
     QueryFormat (fromText, param),
+    (§),
+    takeParam,
+    takeMaybeParam
   )
 import Prelude hiding (id)
 import qualified Prelude (id)
@@ -30,18 +33,25 @@ data TruckInput
         vehicleId :: Maybe Text,
         chassis :: Chassis
       }
-  deriving (Show, Generic)
+  deriving (Show, Generic, JSON.FromJSON)
 
-data Chassis = C8x4 | C6x4 | C4x4 | C4x2 | CUnknown deriving (Show, Generic)
+data Chassis = C8x4 | C6x4 | C4x4 | C4x2 | CUnknown deriving (Show, Generic, JSON.FromJSON)
 
 chassisFromTuple :: (Int, Int) -> Chassis
-chassisFromTuple _ = CUnknown
+chassisFromTuple value = case value of
+  (8, 4) -> C8x4
+  (6, 4) -> C6x4
+  (4, 4) -> C4x4
+  (4, 2) -> C4x2
+  _ -> CUnknown
+
 chassisToTuple :: Chassis -> (Int, Int)
-chassisToTuple C8x4 = (8, 4)
-chassisToTuple C6x4 = (6, 4)
-chassisToTuple C4x4 = (4, 4)
-chassisToTuple C4x2 = (4, 2)
-chassisToTuple CUnknown = (-1, -1)
+chassisToTuple value = case value of
+  C8x4 -> (8, 4)
+  C6x4 -> (6, 4)
+  C4x4 -> (4, 4)
+  C4x2 -> (4, 2)
+  CUnknown -> (-1, -1)
 
 data DefaultBehavior queryFormat = Mandatory | Default queryFormat
 data TableColumnPolicy = FirstElement | RemoveTheAllEmpty | AlwaysFull
@@ -54,12 +64,8 @@ toQueryFormat val =
   takeParam id val §
   takeMaybeParam vehicleId val "" §
   chassisToQueryFormat (chassis val)
-  where
-    (§) a b = a <> "," <> b 
-    takeParam a b = param $ a b
-    takeMaybeParam a b c = case (a b) of
-      Nothing -> c
-      Just d -> param d
 
 tableColumns :: QueryFormat queryFormat => [queryFormat]
 tableColumns = ["id", "vehicle_id", "chassis"]
+
+

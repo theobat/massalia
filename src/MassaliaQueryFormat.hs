@@ -9,6 +9,9 @@ module MassaliaQueryFormat
     TextEncoder (paramEncode),
     DefaultParamEncoder,
     HasqlSnippet,
+    (§),
+    takeParam,
+    takeMaybeParam
   )
 where
 
@@ -29,6 +32,21 @@ import Protolude hiding (intercalate, replace)
 import Data.Foldable (foldr1)
 
 type HasqlSnippet = Snippet
+
+(§) :: QueryFormat content => content -> content -> content
+(§) a b = a <> "," <> b
+
+takeParam ::
+  (QueryFormat content, TextEncoder paramValueType, DefaultParamEncoder paramValueType) =>
+  (recordType -> paramValueType) -> recordType -> content
+takeParam accessor record = param $ accessor record
+
+takeMaybeParam ::
+  (QueryFormat content, TextEncoder paramValueType, DefaultParamEncoder paramValueType) =>
+  (recordType -> Maybe paramValueType) -> recordType -> content -> content
+takeMaybeParam accessor record defaultValue = case (accessor record) of
+  Nothing -> defaultValue
+  Just value -> param value
 
 instance DefaultParamEncoder Void where
   defaultParam = panic "This should never happen, cannot encode Void as a parameter"

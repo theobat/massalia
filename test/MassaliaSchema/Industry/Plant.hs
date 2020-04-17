@@ -80,24 +80,19 @@ initialPlantQuery filter = getInitialValueSelect initSelect{
 
 defaultPlant = Plant{id=nil, truckList=mempty, name =""}
 
-plantListQuery queryArgs = do
+plantListQuery dbConnection queryArgs = do
   Context { currentSelection = selection } <- unsafeInternalContext
   lift (exec (validSelectionToSelectionSet selection))
   where
     exec validSel = do
-      rawConnection <- Connection.acquire connectionSettings
-      connection <- case rawConnection of
-        Left e -> (error $ show e)
-        Right goodCo -> pure goodCo
-      res <- Session.run (statement validSel) connection
-      res <- Session.run (statement validSel) connection
+      res <- Session.run (statement validSel) dbConnection
+      res <- Session.run (statement validSel) dbConnection
       case res of
         Left e -> (error $ show e)
         Right listRes -> pure listRes
     statement validSel = selectStructToSession $ initialSnippet validSel
     initialSnippet :: ValidSelectionSet -> SelectStructPlant HasqlSnippet
     initialSnippet = plantInitSQL defaultFilter
-    connectionSettings = Connection.settings "localhost" 5432 "postgres" "" "beton_direct_web"
 
 type PlantListQueryFilter = QueryArgsPaginated (Maybe Text)
 defaultFilter = QueryArgsPaginated {
