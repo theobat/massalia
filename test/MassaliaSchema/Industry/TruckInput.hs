@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module MassaliaSchema.Industry.TruckInput
   ( TruckInput (..),
@@ -16,16 +17,15 @@ import Data.Text (Text, pack)
 import Data.UUID (UUID)
 import GHC.Generics (Generic)
 import qualified Hasql.Decoders as Decoders
+import qualified Hasql.Encoders as Encoders
 import MassaliaQueryFormat
   ( HasqlSnippet,
     QueryFormat (fromText, param),
-    (§),
+    takeMaybeParam,
     takeParam,
-    takeMaybeParam
+    (§),
   )
-import Prelude hiding (id)
-import qualified Prelude (id)
-import qualified Hasql.Encoders as Encoders
+import Protolude
 
 data TruckInput
   = TruckInput
@@ -33,9 +33,9 @@ data TruckInput
         vehicleId :: Maybe Text,
         chassis :: Chassis
       }
-  deriving (Show, Generic, JSON.FromJSON)
+  deriving (Eq, Show, Generic, JSON.FromJSON)
 
-data Chassis = C8x4 | C6x4 | C4x4 | C4x2 | CUnknown deriving (Show, Generic, JSON.FromJSON)
+data Chassis = C8x4 | C6x4 | C4x4 | C4x2 | CUnknown deriving (Eq, Show, Generic, JSON.FromJSON)
 
 chassisFromTuple :: (Int, Int) -> Chassis
 chassisFromTuple value = case value of
@@ -54,18 +54,17 @@ chassisToTuple value = case value of
   CUnknown -> (-1, -1)
 
 data DefaultBehavior queryFormat = Mandatory | Default queryFormat
+
 data TableColumnPolicy = FirstElement | RemoveTheAllEmpty | AlwaysFull
 
 chassisToQueryFormat :: QueryFormat queryFormat => Chassis -> queryFormat
-chassisToQueryFormat ch = fromText ("row(" <> (pack . show . chassisToTuple) ch <> ")")
+chassisToQueryFormat ch = fromText ("row" <> (pack . show . chassisToTuple) ch <> "")
 
 toQueryFormat :: QueryFormat queryFormat => TruckInput -> queryFormat
 toQueryFormat val =
-  takeParam id val §
-  takeMaybeParam vehicleId val "" §
-  chassisToQueryFormat (chassis val)
+  takeParam id val
+    § takeMaybeParam vehicleId val ""
+    § chassisToQueryFormat (chassis val)
 
 tableColumns :: QueryFormat queryFormat => [queryFormat]
 tableColumns = ["id", "vehicle_id", "chassis"]
-
-

@@ -10,6 +10,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DataKinds #-}
 
 module MassaliaSchema.Industry.DBContext where
 
@@ -22,41 +23,62 @@ import MassaliaSchema.Industry.PlantInput (PlantInput)
 import qualified MassaliaSchema.Industry.PlantInput as PlantInput
 import MassaliaSchema.Industry.TruckInput (TruckInput)
 import qualified MassaliaSchema.Industry.TruckInput as TruckInput
+import Data.Morpheus.Types (GQLRequest, GQLResponse, GQLRootResolver (..), GQLType, IORes, QUERY, ResolveQ, Resolver, Undefined (..))
 
 data DBContext containerType typeContext = DBContext {
-  plant :: Apply typeContext containerType PlantInput,
-  truck :: Apply typeContext containerType TruckInput
+  plant :: Apply typeContext (containerType PlantInput),
+  truck :: Apply typeContext (containerType TruckInput),
+  ok :: Apply typeContext (containerType TruckInput)
 } deriving (Generic)
 
-class Aggregable rec where
-  toQueryFormat :: rec -> Text
-
-type family Apply token (containerType :: * -> *) underlyingType
-type instance Apply Text containerType underlyingType = underlyingType -> Text
-
+type family Apply token someType
 
 data PlantInputListToken
-type instance Apply PlantInputListToken containerType underlyingType = PlantInputList containerType underlyingType
+type instance Apply PlantInputListToken someType = PlantInputList someType
 
-type family PlantInputList containerType underlyingType where
-  PlantInputList containerType PlantInput = containerType PlantInput
-  PlantInputList _ _ = Maybe Void
+type family PlantInputList someType where
+  PlantInputList (containerType PlantInput) = containerType PlantInput
+  PlantInputList _ = Maybe Void
 
-type Test = DBContext [] PlantInputListToken
+newtype PlantInputDBContext = PlantInputDBContext (DBContext [] PlantInputListToken)
+
+data SimpleDedupeStruct a = SimpleDedupeStruct a UUID
+data FullDedupeStruct a = FullDedupeStruct a a
+type PlantInputDBContextDedupe = DBContext SimpleDedupeStruct PlantInputListToken
 type TestGathered = DBContext Maybe Text
 
 deriving instance FromJSON (DBContext [] PlantInputListToken)
+deriving instance GQLType (DBContext [] PlantInputListToken)
 
-test :: Test
-test = DBContext {
+test :: PlantInputDBContext
+test = PlantInputDBContext $ DBContext {
   plant = [],
-  truck = Nothing
+  truck = Nothing,
+  ok = Nothing
 }
-testG :: TestGathered
-testG = DBContext {
-  plant = const "",
-  truck = const ""
-}
+
+something :: (Foldable containerType) =>  DBContext containerType typeContext -> Text
+something dbContext = ""
+  where
+    -- okoko = foldr undefined "" plantTest
+    plantTest = plant dbContext
+
+-- testGene :: forall a. Eq a => a -> Text
+-- testGene = case level1 of
+--   M1 a -> case a of
+--     M1 b -> case b of
+--       M1 (K1 c) :*: d -> undefined 
+--   where
+--     level1 = from test
+
+plantInsert dbConnection queryArgs = do
+  -- Context { currentSelection = selection } <- unsafeInternalContext
+  lift 
+
+
+    -- iterate input = case input of
+    --   M1 (K1 c) :*: d -> iterate d
+      -- _ -> undefined
 
 -- data DBContext typeContext containerType = DBContext {
 --   plant :: containerType (TLMaybe typeContext PlantInput),

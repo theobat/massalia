@@ -32,14 +32,29 @@ data PlantInput
       { id :: UUID,
         name :: Maybe Text
       }
-  deriving (Show, Generic, JSON.FromJSON)
+  deriving (Eq, Show, Generic, JSON.FromJSON)
 
-toQueryFormat :: QueryFormat queryFormat => PlantInput -> queryFormat
-toQueryFormat val =
+plantSchemaTriplet :: QueryFormat queryFormat => (queryFormat, [queryFormat], PlantInput -> queryFormat)
+plantSchemaTriplet = undefined
+
+data PlantListInput container
+  = PlantListInput
+      { plant :: container PlantInput,
+        truck :: container UUID
+      }
+  deriving (Generic)
+
+
+
+toInsertQuery :: QueryFormat queryFormat => PlantListInput [] -> queryFormat
+toInsertQuery input = undefined
+
+plantToQueryFormat :: QueryFormat queryFormat => PlantInput -> queryFormat
+plantToQueryFormat val =
   takeParam id val §
   takeMaybeParam name val ""
 
-tableColumns :: QueryFormat queryFormat => [queryFormat]
-tableColumns = ["id", "name"]
+plantTableColumns :: QueryFormat queryFormat => [queryFormat]
+plantTableColumns = ["id", "name"]
 
 
