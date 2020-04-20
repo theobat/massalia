@@ -20,6 +20,7 @@ module MassaliaSQLSelect
     selectStructToContent,
     selectStructToContentDefault,
     selectStructToSession,
+    selectStructToSnippetAndResult,
     transformOrderLimit,
     transformWhereJoinGroup,
     addOrderLimit,
@@ -41,7 +42,7 @@ import MassaliaSQLRawSelect (
     AQueryPart(AQueryPartConst),
     addSelectColumns,
     AssemblingOptions(..),
-    initSelect
+    initSelect,
   )
 import qualified Hasql.Decoders as Decoders
 import Data.Text(Text)

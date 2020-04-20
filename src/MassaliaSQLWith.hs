@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module MassaliaSQLWith where
+module MassaliaSQLWith (withXAs) where
 import Protolude
 import MassaliaQueryFormat
   ( HasqlSnippet,

@@ -7,6 +7,7 @@
 
 module MassaliaSchema.Industry.PlantInput
   ( PlantInput (..),
+  queryTest
   )
 where
 
@@ -14,6 +15,7 @@ import qualified Data.Aeson as JSON
 import Data.Data (Data)
 import Data.Text (Text, pack)
 import Data.UUID (UUID)
+import Data.UUID (nil)
 import GHC.Generics (Generic)
 import qualified Hasql.Decoders as Decoders
 import MassaliaQueryFormat
@@ -23,6 +25,9 @@ import MassaliaQueryFormat
     takeParam,
     takeMaybeParam
   )
+import MassaliaSQLInsert (valuesToSelect, InsertSchema(InsertSchema))
+import MassaliaSQLWith (withXAs)
+import MassaliaUtils (commaAssemble)
 import Prelude hiding (id)
 import qualified Prelude (id)
 import qualified Hasql.Encoders as Encoders
@@ -34,8 +39,19 @@ data PlantInput
       }
   deriving (Eq, Show, Generic, JSON.FromJSON)
 
-plantSchemaTriplet :: QueryFormat queryFormat => (queryFormat, [queryFormat], PlantInput -> queryFormat)
-plantSchemaTriplet = undefined
+plantSchemaTriplet :: QueryFormat queryFormat => InsertSchema queryFormat PlantInput
+plantSchemaTriplet = InsertSchema $ ("plant", ["id", "name"], plantToQueryFormat)
+  where
+    plantToQueryFormat val =
+      takeParam id val §
+      takeMaybeParam name val "''"
+
+csc :: QueryFormat queryFormat => queryFormat
+csc = commaAssemble columnList
+  where
+    InsertSchema (_, columnList, _) = plantSchemaTriplet
+
+-- plantCollectionToQueryFormat = valuesFormatter Nothing (Just csc)
 
 data PlantListInput container
   = PlantListInput
@@ -47,14 +63,12 @@ data PlantListInput container
 
 
 toInsertQuery :: QueryFormat queryFormat => PlantListInput [] -> queryFormat
-toInsertQuery input = undefined
-
-plantToQueryFormat :: QueryFormat queryFormat => PlantInput -> queryFormat
-plantToQueryFormat val =
-  takeParam id val §
-  takeMaybeParam name val ""
-
-plantTableColumns :: QueryFormat queryFormat => [queryFormat]
-plantTableColumns = ["id", "name"]
+toInsertQuery input =
+  withXAs "plant" (valuesToSelect plantSchemaTriplet) plant input
 
 
+queryTest :: QueryFormat queryFormat => queryFormat
+queryTest = toInsertQuery PlantListInput{
+    plant = [PlantInput nil (Just "okokok")],
+    truck = []
+  }

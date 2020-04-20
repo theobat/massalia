@@ -18,6 +18,7 @@ import Data.UUID (UUID, nil)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import MassaliaSchema.Industry.Truck (Truck, truckInitSQL)
+import MassaliaSchema.Industry.PlantInput (queryTest)
 import Data.Void (Void)
 import MorpheusTypes (
   Key, ValidSelection, ValidSelectionSet, Selection(Selection, selectionName, selectionContent), SelectionContent(..),
@@ -26,13 +27,14 @@ import MorpheusTypes (
 import MassaliaSQLSelect (
     selectStructToSession,
     SelectStruct, getInitialValueSelect, scalar, RawSelectStruct(RawSelectStruct, fromPart, offsetLimit),
-    initSelect, collection, testAssemblingOptions, transformWhereJoinGroup, selectStructToContentDefault    
+    initSelect, collection, testAssemblingOptions, transformWhereJoinGroup, selectStructToContentDefault,
+    selectStructToSnippetAndResult    
   )
 import MassaliaQueryFormat (
     QueryFormat(param, fromText), HasqlSnippet
   )
 import MassaliaUtils (QueryArgsPaginated(QueryArgsPaginated, first, offset))
-  
+import MassaliaSQL (dynamicallyParameterizedStatement)
 import qualified Hasql.Encoders as Encoders
 import qualified Hasql.Statement as Statement
 import qualified Hasql.Connection as Connection
@@ -42,6 +44,8 @@ import Data.Morpheus.Types (GQLRootResolver (..), GQLType, unsafeInternalContext
 import           Control.Monad.Trans            ( lift )
 import PostgreSQL.Binary.Data (LocalTime)
 import qualified Data.Vector as Vector
+import Text.Pretty.Simple (pPrint)
+
 
 data Plant = Plant {
   id :: UUID,
@@ -85,8 +89,13 @@ plantListQuery dbConnection queryArgs = do
   lift (exec (validSelectionToSelectionSet selection))
   where
     exec validSel = do
-      res <- Session.run (statement validSel) dbConnection
-      res <- Session.run (statement validSel) dbConnection
+      -- res <- Session.run (statement validSel) dbConnection
+      let (snippet, result) = selectStructToSnippetAndResult $ initialSnippet validSel
+      let fullSnippet = queryTest <> " " <> snippet
+      res <- Session.run (dynamicallyParameterizedStatement fullSnippet result) dbConnection
+      -- case res2 of
+      --   Left e -> (error $ show e)
+      --   Right listRes -> pPrint listRes
       case res of
         Left e -> (error $ show e)
         Right listRes -> pure listRes

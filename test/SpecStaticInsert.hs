@@ -10,8 +10,10 @@ import MassaliaSQLSelect
 import Test.Tasty
 import Test.Tasty.HUnit
 import MassaliaSQLInsert
-  ( inputToInsertStatement,
-    InsertType(WrapInSelect, PureValues)
+  ( valuesToInsertWrapped,
+    valuesToInsert,
+    ValuesFormatType(WrapInSelect, PureValues),
+    InsertSchema(InsertSchema)
   )
 
 unitTests =
@@ -26,9 +28,11 @@ unitTests =
 tupleToQueryFormat :: (Text, Int) -> Text
 tupleToQueryFormat (aText, anInt) = "'" <> aText <> "','" <> fromString (show anInt) <> "'"
 
-resultExample :: InsertType -> Text
-resultExample formatType = inputToInsertStatement (Just formatType) schemaStuff exampleValueList
+resultExample :: ValuesFormatType -> Text
+resultExample insertType = case insertType of
+  WrapInSelect -> valuesToInsertWrapped schemaStuff exampleValueList
+  PureValues -> valuesToInsert schemaStuff exampleValueList
   where
-    schemaStuff :: (Text, [Text], (Text, Int) -> Text)
-    schemaStuff = ("example", ["a_text", "an_int"], tupleToQueryFormat)
+    schemaStuff :: InsertSchema Text (Text, Int)
+    schemaStuff = InsertSchema $ ("example", ["a_text", "an_int"], tupleToQueryFormat)
     exampleValueList = [("okok", 12), ("yeah", 1)]
