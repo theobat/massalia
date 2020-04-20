@@ -5,8 +5,8 @@ Massalia is a framework for designing APIs on top of
 `Morpheus-graphql <https://github.com/morpheusgraphql/morpheus-graphql>`_ and 
 `Hasql <https://hackage.haskell.org/package/hasql>`_.
 
-It draws most of its inspiration primarily from `join-monster <https://github.com/join-monster/join-monster/tree/master>`_,
-and a little bit from `hasura <https://hasura.io/>`_.
+It draws most of its inspiration from `join-monster <https://github.com/join-monster/join-monster/tree/master>`_,
+and -to a lesser extent- from `hasura <https://hasura.io/>`_.
 
 The main ideas and opinions are:
 
