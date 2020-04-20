@@ -16,6 +16,7 @@ The main ideas and opinions are:
   That is, the data shaping should happen at the select stage as much as possible.
 
 What's the difference with join-monster and hasura then ?
+
   - Join monster uses a join-heavy approach where data fetching is mixed with data shaping (joins are used for both) which is
     not needed. Besides join monster lacks a number of important features such as parametrized queries and support for user-defined types
     at the sql level.
