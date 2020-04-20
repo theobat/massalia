@@ -39,8 +39,6 @@ packages:
 # Dependency packages to be pulled from upstream that are not in the resolver
 # using the same syntax as the packages field.
 # (e.g., acme-missiles-0.3)
-extra-deps:
-- ../morpheus-graphql
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
@@ -77,3 +75,5 @@ extra-deps:
   - bug-1.0.1@sha256:a516df91c7330d350480a7d338af645f173d1e767450c5f94295020f11c8432c,1395
   - git: git@github.com:tvh/hasql-migration.git
     commit: 58c90f7c5c0e829708c35db9d2c8bc47e86621eb
+  - git: git@github.com:theobat/morpheus-graphql.git#massalia-exports
+    commit: 1a8f887f0ece814779e9752258fbfcd5ffe1bab6
