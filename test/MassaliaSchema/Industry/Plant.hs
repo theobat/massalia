@@ -1,73 +1,95 @@
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
-module MassaliaSchema.Industry.Plant (
-    Plant(..),
+module MassaliaSchema.Industry.Plant
+  ( Plant (..),
     plantInitSQL,
     plantListQuery,
     PlantListQueryFilter,
-    defaultFilter
-) where
+    defaultFilter,
+  )
+where
 
-import Prelude hiding(id)
-import qualified Prelude(id) 
-import Data.UUID (UUID, nil)
+import Control.Monad.Trans (lift)
 import Data.Text (Text)
-import GHC.Generics (Generic)
-import MassaliaSchema.Industry.Truck (Truck, truckInitSQL)
-import MassaliaSchema.Industry.PlantInput (queryTest)
-import Data.Void (Void)
-import MorpheusTypes (
-  Key, ValidSelection, ValidSelectionSet, Selection(Selection, selectionName, selectionContent), SelectionContent(..),
-  validSelectionToSelectionSet
-  )
-import MassaliaSQLSelect (
-    selectStructToSession,
-    SelectStruct, getInitialValueSelect, scalar, RawSelectStruct(RawSelectStruct, fromPart, offsetLimit),
-    initSelect, collection, testAssemblingOptions, transformWhereJoinGroup, selectStructToContentDefault,
-    selectStructToSnippetAndResult    
-  )
-import MassaliaQueryFormat (
-    QueryFormat(param, fromText), HasqlSnippet
-  )
-import MassaliaUtils (QueryArgsPaginated(QueryArgsPaginated, first, offset))
-import MassaliaSQL (dynamicallyParameterizedStatement)
-import qualified Hasql.Encoders as Encoders
-import qualified Hasql.Statement as Statement
-import qualified Hasql.Connection as Connection
-import qualified Hasql.Decoders as Decoders
-import qualified Hasql.Session as Session
-import Data.Morpheus.Types (GQLRootResolver (..), GQLType, unsafeInternalContext, Context(Context, currentSelection))
-import           Control.Monad.Trans            ( lift )
-import PostgreSQL.Binary.Data (LocalTime)
+import Data.UUID (UUID, nil)
 import qualified Data.Vector as Vector
+import GHC.Generics (Generic)
+import qualified Hasql.Connection as Connection
+import qualified Hasql.Encoders as Encoders
+import qualified Hasql.Session as Session
+import qualified Hasql.Statement as Statement
+import qualified Massalia.HasqlDec as Decoders
+import Massalia.HasqlExec (dynamicallyParameterizedStatement)
+import Massalia.MorpheusTypes
+  ( Key,
+    Selection (Selection, selectionContent, selectionName),
+    SelectionContent (..),
+    ValidSelection,
+    ValidSelectionSet,
+    validSelectionToSelectionSet,
+  )
+import Massalia.MorpheusTypes
+  ( Context (Context, currentSelection),
+    GQLRootResolver (..),
+    GQLType,
+    unsafeInternalContext,
+  )
+import Massalia.QueryFormat
+  ( HasqlSnippet,
+    QueryFormat (fromText, param),
+  )
+import Massalia.SQLSelect
+  ( RawSelectStruct (RawSelectStruct, fromPart, offsetLimit),
+    SelectStruct,
+    collection,
+    getInitialValueSelect,
+    initSelect,
+    scalar,
+    selectStructToContentDefault,
+    selectStructToSession,
+    selectStructToSnippetAndResult,
+    testAssemblingOptions,
+    transformWhereJoinGroup,
+  )
+import Massalia.UtilsGQL (QueryArgsPaginated (QueryArgsPaginated, first, offset))
+import MassaliaSchema.Industry.PlantInput (queryTest)
+import MassaliaSchema.Industry.Truck (Truck, truckInitSQL)
+import PostgreSQL.Binary.Data (LocalTime)
+import Protolude hiding (first)
 import Text.Pretty.Simple (pPrint)
 
-
-data Plant = Plant {
-  id :: UUID,
-  name :: Text,
-  createdAt :: LocalTime,
-  truckList :: [Truck]
-} deriving (Show, Generic, GQLType)
+data Plant
+  = Plant
+      { id :: UUID,
+        name :: Text,
+        createdAt :: LocalTime,
+        truckList :: [Truck]
+      }
+  deriving (Show, Generic, GQLType)
 
 type SelectStructPlant queryFormat = SelectStruct Plant queryFormat
 
 plantSelect :: QueryFormat queryFormat => ValidSelection -> SelectStructPlant queryFormat -> SelectStructPlant queryFormat
 plantSelect selection = case fieldName of
-  "id" -> scalarField (\e v -> e{id=v}) Decoders.uuid
-  "name" -> scalarField (\e v -> e{name=v}) Decoders.text
-  "createdAt" -> scalarField (\e v -> e{createdAt=v}) Decoders.timestamp
-  "truckList" -> collectionWithOptions Decoders.listArray truckSubquery (\e v -> e{truckList=v})
+  "id" -> scalarField (\e v -> e {id = v}) Decoders.uuid
+  "name" -> scalarField (\e v -> e {name = v}) Decoders.text
+  "createdAt" -> scalarField (\e v -> e {createdAt = v}) Decoders.timestamp
+  "truckList" -> collectionWithOptions Decoders.listArray truckSubquery (\e v -> e {truckList = v})
     where
       truckBasicSubquery = (truckInitSQL Nothing (validSelectionToSelectionSet selection))
-      truckSubquery = transformWhereJoinGroup "truck_plant.plant_id=plant.id" [
-          "JOIN truck_plant ON truck.id=truck_plant.truck_id"
-        ] ["plant.id"] truckBasicSubquery
-  _ -> Prelude.id
+      truckSubquery =
+        transformWhereJoinGroup
+          "truck_plant.plant_id=plant.id"
+          [ "JOIN truck_plant ON truck.id=truck_plant.truck_id"
+          ]
+          ["plant.id"]
+          truckBasicSubquery
+  _ -> identity
   where
     collectionWithOptions = collection testAssemblingOptions
     scalarField = scalar "plant" fieldName
@@ -77,15 +99,18 @@ plantInitSQL :: QueryFormat queryFormat => PlantListQueryFilter -> ValidSelectio
 plantInitSQL filters = foldr plantSelect (initialPlantQuery filters)
 
 initialPlantQuery :: QueryFormat queryFormat => PlantListQueryFilter -> SelectStructPlant queryFormat
-initialPlantQuery filter = getInitialValueSelect initSelect{
-        fromPart = "plant",
+initialPlantQuery filter =
+  getInitialValueSelect
+    initSelect
+      { fromPart = "plant",
         offsetLimit = Just (offset filter, first filter)
-      } defaultPlant
+      }
+    defaultPlant
 
-defaultPlant = Plant{id=nil, truckList=mempty, name =""}
+defaultPlant = Plant {id = nil, truckList = mempty, name = ""}
 
 plantListQuery dbConnection queryArgs = do
-  Context { currentSelection = selection } <- unsafeInternalContext
+  Context {currentSelection = selection} <- unsafeInternalContext
   lift (exec (validSelectionToSelectionSet selection))
   where
     exec validSel = do
@@ -97,15 +122,16 @@ plantListQuery dbConnection queryArgs = do
       --   Left e -> (error $ show e)
       --   Right listRes -> pPrint listRes
       case res of
-        Left e -> (error $ show e)
+        Left e -> (panic $ show e)
         Right listRes -> pure listRes
     statement validSel = selectStructToSession $ initialSnippet validSel
     initialSnippet :: ValidSelectionSet -> SelectStructPlant HasqlSnippet
     initialSnippet = plantInitSQL defaultFilter
 
 type PlantListQueryFilter = QueryArgsPaginated (Maybe Text)
-defaultFilter = QueryArgsPaginated {
-  first = 20,
-  offset = 0
-}
 
+defaultFilter =
+  QueryArgsPaginated
+    { first = 20,
+      offset = 0
+    }

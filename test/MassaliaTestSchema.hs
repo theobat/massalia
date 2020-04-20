@@ -1,12 +1,12 @@
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE TypeOperators     #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
 module MassaliaTestSchema where
 

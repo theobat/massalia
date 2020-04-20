@@ -7,7 +7,7 @@
 
 module MassaliaSchema.Industry.PlantInput
   ( PlantInput (..),
-  queryTest
+    queryTest,
   )
 where
 
@@ -17,20 +17,20 @@ import Data.Text (Text, pack)
 import Data.UUID (UUID)
 import Data.UUID (nil)
 import GHC.Generics (Generic)
-import qualified Hasql.Decoders as Decoders
-import MassaliaQueryFormat
+import qualified Hasql.Encoders as Encoders
+import qualified Massalia.HasqlDec as Decoders
+import Massalia.QueryFormat
   ( HasqlSnippet,
     QueryFormat (fromText, param),
-    (§),
+    commaAssemble,
+    takeMaybeParam,
     takeParam,
-    takeMaybeParam
+    (§),
   )
-import MassaliaSQLInsert (valuesToSelect, InsertSchema(InsertSchema))
-import MassaliaSQLWith (withXAs)
-import MassaliaUtils (commaAssemble)
+import Massalia.SQLInsert (InsertSchema (InsertSchema), valuesToSelect)
+import Massalia.SQLWith (withXAs)
 import Prelude hiding (id)
 import qualified Prelude (id)
-import qualified Hasql.Encoders as Encoders
 
 data PlantInput
   = PlantInput
@@ -43,8 +43,8 @@ plantSchemaTriplet :: QueryFormat queryFormat => InsertSchema queryFormat PlantI
 plantSchemaTriplet = InsertSchema $ ("plant", ["id", "name"], plantToQueryFormat)
   where
     plantToQueryFormat val =
-      takeParam id val §
-      takeMaybeParam name val "''"
+      takeParam id val
+        § takeMaybeParam name val "''"
 
 csc :: QueryFormat queryFormat => queryFormat
 csc = commaAssemble columnList
@@ -60,15 +60,14 @@ data PlantListInput container
       }
   deriving (Generic)
 
-
-
 toInsertQuery :: QueryFormat queryFormat => PlantListInput [] -> queryFormat
 toInsertQuery input =
   withXAs "plant" (valuesToSelect plantSchemaTriplet) plant input
 
-
 queryTest :: QueryFormat queryFormat => queryFormat
-queryTest = toInsertQuery PlantListInput{
-    plant = [PlantInput nil (Just "okokok")],
-    truck = []
-  }
+queryTest =
+  toInsertQuery
+    PlantListInput
+      { plant = [PlantInput nil (Just "okokok")],
+        truck = []
+      }

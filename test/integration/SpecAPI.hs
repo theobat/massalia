@@ -1,26 +1,26 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-import Protolude
+import Data.Morpheus.Types (GQLRequest (..))
 import qualified Hasql.Connection as Connection
 import Hasql.DynamicStatements.Session (dynamicallyParameterizedStatement)
+import Hasql.Migration (MigrationCommand (MigrationInitialization), loadMigrationFromFile, runMigration)
 import qualified Hasql.Session as Session
-import Test.Tasty
-import Test.Tasty.HUnit
-import qualified SpecStaticSelect
-import qualified SpecDynamicSelect
-import qualified SpecGraphQLSelect
+import qualified Hasql.Transaction as Tx
+import qualified Hasql.Transaction.Sessions as Txs
 import MassaliaSchema.TestAPI
 import MassaliaSchema.TestAPI (api)
-import Data.Morpheus.Types (GQLRequest (..))
-import qualified Hasql.Transaction                    as Tx
-import qualified Hasql.Transaction.Sessions           as Txs
-import Hasql.Migration (runMigration, loadMigrationFromFile, MigrationCommand ( MigrationInitialization ))
+import Protolude
+import qualified SpecDynamicSelect
+import qualified SpecGraphQLSelect
+import qualified SpecStaticSelect
+import Test.Tasty
+import Test.Tasty.HUnit
 import Text.Pretty.Simple (pPrint)
 
 main :: IO ()
@@ -36,14 +36,15 @@ main = do
   -- pPrint res
   runTx connection (Tx.sql "SELECT 1")
   runTx connection (Tx.sql "SELECT 'this is HASQL !!'")
-  let quer = GQLRequest {
-        query = "query plantList_test { plantListPaginated (first: 10, offset: 0) { id name } }",
-        operationName = Nothing,
-        variables = Nothing
-      }
+  let quer =
+        GQLRequest
+          { query = "query plantList_test { plantListPaginated (first: 10, offset: 0) { id name } }",
+            operationName = Nothing,
+            variables = Nothing
+          }
   res <- api connection quer
   pPrint res
-  -- Connection.withLibPQConnection connection (const $ defaultMain unitTests) 
+  -- Connection.withLibPQConnection connection (const $ defaultMain unitTests)
   Connection.release connection
 
 unitTests :: TestTree
@@ -53,8 +54,7 @@ unitTests =
     [ testCase "dummy query" $
         assertEqual "" "" ""
     ]
-  
 
 runTx :: Connection.Connection -> Tx.Transaction a -> IO (Either Session.QueryError a)
 runTx con act = do
-    Session.run (Txs.transaction Txs.ReadCommitted Txs.Write act) con
+  Session.run (Txs.transaction Txs.ReadCommitted Txs.Write act) con

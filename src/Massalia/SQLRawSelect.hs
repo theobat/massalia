@@ -5,7 +5,12 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module MassaliaSQLRawSelect
+-- |
+-- Module      : Massalia.SQLRawSelect
+-- Description : A simple Record & utility functions to represent an SQL SELECT statement. It's not meant to be
+--  particularly safer than a literal SELECT query, but it allows for an orderless adjunction of elements easily
+--  (say ORDER BY before SELECT for instance), whereas the literal SELECT does not.
+module Massalia.SQLRawSelect
   ( RawSelectStruct (..),
     structToContent,
     RowFunction (..),
@@ -14,31 +19,30 @@ module MassaliaSQLRawSelect
     addOrderLimit,
     addWhereJoinGroup,
     structToSubquery,
-    AQueryPart(AQueryPartConst),
+    AQueryPart (AQueryPartConst),
     addSelectColumns,
-    AssemblingOptions(..),
+    AssemblingOptions (..),
     initSelect,
-    emptySelect
+    emptySelect,
   )
 where
 
 import Data.Int (Int64)
 import Data.String (IsString (..))
 import Data.Text (Text, pack)
-import MassaliaUtils (intercalate, intercalateMap)
-import Text.Inflections (toUnderscore)
-import MassaliaQueryFormat (
-    QueryFormat(param)
+import Massalia.QueryFormat
+  ( QueryFormat (param),
   )
-import MassaliaSQLPart (
-    AQueryPart(AQueryPartConst),
+import Massalia.SQLPart
+  ( AQueryPart (AQueryPartConst),
+    AssemblingOptions (..),
+    defaultAssemblingOptions,
     getContent,
     getListContent,
     getMaybeContent,
-    AssemblingOptions(..),
-    defaultAssemblingOptions,
-    testAssemblingOptions
+    testAssemblingOptions,
   )
+import Massalia.Utils (intercalate, intercalateMap, toUnderscore)
 
 -- | A simple data structure to model an SQL select query.
 -- The 'content' type parameter is meant to either be Text or Hasql's snippet type,
@@ -59,32 +63,34 @@ data RawSelectStruct content
 type OffsetLimit = Maybe (Int, Int)
 
 -- | The initial select struct for Massalia use cases.
-initSelect :: (QueryFormat content) => RawSelectStruct content  
-initSelect = RawSelectStruct
-  { wrapFunctionList = [Row],
-    selectPart = [],
-    fromPart = "NOT_A_VALID_FROM",
-    joinList = [],
-    whereConditions = Nothing,
-    groupByList = [],
-    havingConditions = Nothing,
-    orderByList = [],
-    offsetLimit = Nothing
-  }
+initSelect :: (QueryFormat content) => RawSelectStruct content
+initSelect =
+  RawSelectStruct
+    { wrapFunctionList = [Row],
+      selectPart = [],
+      fromPart = "NOT_A_VALID_FROM",
+      joinList = [],
+      whereConditions = Nothing,
+      groupByList = [],
+      havingConditions = Nothing,
+      orderByList = [],
+      offsetLimit = Nothing
+    }
 
 -- | This is the neutral element for the monoid instance of the 'RawSelectStruct' struct.
-emptySelect :: (QueryFormat content) => RawSelectStruct content  
-emptySelect = RawSelectStruct
-  { wrapFunctionList = [], -- either: "row" or "array_agg", "row"
-    selectPart = [],
-    fromPart = "",
-    joinList = [],
-    whereConditions = Nothing,
-    groupByList = [],
-    havingConditions = Nothing,
-    orderByList = [],
-    offsetLimit = Nothing
-  }
+emptySelect :: (QueryFormat content) => RawSelectStruct content
+emptySelect =
+  RawSelectStruct
+    { wrapFunctionList = [], -- either: "row" or "array_agg", "row"
+      selectPart = [],
+      fromPart = "",
+      joinList = [],
+      whereConditions = Nothing,
+      groupByList = [],
+      havingConditions = Nothing,
+      orderByList = [],
+      offsetLimit = Nothing
+    }
 
 -- | A fusion which keep the left values for values with non sensible semigroup instances (such as fromPart).
 leftFusion :: (QueryFormat content) => RawSelectStruct content -> RawSelectStruct content -> RawSelectStruct content
@@ -127,8 +133,11 @@ selectGroup selectList functionList = "SELECT " <> rawGroup
 -- content (which is either Text or Snippet)
 structToContent ::
   (QueryFormat content, Monoid content) =>
-  AssemblingOptions content -> RawSelectStruct content -> content
-structToContent options
+  AssemblingOptions content ->
+  RawSelectStruct content ->
+  content
+structToContent
+  options
   RawSelectStruct
     { wrapFunctionList = wrapFunctionListValue,
       selectPart = selectPartValue,
@@ -142,18 +151,17 @@ structToContent options
     } =
     intercalate
       partSepValue
-      (
-          basicQueryParts <>
-          getListContent partSepValue "" joinListValue <>
-          getMaybeContent "WHERE " whereConditionsValue <>
-          getListContent innerSepValue "GROUP BY " groupByListValue <>
-          getMaybeContent "HAVING " havingConditionsValue <>
-          getListContent innerSepValue "ORDER BY " orderByListValue <>
-          offsetLimitToContent offsetLimitValue
+      ( basicQueryParts
+          <> getListContent partSepValue "" joinListValue
+          <> getMaybeContent "WHERE " whereConditionsValue
+          <> getListContent innerSepValue "GROUP BY " groupByListValue
+          <> getMaybeContent "HAVING " havingConditionsValue
+          <> getListContent innerSepValue "ORDER BY " orderByListValue
+          <> offsetLimitToContent offsetLimitValue
       )
     where
-      basicQueryParts = [
-          selectGroup selectPartValue wrapFunctionListValue,
+      basicQueryParts =
+        [ selectGroup selectPartValue wrapFunctionListValue,
           "FROM " <> getContent fromPartValue
         ]
       partSepValue = partSeparator options
@@ -161,36 +169,42 @@ structToContent options
 
 structToSubquery ::
   (QueryFormat content, Monoid content) =>
-  AssemblingOptions content -> RawSelectStruct content -> AQueryPart SQLSelect content
-structToSubquery a b = AQueryPartConst ( "(" <> structToContent a b <> ")" )
+  AssemblingOptions content ->
+  RawSelectStruct content ->
+  AQueryPart SQLSelect content
+structToSubquery a b = AQueryPartConst ("(" <> structToContent a b <> ")")
 
-addWhereJoinGroup :: (Monoid content) =>
+addWhereJoinGroup ::
+  (Monoid content) =>
   AQueryPart SQLWhere content ->
   [AQueryPart SQLJoin content] ->
   [AQueryPart SQLGroupBy content] ->
   RawSelectStruct content ->
   RawSelectStruct content
-addWhereJoinGroup whereAddition joinAddition groupByAddition currentQuery = currentQuery {
-    whereConditions = case whereConditions currentQuery of
-      Nothing -> Just whereAddition
-      Just currentWhere -> Just $ currentWhere <> whereAddition,
-    joinList = joinList currentQuery <> joinAddition,
-    groupByList = groupByList currentQuery <> groupByAddition
-  }
+addWhereJoinGroup whereAddition joinAddition groupByAddition currentQuery =
+  currentQuery
+    { whereConditions = case whereConditions currentQuery of
+        Nothing -> Just whereAddition
+        Just currentWhere -> Just $ currentWhere <> whereAddition,
+      joinList = joinList currentQuery <> joinAddition,
+      groupByList = groupByList currentQuery <> groupByAddition
+    }
 
-
-addOrderLimit :: (Monoid content) =>
+addOrderLimit ::
+  (Monoid content) =>
   [AQueryPart SQLOrderBy content] ->
   OffsetLimit ->
   RawSelectStruct content ->
   RawSelectStruct content
-addOrderLimit orderByAddition offsetLimitAddition currentQuery = currentQuery{
-    offsetLimit = offsetLimitAddition,
-    orderByList = orderByList currentQuery <> orderByAddition
-  }
+addOrderLimit orderByAddition offsetLimitAddition currentQuery =
+  currentQuery
+    { offsetLimit = offsetLimitAddition,
+      orderByList = orderByList currentQuery <> orderByAddition
+    }
 
 addSelectColumns :: [AQueryPart SQLSelect content] -> [RowFunction] -> RawSelectStruct content -> RawSelectStruct content
-addSelectColumns columnList rowFunctionList currentQuery = currentQuery{
-    selectPart = selectPart currentQuery <> columnList,
-    wrapFunctionList = rowFunctionList <> wrapFunctionList currentQuery
-  }
+addSelectColumns columnList rowFunctionList currentQuery =
+  currentQuery
+    { selectPart = selectPart currentQuery <> columnList,
+      wrapFunctionList = rowFunctionList <> wrapFunctionList currentQuery
+    }

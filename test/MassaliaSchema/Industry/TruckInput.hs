@@ -16,9 +16,9 @@ import Data.Data (Data)
 import Data.Text (Text, pack)
 import Data.UUID (UUID)
 import GHC.Generics (Generic)
-import qualified Hasql.Decoders as Decoders
 import qualified Hasql.Encoders as Encoders
-import MassaliaQueryFormat
+import qualified Massalia.HasqlDec as Decoders
+import Massalia.QueryFormat
   ( HasqlSnippet,
     QueryFormat (fromText, param),
     takeMaybeParam,

@@ -43,6 +43,7 @@ dependencies:
 - unordered-containers
 - hasql-migration
 - hasql-transaction
+- pretty-simple
 
 library:
   source-dirs: src
@@ -79,6 +80,3 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - massalia
-    - hasql-migration
-    - hasql-transaction
-    - pretty-simple

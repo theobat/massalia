@@ -7,15 +7,23 @@
 module MassaliaSchema.TestAPI where
 
 import qualified Data.ByteString.Lazy.Char8 as B
-import Data.Morpheus (interpreter)
-import Data.Morpheus.Document (importGQLDocumentWithNamespace)
-import Data.Morpheus.Types (GQLRequest, GQLResponse, GQLRootResolver (..), GQLType, IORes, QUERY, ResolveQ, Resolver, Undefined (..))
 import GHC.Generics (Generic)
-import Hasql.Connection (Connection)
+import Massalia.HasqlExec (Connection)
+import Massalia.Morpheus (interpreter)
+import Massalia.MorpheusTypes
+  ( GQLRequest,
+    GQLResponse,
+    GQLRootResolver (..),
+    GQLType,
+    IORes,
+    QUERY,
+    ResolveQ,
+    Resolver,
+    Undefined (..),
+  )
 import MassaliaSchema.Industry.DBContext (PlantInputDBContext)
 import MassaliaSchema.Industry.Plant (Plant, PlantListQueryFilter, plantListQuery)
 import MassaliaSchema.Industry.Truck (Truck)
-import MorpheusTypes
 
 api :: Connection -> GQLRequest -> IO GQLResponse
 api dbConnection = interpreter $ rootResolver dbConnection

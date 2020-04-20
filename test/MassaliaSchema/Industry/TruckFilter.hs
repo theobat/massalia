@@ -1,64 +1,70 @@
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE TypeOperators #-}
 
-module MassaliaSchema.Industry.TruckFilter (
-    TruckFilter(..),
-    toQueryPart
-) where
-import Prelude hiding(id)
-import qualified Prelude(id) 
-import Data.UUID (UUID, nil)
-import Data.Text (Text)
-import GHC.Generics (Generic)
-import qualified Hasql.Decoders as Decoders
+module MassaliaSchema.Industry.TruckFilter
+  ( TruckFilter (..),
+    toQueryPart,
+  )
+where
+
 import qualified Data.Aeson as JSON
-import GHC.TypeLits (Symbol, KnownSymbol, symbolVal)
-import MassaliaQueryFormat
+import Data.Data (Data, gmapQ)
+import Data.Text (Text)
+import Data.UUID (UUID, nil)
+import GHC.Generics (Generic)
+import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
+import Massalia.Filter
+  ( GQLFilterText,
+    GQLFilterUUID,
+    GQLScalarFilter (isEq, isIn),
+    defaultScalarFilter,
+    filterFieldToMabeContent,
+    filterFieldToMaybeQueryPart,
+  )
+import qualified Massalia.HasqlDec as Decoders
+import Massalia.QueryFormat
   ( HasqlSnippet,
     QueryFormat (fromText, param),
   )
-import MassaliaSQLPart (
-    AQueryPart
+import Massalia.SQLPart
+  ( AQueryPart,
   )
-import MassaliaFilter (
-  GQLFilterUUID,
-  GQLFilterText,
-  defaultScalarFilter,
-  GQLScalarFilter(isEq, isIn),
-  filterFieldToMaybeQueryPart,
-  filterFieldToMabeContent
-  )
-import Data.Data (Data, gmapQ)
+import Prelude hiding (id)
+import qualified Prelude (id)
 
-data TruckFilter = TruckFilter {
-  id :: Maybe (GQLFilterUUID "id"),
-  vehicleId :: Maybe (GQLFilterText "vehicle_id")
-} deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON, Data)
+data TruckFilter
+  = TruckFilter
+      { id :: Maybe (GQLFilterUUID "id"),
+        vehicleId :: Maybe (GQLFilterText "vehicle_id")
+      }
+  deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON, Data)
 
+testInstance =
+  TruckFilter
+    { id = Just $ defaultScalarFilter {isEq = Just nil},
+      vehicleId = Nothing
+    }
 
-testInstance = TruckFilter {
-  id = Just $ defaultScalarFilter { isEq = Just nil },
-  vehicleId = Nothing
-}
-
-toQueryPart :: (QueryFormat content) => Maybe TruckFilter -> Maybe (MassaliaSQLPart.AQueryPart partType content)
+toQueryPart :: (QueryFormat content) => Maybe TruckFilter -> Maybe (AQueryPart partType content)
 toQueryPart Nothing = mempty
-toQueryPart (Just TruckFilter{
-    id = idVal,
-    vehicleId = vehicleIdVal
-  }) = (
-      filterFieldToMaybeQueryPart tableName idVal <>
-      filterFieldToMaybeQueryPart tableName vehicleIdVal
+toQueryPart
+  ( Just
+      TruckFilter
+        { id = idVal,
+          vehicleId = vehicleIdVal
+        }
+    ) =
+    ( filterFieldToMaybeQueryPart tableName idVal
+        <> filterFieldToMaybeQueryPart tableName vehicleIdVal
     )
-  where tableName = Just "truck"
-
-  
+    where
+      tableName = Just "truck"

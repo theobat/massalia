@@ -1,25 +1,26 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-import Protolude
+import Data.Morpheus.Types (GQLRequest (..))
 import qualified Hasql.Connection as Connection
 import Hasql.DynamicStatements.Session (dynamicallyParameterizedStatement)
 import qualified Hasql.Session as Session
-import Test.Tasty
-import Test.Tasty.HUnit
-import qualified SpecStaticInsert
-import qualified SpecStaticSelect
+import Protolude
 import qualified SpecDynamicSelect
 import qualified SpecGraphQLSelect
-import Data.Morpheus.Types (GQLRequest (..))
+import qualified SpecStaticInsert
+import qualified SpecStaticSelect
+import Test.Tasty
+import Test.Tasty.HUnit
 
 main :: IO ()
 main = defaultMain tests
+
 -- do
 --   let quer = GQLRequest {
 --         query = "query plantList_test { plantListPaginated (first: 10, offset: 0) { name createdAt } }",
@@ -30,8 +31,8 @@ main = defaultMain tests
 --   print res
 --   -- defaultMain =<< tests
 --   print "ok"
-  -- where
-  --   connectionSettings = Connection.settings "localhost" 5432 "postgres" "" "beton_direct_web"
+-- where
+--   connectionSettings = Connection.settings "localhost" 5432 "postgres" "" "beton_direct_web"
 
 tests :: TestTree
 tests = testGroup "Tests" testList

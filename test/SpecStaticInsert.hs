@@ -1,20 +1,23 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module SpecStaticInsert (unitTests) where
+module SpecStaticInsert
+  ( unitTests,
+  )
+where
 
+import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.UUID (UUID)
 import qualified Data.UUID as UUID
-import Data.String (IsString(fromString))
-import MassaliaSQLSelect 
+import Massalia.SQLInsert
+  ( InsertSchema (InsertSchema),
+    ValuesFormatType (PureValues, WrapInSelect),
+    valuesToInsert,
+    valuesToInsertWrapped,
+  )
+import Massalia.SQLSelect
 import Test.Tasty
 import Test.Tasty.HUnit
-import MassaliaSQLInsert
-  ( valuesToInsertWrapped,
-    valuesToInsert,
-    ValuesFormatType(WrapInSelect, PureValues),
-    InsertSchema(InsertSchema)
-  )
 
 unitTests =
   testGroup

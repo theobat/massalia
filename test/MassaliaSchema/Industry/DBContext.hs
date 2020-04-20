@@ -1,39 +1,41 @@
-{-# LANGUAGE NoImplicitPrelude     #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE TypeOperators     #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuantifiedConstraints #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module MassaliaSchema.Industry.DBContext where
 
-import Protolude
-import Data.UUID (UUID)
-import Data.Text (Text)
-import Data.Void (Void)
 import Data.Aeson (FromJSON)
+import Data.Morpheus.Types (GQLRequest, GQLResponse, GQLRootResolver (..), GQLType, IORes, QUERY, ResolveQ, Resolver, Undefined (..))
+import Data.Text (Text)
+import Data.UUID (UUID)
+import Data.Void (Void)
 import MassaliaSchema.Industry.PlantInput (PlantInput)
 import qualified MassaliaSchema.Industry.PlantInput as PlantInput
 import MassaliaSchema.Industry.TruckInput (TruckInput)
 import qualified MassaliaSchema.Industry.TruckInput as TruckInput
-import Data.Morpheus.Types (GQLRequest, GQLResponse, GQLRootResolver (..), GQLType, IORes, QUERY, ResolveQ, Resolver, Undefined (..))
+import Protolude
 
-data DBContext containerType typeContext = DBContext {
-  plant :: Apply typeContext (containerType PlantInput),
-  truck :: Apply typeContext (containerType TruckInput),
-  ok :: Apply typeContext (containerType TruckInput)
-} deriving (Generic)
+data DBContext containerType typeContext
+  = DBContext
+      { plant :: Apply typeContext (containerType PlantInput),
+        truck :: Apply typeContext (containerType TruckInput),
+        ok :: Apply typeContext (containerType TruckInput)
+      }
+  deriving (Generic)
 
 type family Apply token someType
 
 data PlantInputListToken
+
 type instance Apply PlantInputListToken someType = PlantInputList someType
 
 type family PlantInputList someType where
@@ -43,21 +45,27 @@ type family PlantInputList someType where
 newtype PlantInputDBContext = PlantInputDBContext (DBContext [] PlantInputListToken)
 
 data SimpleDedupeStruct a = SimpleDedupeStruct a UUID
+
 data FullDedupeStruct a = FullDedupeStruct a a
+
 type PlantInputDBContextDedupe = DBContext SimpleDedupeStruct PlantInputListToken
+
 type TestGathered = DBContext Maybe Text
 
 deriving instance FromJSON (DBContext [] PlantInputListToken)
+
 deriving instance GQLType (DBContext [] PlantInputListToken)
 
 test :: PlantInputDBContext
-test = PlantInputDBContext $ DBContext {
-  plant = [],
-  truck = Nothing,
-  ok = Nothing
-}
+test =
+  PlantInputDBContext $
+    DBContext
+      { plant = [],
+        truck = Nothing,
+        ok = Nothing
+      }
 
-something :: (Foldable containerType) =>  DBContext containerType typeContext -> Text
+something :: (Foldable containerType) => DBContext containerType typeContext -> Text
 something dbContext = ""
   where
     -- okoko = foldr undefined "" plantTest
@@ -67,25 +75,24 @@ something dbContext = ""
 -- testGene = case level1 of
 --   M1 a -> case a of
 --     M1 b -> case b of
---       M1 (K1 c) :*: d -> undefined 
+--       M1 (K1 c) :*: d -> undefined
 --   where
 --     level1 = from test
 
 plantInsert dbConnection queryArgs = do
   -- Context { currentSelection = selection } <- unsafeInternalContext
-  lift 
+  lift
 
-
-    -- iterate input = case input of
-    --   M1 (K1 c) :*: d -> iterate d
-      -- _ -> undefined
+-- iterate input = case input of
+--   M1 (K1 c) :*: d -> iterate d
+-- _ -> undefined
 
 -- data DBContext typeContext containerType = DBContext {
 --   plant :: containerType (TLMaybe typeContext PlantInput),
 --   truck :: containerType (TLMaybe typeContext TruckInput)
 -- }
 
--- class DBContextInstance 
+-- class DBContextInstance
 
 -- | Closed type family (bad):
 -- type family TLMaybe typeIndicator (container :: * -> *) underlyingType where
@@ -99,31 +106,27 @@ plantInsert dbConnection queryArgs = do
 -- type instance TLMaybe Ok container PlantInput = container PlantInput
 -- type instance TLMaybe Ok container ss = container Void
 
-
 -- | Class embedded type family :
 
 -- class (Monoid (container underlyingType)) => Collects typeIndicator container underlyingType where
 --   type TLMaybe typeIndicator (container :: * -> *) underlyingType
 
--- type family 
+-- type family
 -- instance Collects Ok [] PlantInput where
 --   type TLMaybe Ok [] PlantInput = [] PlantInput
-  -- type TLMaybe Ok container ss = container Void
+-- type TLMaybe Ok container ss = container Void
 
 -- type instance TLMaybe Ok container PlantInput = container PlantInput
 -- type instance TLMaybe Ok container ss = container Void
 
 -- instance (Monoid (container underlyingType)) => Monoid (TLMaybe typeIndicator (container :: * -> *) underlyingType) where
---   mempty = 
-
-
+--   mempty =
 
 data Full
-data Ok
 
+data Ok
 -- testValue :: (forall a. Monoid (TLMaybe typeContext containerType a)) => DBContext typeContext containerType
 -- testValue = DBContext {
 --   plant = mempty,
 --   truck = mempty
 -- }
-

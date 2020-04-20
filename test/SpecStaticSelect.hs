@@ -1,16 +1,24 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module SpecStaticSelect (unitTests) where
+module SpecStaticSelect
+  ( unitTests,
+  )
+where
 
 import Data.Text (Text)
-import MassaliaSQLSelect (
-    RawSelectStruct (..), structToContent, RowFunction(ArrayAgg, Row), testAssemblingOptions,
-    addWhereJoinGroup, structToSubquery
+import Massalia.SQLSelect
+  ( RawSelectStruct (..),
+    RowFunction (ArrayAgg, Row),
+    addWhereJoinGroup,
+    structToContent,
+    structToSubquery,
+    testAssemblingOptions,
   )
 import Test.Tasty
 import Test.Tasty.HUnit
 
 realStructToContent = structToContent testAssemblingOptions
+
 realStructToSubquery = structToSubquery testAssemblingOptions
 
 unitTests =
@@ -24,7 +32,7 @@ unitTests =
         assertEqual "" ((Just "ok") <> Nothing <> (Just " haha ok")) (Just "ok haha ok")
     ]
 
-testSimpleQuery :: RawSelectStruct String 
+testSimpleQuery :: RawSelectStruct String
 testSimpleQuery =
   RawSelectStruct
     { wrapFunctionList = [ArrayAgg, Row], -- either: "row" or "array_agg", "row"
@@ -41,7 +49,7 @@ testSimpleQuery =
       offsetLimit = Just (0, 2)
     }
 
-testAnotherQuery :: RawSelectStruct String 
+testAnotherQuery :: RawSelectStruct String
 testAnotherQuery =
   RawSelectStruct
     { wrapFunctionList = [Row], -- either: "row" or "array_agg", "row"

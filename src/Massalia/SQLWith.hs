@@ -1,15 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module MassaliaSQLWith (withXAs) where
-import Protolude
-import MassaliaQueryFormat
+module Massalia.SQLWith
+  ( withXAs,
+  )
+where
+
+import Massalia.QueryFormat
   ( HasqlSnippet,
     QueryFormat (fromText, param),
   )
+import Protolude
 
--- | A function to create insert statements out of haskell records.
---
+-- | A function to create insert/select values statements out of haskell records.
 withXAs ::
   (QueryFormat queryFormat, Foldable collection) =>
   -- | First is the with group alias.
@@ -22,7 +25,7 @@ withXAs ::
   dbContextType ->
   -- | The end result for the insert query.
   queryFormat
-withXAs tableAlias toQueryFormat toTypeCollection input = result 
+withXAs tableAlias toQueryFormat toTypeCollection input = result
   where
     result = headerRes
     headerRes = "WITH \"" <> tableAlias <> "\" as " <> columnListAssembled

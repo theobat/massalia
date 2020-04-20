@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -9,13 +8,17 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
-module MassaliaFilter
+-- |
+-- Module      : Massalia.Filter
+-- Description : A module to define an interface for simple scalar values filters.
+module Massalia.Filter
   ( GQLFilterUUID,
     GQLFilterText,
     GQLScalarFilter (..),
@@ -25,8 +28,6 @@ module MassaliaFilter
   )
 where
 
-import Protolude
-
 -- import Hasql.Encoders
 
 import Data.Aeson (FromJSON, ToJSON)
@@ -35,15 +36,12 @@ import Data.Functor.Contravariant ((>$<))
 import Data.Morpheus.Types (GQLType (description))
 import Data.Proxy (Proxy (Proxy))
 import Data.String as StringUtils (IsString (fromString))
-import Data.Text (Text)
 import Data.UUID
-import Data.Void
-import GHC.Generics ((:*:) ((:*:)), C1, Generic, K1 (K1), M1 (M1), Rep (Rep), from)
 import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
-import Hasql.DynamicStatements.Snippet (Snippet)
-import MassaliaQueryFormat (DefaultParamEncoder, QueryFormat (param), TextEncoder)
-import MassaliaSQLSelect (AQueryPart (AQueryPartConst))
-import MassaliaUtils (intercalate, intercalateMap)
+import Massalia.QueryFormat (DefaultParamEncoder, QueryFormat (param), TextEncoder)
+import Massalia.SQLSelect (AQueryPart (AQueryPartConst))
+import qualified Massalia.Utils as MassaliaUtils (intercalate, intercalateMap)
+import Protolude
 
 data GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType
   = GQLScalarFilter
@@ -181,7 +179,8 @@ wrappedContent ::
   forall content.
   (QueryFormat content) =>
   content ->
-  (forall filterValue. (TextEncoder filterValue, DefaultParamEncoder filterValue) =>
+  ( forall filterValue.
+    (TextEncoder filterValue, DefaultParamEncoder filterValue) =>
     content ->
     Maybe filterValue ->
     content ->
