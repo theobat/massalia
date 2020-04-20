@@ -20,13 +20,8 @@ Main ideas and opinions
 
 What's the difference with join-monster and hasura then ?
 
-  - Join monster uses a join-heavy approach where data fetching is mixed with data shaping (joins are used for both) which is
-    not needed. Besides join monster lacks a number of important features such as parametrized queries and support for user-defined types
-    at the sql level.
-  - Hasura is made/optimized towards JSON rendering in the database. Massalia is geared towards postgresql rows/arrays rendering in the 
-    the datatabase. The result is that massalia is more haskell oriented, whereas hasura really shines 
-    any situation where you want to write business logic separatly from the query engine. Under heavy loads, using hasura is probably
-    a better bet.
+- **Join monster** uses a join-heavy approach where data fetching is mixed with data shaping (joins are used for both) which is not needed. Besides join monster lacks a number of important features such as parametrized queries and support for user-defined types at the sql level.
+ - **Hasura** is made/optimized towards JSON rendering in the database. Massalia is geared towards postgresql rows/arrays rendering in the the datatabase. The result is that massalia is more haskell oriented, whereas hasura really shines any situation where you want to write business logic separatly from the query engine. Under heavy loads, using hasura along with a distributed architecture, is probably a better bet.
 
 Quick exemple
 -------------------------------
