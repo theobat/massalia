@@ -6,9 +6,11 @@
 -- Module      : Massalia.Morpheus
 -- Description : A reexport of the handy functions and types from "Morpheus".
 module Massalia.Morpheus
-  ( interpreter,
+  ( interpreter
   )
 where
 
-import Data.Morpheus (interpreter)
+import Data.Morpheus (
+    interpreter
+  )
 import Protolude

@@ -35,7 +35,7 @@ module Massalia.MorpheusTypes
     GQLT.ResolveM,
     GQLT.ResolveS,
     GQLT.Resolver,
-    GQLT.Undefined (..),
+    GQLT.Undefined (..)
   )
 where
 

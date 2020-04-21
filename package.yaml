@@ -7,7 +7,7 @@ maintainer:          "example@example.com"
 copyright:           "2018 theophile batoz"
 
 extra-source-files:
-- README.md
+- README.rst
 - ChangeLog.md
 
 # Metadata used when publishing your package
