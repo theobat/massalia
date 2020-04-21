@@ -35,7 +35,16 @@ module Massalia.MorpheusTypes
     GQLT.ResolveM,
     GQLT.ResolveS,
     GQLT.Resolver,
-    GQLT.Undefined (..)
+    GQLT.Undefined (..),
+    GQLT.Event(..),
+    GQLT.GQLScalar(..),
+    GQLT.ID,
+    GQLT.ScalarValue(..),
+    GQLT.constRes,
+    GQLT.IOMutRes,
+    GQLT.publish,
+    GQLT.subscribe,
+    GQLT.WithOperation
   )
 where
 
