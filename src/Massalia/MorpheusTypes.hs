@@ -23,6 +23,7 @@ module Massalia.MorpheusTypes
     validSelectionToSelectionSet,
     GQLT.failRes,
     GQLT.liftEither,
+    GQLT.lift,
     GQLT.GQLType,
     GQLT.GQLRootResolver (..),
     GQLT.unsafeInternalContext,
