@@ -21,14 +21,14 @@ module Massalia.MorpheusTypes
     selectionGen,
     MergeSet (MergeSet),
     validSelectionToSelectionSet,
-    module GQLT,
+    module Data.Morpheus.Types
   )
 where
 
 import qualified Control.Monad.Fail as Fail
 import qualified Data.Aeson as JSON
 import Data.Morpheus.Kind (SCALAR)
-import Data.Morpheus.Types (GQLScalar (parseValue, serialize), GQLType, KIND)
+import Data.Morpheus.Types
 import qualified Data.Morpheus.Types as GQLT
 import Data.Morpheus.Types.Internal.AST.Base (Key, Name, Position (Position), VALID)
 import Data.Morpheus.Types.Internal.AST.MergeSet (MergeSet (MergeSet))
