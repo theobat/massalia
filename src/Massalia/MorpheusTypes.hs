@@ -21,31 +21,7 @@ module Massalia.MorpheusTypes
     selectionGen,
     MergeSet (MergeSet),
     validSelectionToSelectionSet,
-    GQLT.failRes,
-    GQLT.liftEither,
-    GQLT.lift,
-    GQLT.GQLType,
-    GQLT.GQLRootResolver (..),
-    GQLT.unsafeInternalContext,
-    GQLT.Context (Context, currentSelection),
-    GQLT.GQLResponse (..),
-    GQLT.GQLRequest (..),
-    GQLT.IORes,
-    GQLT.QUERY,
-    GQLT.ResolveQ,
-    GQLT.ResolveM,
-    GQLT.ResolveS,
-    GQLT.Resolver,
-    GQLT.Undefined (..),
-    GQLT.Event(..),
-    GQLT.GQLScalar(..),
-    GQLT.ID,
-    GQLT.ScalarValue(..),
-    GQLT.constRes,
-    GQLT.IOMutRes,
-    GQLT.publish,
-    GQLT.subscribe,
-    GQLT.WithOperation
+    module GQLT
   )
 where
 
@@ -114,6 +90,7 @@ instance GQLScalar EmailAddress where
 
 instance GQLType EmailAddress where
   type KIND EmailAddress = SCALAR
+  
 -- instance GQLScalar (Range a) where
 --   parseValue (GQLT.String x) = first pack $ EmailAddress.validate $ encodeUtf8 x
 --   serialize = GQLT.String . (decodeUtf8 . EmailAddress.toByteString)
