@@ -21,7 +21,7 @@ module Massalia.MorpheusTypes
     selectionGen,
     MergeSet (MergeSet),
     validSelectionToSelectionSet,
-    module GQLT
+    module GQLT,
   )
 where
 
@@ -39,6 +39,7 @@ import Data.Morpheus.Types.Internal.AST.Selection
     SelectionSet,
   )
 import Massalia.Utils (EmailAddress, LocalTime, Text, UUID, emailToByteString, emailValidate, stringToText, uuidFromText, uuidToText)
+import Massalia.Auth (JWTEncodedString(JWTEncodedString))
 import Protolude
 
 type ValidSelection = Selection VALID
@@ -90,7 +91,22 @@ instance GQLScalar EmailAddress where
 
 instance GQLType EmailAddress where
   type KIND EmailAddress = SCALAR
-  
+
+instance GQLScalar JWTEncodedString where
+  parseValue (GQLT.String x) = pure $ JWTEncodedString x
+  serialize (JWTEncodedString val) = GQLT.String val
+
+instance GQLType JWTEncodedString where
+  type KIND JWTEncodedString = SCALAR
+
+
+-- instance GQLScalar EmailAddress where
+--   parseValue (GQLT.String x) = first stringToText $ emailValidate $ encodeUtf8 x
+--   serialize = GQLT.String . (decodeUtf8 . emailToByteString)
+
+-- instance GQLType EmailAddress where
+--   type KIND EmailAddress = SCALAR
+
 -- instance GQLScalar (Range a) where
 --   parseValue (GQLT.String x) = first pack $ EmailAddress.validate $ encodeUtf8 x
 --   serialize = GQLT.String . (decodeUtf8 . EmailAddress.toByteString)

@@ -44,6 +44,7 @@ dependencies:
 - hasql-migration
 - hasql-transaction
 - pretty-simple
+- jwt
 
 library:
   source-dirs: src
