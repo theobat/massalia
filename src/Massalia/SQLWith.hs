@@ -1,8 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Massalia.SQLWith
   ( withXAs,
+    xAs
   )
 where
 
@@ -12,8 +14,22 @@ import Massalia.QueryFormat
   )
 import Protolude
 
--- | A function to create insert/select values statements out of haskell records.
+-- | A simple @WITH@ prefix on 'xAs' result.
+-- The parameters are the same as 'xAs' so the doc is not reproduced here
+--  and the parameters have dumb name (a b c d)
 withXAs ::
+  forall queryFormat collection underlyingType dbContextType.
+  (QueryFormat queryFormat, Foldable collection) =>
+  queryFormat ->
+  (collection underlyingType -> queryFormat) ->
+  (dbContextType -> collection underlyingType) ->
+  dbContextType ->
+  queryFormat
+withXAs a b c d = "WITH " <> xAs a b c d
+
+-- | A function to create a CTE instance from a collection of haskell records and a 
+-- function to turn this record into query format.
+xAs ::
   (QueryFormat queryFormat, Foldable collection) =>
   -- | First is the with group alias.
   queryFormat ->
@@ -25,9 +41,9 @@ withXAs ::
   dbContextType ->
   -- | The end result for the insert query.
   queryFormat
-withXAs tableAlias toQueryFormat toTypeCollection input = result
+xAs tableAlias toQueryFormat toTypeCollection input = result
   where
     result = headerRes
-    headerRes = "WITH \"" <> tableAlias <> "\" as " <> columnListAssembled
+    headerRes = "\"" <> tableAlias <> "\" as " <> columnListAssembled
     columnListAssembled = "(" <> innerQuery <> ")"
     innerQuery = toQueryFormat (toTypeCollection input)
