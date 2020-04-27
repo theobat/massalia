@@ -33,6 +33,7 @@ dependencies:
 - aeson
 - inflections
 - hasql
+- hasql-pool
 - hasql-dynamic-statements
 - hasql-implicits
 - range
