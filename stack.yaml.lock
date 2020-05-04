@@ -34,31 +34,45 @@ packages:
     hackage: bug-1.0.1@sha256:a516df91c7330d350480a7d338af645f173d1e767450c5f94295020f11c8432c,1395
 - completed:
     cabal-file:
+      size: 1502
+      sha256: 422af001e4b892ea77f66a39cb93f69023461c88ecca4307ba71c990f881b23e
+    name: hasql-url
+    version: 0.1.0.0
+    git: https://github.com/theobat/hasql-url.git
+    pantry-tree:
+      size: 621
+      sha256: 0e22b60784a859de254026cd33f6b5dc298246de0179effececcb3197e12fe8c
+    commit: 5fd52b13c4d4c89c930518bf93f390e5efeb1521
+  original:
+    git: https://github.com/theobat/hasql-url.git
+    commit: 5fd52b13c4d4c89c930518bf93f390e5efeb1521
+- completed:
+    cabal-file:
       size: 2799
       sha256: 6ca4cc6c89834bb79eb9f15b504774043b5b3994336bd86a9d79e59da6d54963
     name: hasql-migration
     version: 0.3.0
-    git: git@github.com:tvh/hasql-migration.git
+    git: https://github.com/theobat/hasql-migration.git
     pantry-tree:
       size: 689
-      sha256: 70342dc8dc7d388695d33793d6147cce80de6af54583f4916f4c250686fc249d
-    commit: 58c90f7c5c0e829708c35db9d2c8bc47e86621eb
+      sha256: bab259ae943c9218deeaeca9e099aaef130c438d0830880d534b88d31005e05c
+    commit: 3097ccea9c272712101088131a267fc964d1df58
   original:
-    git: git@github.com:tvh/hasql-migration.git
-    commit: 58c90f7c5c0e829708c35db9d2c8bc47e86621eb
+    git: https://github.com/theobat/hasql-migration.git
+    commit: 3097ccea9c272712101088131a267fc964d1df58
 - completed:
     cabal-file:
       size: 25724
       sha256: c3c355e010a9916282b84808735ea404204738ff34744a13634049456285f7d5
     name: morpheus-graphql
     version: 0.10.1
-    git: git@github.com:theobat/morpheus-graphql.git
+    git: https://github.com/theobat/morpheus-graphql.git
     pantry-tree:
       size: 42219
       sha256: e313ecb8d1b3a3c1f86ee81846f266a584f14cffde71892b556ed883a695b83a
     commit: 1a8f887f0ece814779e9752258fbfcd5ffe1bab6
   original:
-    git: git@github.com:theobat/morpheus-graphql.git
+    git: https://github.com/theobat/morpheus-graphql.git
     commit: 1a8f887f0ece814779e9752258fbfcd5ffe1bab6
 snapshots:
 - completed:

@@ -46,6 +46,10 @@ dependencies:
 - hasql-transaction
 - pretty-simple
 - jwt
+- hasql-url
+- filepattern
+- filepath
+- time
 
 library:
   source-dirs: src

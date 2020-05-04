@@ -8,7 +8,7 @@ module MassaliaSchema.TestAPI where
 
 import qualified Data.ByteString.Lazy.Char8 as B
 import GHC.Generics (Generic)
-import Massalia.HasqlExec (Connection)
+import Massalia.HasqlConnection (Connection)
 import Massalia.Morpheus (interpreter)
 import Massalia.MorpheusTypes
   ( GQLRequest,
