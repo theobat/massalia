@@ -30,7 +30,7 @@ main = do
     Left err -> pPrint err
     Right _ -> pure ()
   where
-    migrationConfig = defaultMigrationPattern {basePath = "./"}
+    migrationConfig = defaultMigrationPattern {basePath = "./test"}
     dbURL = "postgres://massalia_user:p@localhost:5432/massalia_test_industry"
 
 -- main :: IO ()

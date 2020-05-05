@@ -73,7 +73,7 @@ extra-deps:
   - ptr-0.16.6.1@sha256:8487350b1db776a94c811590b177e113f34b4e1f26782a158932e57bc5f236ab,2961
   - bug-1.0.1@sha256:a516df91c7330d350480a7d338af645f173d1e767450c5f94295020f11c8432c,1395
   - git: https://github.com/theobat/hasql-url.git
-    commit: 5fd52b13c4d4c89c930518bf93f390e5efeb1521
+    commit: e41c9bc3179c36878e8c865685ff2be17a8ecef4
   - git: https://github.com/theobat/hasql-migration.git
     commit: 3097ccea9c272712101088131a267fc964d1df58 # uses updateChecksum
   - git: https://github.com/theobat/morpheus-graphql.git

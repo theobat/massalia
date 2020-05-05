@@ -1,1 +1,1 @@
-SELECT 1;
+SELECT 'ok this the right update NOW';

@@ -41,11 +41,11 @@ packages:
     git: https://github.com/theobat/hasql-url.git
     pantry-tree:
       size: 621
-      sha256: 0e22b60784a859de254026cd33f6b5dc298246de0179effececcb3197e12fe8c
-    commit: 5fd52b13c4d4c89c930518bf93f390e5efeb1521
+      sha256: bec36d4afce43f794353f88277aae7789c586789608b505855c2558491bd2891
+    commit: e41c9bc3179c36878e8c865685ff2be17a8ecef4
   original:
     git: https://github.com/theobat/hasql-url.git
-    commit: 5fd52b13c4d4c89c930518bf93f390e5efeb1521
+    commit: e41c9bc3179c36878e8c865685ff2be17a8ecef4
 - completed:
     cabal-file:
       size: 2799

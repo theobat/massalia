@@ -32,7 +32,7 @@ connectionFromURL :: String -> IO (Either InitDBConnectionError Connection)
 connectionFromURL url = safeSettingsToConnection $ first ConnectionURLError $ settingsFromURL url
 
 settingsFromURL :: String -> Either URLError Settings
-settingsFromURL inputURL = maybeToRight Malformed $ parseDatabaseUrl inputURL
+settingsFromURL inputURL = maybeToRight Malformed $ traceShowId (parseDatabaseUrl $ traceShowId inputURL)
 
 safeSettingsToConnection :: Either InitDBConnectionError Settings -> IO (Either InitDBConnectionError Connection)
 safeSettingsToConnection maybeSettings = case maybeSettings of

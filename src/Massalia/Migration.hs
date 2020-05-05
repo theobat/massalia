@@ -31,9 +31,9 @@ import qualified Hasql.Transaction.Sessions as Txs
 import Hasql.URL (parseDatabaseUrl)
 import Massalia.HasqlConnection as Connection
 import Massalia.HasqlExec (QueryError, run)
-import Massalia.Utils (pPrint)
+import Massalia.Utils (pPrint, uuidV4)
 import Protolude
-import System.FilePath.Posix (splitFileName)
+import System.FilePath.Posix (splitFileName, (</>))
 import System.FilePattern.Directory (FilePattern, getDirectoryFiles)
 
 data GlobalMigrationError
@@ -86,9 +86,8 @@ defaultMigrationPattern = MigrationPattern {
 }
 
 findAndRunAllMigration ::
-  (Show textType) =>
   MigrationPattern ->
-  textType ->
+  String ->
   ExceptT [GlobalMigrationError] IO ()
 findAndRunAllMigration migrationPattern databaseURL = do
   migrationRegister <- withExceptT (StepFileGatheringError <$>) gatherFileAttempt 
@@ -97,8 +96,7 @@ findAndRunAllMigration migrationPattern databaseURL = do
   liftIO $ Connection.release finalRes
   where
     gatherFileAttempt = gatherFileFailOnError migrationPattern
-    connectionAttempt = ExceptT $ connectionFromURL stringDatabaseURL
-    stringDatabaseURL = show databaseURL
+    connectionAttempt = ExceptT $ connectionFromURL databaseURL
     withStepError errConstructor = withExceptT (pure . errConstructor)
 
 executionScheme ::
@@ -129,12 +127,17 @@ initMigrationProcess connection currentRevisionMigrationList args = finalRes
 revisionMigrationProcess :: Connection -> InitAndRev -> ExceptT MigrationExecutionError IO Connection
 revisionMigrationProcess connection (initVal, revVal) = do
   withExceptT InitChecksumUpdateError $ ExceptT $ join $ updateChecksumIfPossible <$> rawInitMigration
-  ExceptT $ runMassaliaMigrationArgs connection revVal
+  revValProperlyNamed <- liftIO $ loadAndRenameRev revVal
+  ExceptT $ runMassaliaMigrationCommand connection revValProperlyNamed
   where
     updateChecksumIfPossible input = case input of
       MigrationScript name content -> runTx connection $ updateChecksum name content
       -- Partial pattern match OK here because 'rawInitMigration' is built this way.
     rawInitMigration = loadMigrationArgs initVal
+    loadAndRenameRev migrationArgs = do
+      (MigrationScript name content) <- loadMigrationArgs migrationArgs
+      uuidVal <- uuidV4
+      pure $ MigrationScript (name <> "_" <> show uuidVal) content
 
 gatherFileFailOnError :: MigrationPattern -> ExceptT [FileGatheringError] IO MigrationRegister
 gatherFileFailOnError migPattern = ExceptT $ tupleToEither <$> gatherAllMigrationFiles migPattern
@@ -147,8 +150,6 @@ gatherAllMigrationFiles :: MigrationPattern -> IO ([FileGatheringError], Migrati
 gatherAllMigrationFiles mig = do
   filePathList <- getDirectoryFiles (basePath mig) (migrationPatternList mig)
   let (migrationErrorList, migrationRegister) = buildMigrationRegister mig filePathList
-  pPrint migrationErrorList
-  pPrint migrationRegister
   pure (migrationErrorList, migrationRegister)
 
 -- splitFileName
@@ -177,12 +178,13 @@ data AllMigration = InitOrRev InitOrRevMigration | Seed MigrationArgs deriving (
 -- a classified file among the 'AllMigration' constructor.
 classifyFile :: MigrationPattern -> FilePath -> Either FileGatheringError AllMigration
 classifyFile migrationPattern filePath
-  | isFilenamePrefix revisionPrefix = makeInitOrRev $ Rev revisionPrefix (MigrationArgs fileName filePath)
-  | isFilenamePrefix initPrefix = makeInitOrRev $ Init initPrefix (MigrationArgs fileName filePath)
-  | isSeed = Right $ Seed (MigrationArgs fileName filePath)
-  | otherwise = Left $ FileHasNoMigrationType filePath
+  | isFilenamePrefix revisionPrefix = makeInitOrRev $ Rev revisionPrefix (MigrationArgs fileName fullPath)
+  | isFilenamePrefix initPrefix = makeInitOrRev $ Init initPrefix (MigrationArgs fileName fullPath)
+  | isSeed = Right $ Seed (MigrationArgs fileName fullPath)
+  | otherwise = Left $ FileHasNoMigrationType fullPath
   where
     makeInitOrRev = Right . InitOrRev
+    fullPath = (basePath migrationPattern) </> filePath
     isSeed = maybe False isFilenamePrefix (seedMigrationPrefix migrationPattern)
     revisionPrefix = revisionMigrationPrefix migrationPattern
     initPrefix = initMigrationPrefix migrationPattern
