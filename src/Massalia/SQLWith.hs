@@ -12,6 +12,15 @@ import Massalia.QueryFormat
   ( HasqlSnippet,
     QueryFormat (fromText, param),
   )
+import Massalia.GenericUtils (GTypeName(gtypename))
+import Data.String (String, IsString(fromString))
+import GHC.Generics (
+    U1,
+    D,
+    M1(M1),
+    datatypeName
+  )
+import Massalia.Utils (simpleSnakeCase)
 import Protolude
 
 -- | A simple @WITH@ prefix on 'xAs' result.

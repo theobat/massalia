@@ -27,6 +27,8 @@ module Massalia.Utils
     LocalTime,
     -- PrettyPrint
     pPrint,
+    -- String
+    simpleSnakeCase
   )
 where
 
@@ -46,6 +48,11 @@ import qualified Text.Email.Validate as EmailAddress
 import Text.Inflections (toUnderscore)
 -- pretty print
 import Text.Pretty.Simple (pPrint)
+
+-- Legacy String
+import Data.String (String, IsString(fromString))
+import Data.Char (isUpper, toLower)
+
 
 -- --------------- TEXT
 intercalate :: Monoid a => a -> [a] -> a
@@ -74,3 +81,16 @@ uuidV4 = nextRandom
 emailValidate = EmailAddress.validate
 
 emailToByteString = EmailAddress.toByteString
+
+-- | A very simple snake_case converter. It's using 'String' so
+-- unless you're doing type level programming it's not what you want.
+simpleSnakeCase :: String -> String
+simpleSnakeCase = foldl' iterator baseCase
+  where
+    baseCase :: String
+    baseCase = ""
+    iterator :: String -> Char -> String
+    iterator "" c = [toLower c]
+    iterator name c
+      | isUpper c = name ++ "_" ++ [toLower c]
+      | otherwise = name ++ [toLower c]

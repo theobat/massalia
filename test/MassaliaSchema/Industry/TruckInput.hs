@@ -25,6 +25,7 @@ import Massalia.QueryFormat
     takeParam,
     (§),
   )
+import Massalia.SQLClass (SQLName, SQLColumns, SQLValues(toSQLValues))
 import Protolude
 
 data TruckInput
@@ -33,9 +34,13 @@ data TruckInput
         vehicleId :: Maybe Text,
         chassis :: Chassis
       }
+  deriving (Eq, Show, Generic, JSON.FromJSON, SQLName, SQLColumns)
+
+data Chassis = C8x4 | C6x4 | C4x4 | C4x2 | CUnknown
   deriving (Eq, Show, Generic, JSON.FromJSON)
 
-data Chassis = C8x4 | C6x4 | C4x4 | C4x2 | CUnknown deriving (Eq, Show, Generic, JSON.FromJSON)
+instance SQLValues Chassis where
+  toSQLValues = pure . chassisToQueryFormat
 
 chassisFromTuple :: (Int, Int) -> Chassis
 chassisFromTuple value = case value of
