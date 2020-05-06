@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 
 module MassaliaSchema.Industry.Plant
   ( Plant (..),
@@ -41,7 +42,8 @@ import Massalia.MorpheusTypes
   )
 import Massalia.QueryFormat
   ( HasqlSnippet,
-    QueryFormat (fromText, param),
+    SQLEncoder,
+    DefaultParamEncoder
   )
 import Massalia.SQLSelect
   ( RawSelectStruct (RawSelectStruct, fromPart, offsetLimit),
@@ -74,12 +76,15 @@ data Plant
 
 type SelectStructPlant queryFormat = SelectStruct Plant queryFormat
 
-plantSelect :: QueryFormat queryFormat => ValidSelection -> SelectStructPlant queryFormat -> SelectStructPlant queryFormat
+plantSelect ::  (
+    SQLEncoder Int64 queryFormat
+  ) =>
+  ValidSelection -> SelectStructPlant queryFormat -> SelectStructPlant queryFormat
 plantSelect selection = case fieldName of
   "id" -> scalarField (\e v -> e {id = v}) Decoders.uuid
   "name" -> scalarField (\e v -> e {name = v}) Decoders.text
   "createdAt" -> scalarField (\e v -> e {createdAt = v}) Decoders.timestamp
-  "truckList" -> collectionWithOptions Decoders.listArray truckSubquery (\e v -> e {truckList = v})
+  "truckList" -> collection testAssemblingOptions Decoders.listArray truckSubquery (\e v -> e {truckList = v})
     where
       truckBasicSubquery = (truckInitSQL Nothing (validSelectionToSelectionSet selection))
       truckSubquery =
@@ -91,14 +96,17 @@ plantSelect selection = case fieldName of
           truckBasicSubquery
   _ -> identity
   where
-    collectionWithOptions = collection testAssemblingOptions
     scalarField = scalar "plant" fieldName
     fieldName = selectionName selection
 
-plantInitSQL :: QueryFormat queryFormat => PlantListQueryFilter -> ValidSelectionSet -> SelectStructPlant queryFormat
+plantInitSQL ::  (
+    SQLEncoder Int64 queryFormat
+  ) =>
+  PlantListQueryFilter -> ValidSelectionSet -> SelectStructPlant queryFormat
 plantInitSQL filters = foldr plantSelect (initialPlantQuery filters)
 
-initialPlantQuery :: QueryFormat queryFormat => PlantListQueryFilter -> SelectStructPlant queryFormat
+initialPlantQuery :: (Monoid queryFormat, IsString queryFormat) =>
+  PlantListQueryFilter -> SelectStructPlant queryFormat
 initialPlantQuery filter =
   getInitialValueSelect
     initSelect
@@ -116,7 +124,7 @@ plantListQuery dbConnection queryArgs = do
     exec validSel = do
       -- res <- Session.run (statement validSel) dbConnection
       let (snippet, result) = selectStructToSnippetAndResult $ initialSnippet validSel
-      let fullSnippet = queryTest <> " " <> snippet
+      let fullSnippet = "SELECT 1" -- (queryTest) <> " " <> snippet
       res <- Session.run (dynamicallyParameterizedStatement fullSnippet result) dbConnection
       -- case res2 of
       --   Left e -> (error $ show e)

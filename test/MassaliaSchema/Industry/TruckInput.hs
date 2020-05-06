@@ -5,6 +5,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module MassaliaSchema.Industry.TruckInput
   ( TruckInput (..),
@@ -20,12 +22,13 @@ import qualified Hasql.Encoders as Encoders
 import qualified Massalia.HasqlDec as Decoders
 import Massalia.QueryFormat
   ( HasqlSnippet,
-    QueryFormat (fromText, param),
     takeMaybeParam,
     takeParam,
     (§),
+    FromText(fromText),
+    SQLEncoder(sqlEncode)
   )
-import Massalia.SQLClass (SQLName, SQLColumns, SQLValues(toSQLValues))
+import Massalia.SQLClass (SQLName, SQLColumns, SQLValues)
 import Protolude
 
 data TruckInput
@@ -34,13 +37,20 @@ data TruckInput
         vehicleId :: Maybe Text,
         chassis :: Chassis
       }
-  deriving (Eq, Show, Generic, JSON.FromJSON, SQLName, SQLColumns)
+  deriving (
+    Eq, Show, Generic,
+    JSON.FromJSON,
+    SQLName, SQLColumns,
+    SQLValues Text, SQLValues HasqlSnippet
+  )
 
 data Chassis = C8x4 | C6x4 | C4x4 | C4x2 | CUnknown
   deriving (Eq, Show, Generic, JSON.FromJSON)
 
-instance SQLValues Chassis where
-  toSQLValues = pure . chassisToQueryFormat
+instance SQLEncoder Chassis Text where
+  sqlEncode = chassisToQueryFormat
+instance SQLEncoder Chassis HasqlSnippet where
+  sqlEncode = fromText . chassisToQueryFormat
 
 chassisFromTuple :: (Int, Int) -> Chassis
 chassisFromTuple value = case value of
@@ -58,18 +68,5 @@ chassisToTuple value = case value of
   C4x2 -> (4, 2)
   CUnknown -> (-1, -1)
 
-data DefaultBehavior queryFormat = Mandatory | Default queryFormat
-
-data TableColumnPolicy = FirstElement | RemoveTheAllEmpty | AlwaysFull
-
-chassisToQueryFormat :: QueryFormat queryFormat => Chassis -> queryFormat
+chassisToQueryFormat :: FromText queryFormat => Chassis -> queryFormat
 chassisToQueryFormat ch = fromText ("row" <> (pack . show . chassisToTuple) ch <> "")
-
-toQueryFormat :: QueryFormat queryFormat => TruckInput -> queryFormat
-toQueryFormat val =
-  takeParam id val
-    § takeMaybeParam vehicleId val ""
-    § chassisToQueryFormat (chassis val)
-
-tableColumns :: QueryFormat queryFormat => [queryFormat]
-tableColumns = ["id", "vehicle_id", "chassis"]

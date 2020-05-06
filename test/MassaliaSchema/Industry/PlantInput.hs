@@ -4,6 +4,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module MassaliaSchema.Industry.PlantInput
   ( PlantInput (..),
@@ -19,17 +21,20 @@ import Data.UUID (nil)
 import GHC.Generics (Generic)
 import qualified Hasql.Encoders as Encoders
 import qualified Massalia.HasqlDec as Decoders
+import Data.String as StringUtils (IsString (fromString))
 import Massalia.QueryFormat
-  ( HasqlSnippet,
-    QueryFormat (fromText, param),
+  (
+    SQLEncoder,
+    HasqlSnippet,
     commaAssemble,
     takeMaybeParam,
     takeParam,
     (§),
   )
-import Massalia.SQLInsert (InsertSchema (InsertSchema), valuesToSelect)
 import Massalia.SQLWith (withXAs)
+import Massalia.SQLClass (DBContext(toWithQuery), SQLName, SQLColumns, SQLValues)
 import Prelude hiding (id)
+import MassaliaSchema.Industry.TruckInput (TruckInput) 
 import qualified Prelude (id)
 
 data PlantInput
@@ -37,36 +42,30 @@ data PlantInput
       { id :: UUID,
         name :: Maybe Text
       }
-  deriving (Eq, Show, Generic, JSON.FromJSON)
-
-plantSchemaTriplet :: QueryFormat queryFormat => InsertSchema queryFormat PlantInput
-plantSchemaTriplet = InsertSchema $ ("plant", ["id", "name"], plantToQueryFormat)
-  where
-    plantToQueryFormat val =
-      takeParam id val
-        § takeMaybeParam name val "''"
-
-csc :: QueryFormat queryFormat => queryFormat
-csc = commaAssemble columnList
-  where
-    InsertSchema (_, columnList, _) = plantSchemaTriplet
-
--- plantCollectionToQueryFormat = valuesFormatter Nothing (Just csc)
+  deriving (
+    Eq, Show, Generic, JSON.FromJSON,
+    SQLName, SQLColumns, SQLValues Text
+    )
 
 data PlantListInput container
   = PlantListInput
       { plant :: container PlantInput,
-        truck :: container UUID
+        truck :: container TruckInput
       }
   deriving (Generic)
 
-toInsertQuery :: QueryFormat queryFormat => PlantListInput [] -> queryFormat
-toInsertQuery input =
-  withXAs "plant" (valuesToSelect plantSchemaTriplet) plant input
+deriving instance DBContext Text (PlantListInput [])
 
-queryTest :: QueryFormat queryFormat => queryFormat
+-- toInsertQuery :: (
+--     SQLEncoder Text queryFormat,
+--     SQLEncoder UUID queryFormat
+--   ) => PlantListInput [] -> queryFormat
+-- toInsertQuery input =
+--   withXAs "plant" (valuesToSelect plantSchemaTriplet) plant input
+
+queryTest :: Text
 queryTest =
-  toInsertQuery
+  toWithQuery ()
     PlantListInput
       { plant = [PlantInput nil (Just "okokok")],
         truck = []

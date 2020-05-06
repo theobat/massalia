@@ -9,8 +9,7 @@ module Massalia.SQLWith
 where
 
 import Massalia.QueryFormat
-  ( HasqlSnippet,
-    QueryFormat (fromText, param),
+  ( HasqlSnippet
   )
 import Massalia.GenericUtils (GTypeName(gtypename))
 import Data.String (String, IsString(fromString))
@@ -28,7 +27,7 @@ import Protolude
 --  and the parameters have dumb name (a b c d)
 withXAs ::
   forall queryFormat collection underlyingType dbContextType.
-  (QueryFormat queryFormat, Foldable collection) =>
+  (IsString queryFormat, Monoid queryFormat, Foldable collection) =>
   queryFormat ->
   (collection underlyingType -> queryFormat) ->
   (dbContextType -> collection underlyingType) ->
@@ -39,7 +38,7 @@ withXAs a b c d = "WITH " <> xAs a b c d
 -- | A function to create a CTE instance from a collection of haskell records and a 
 -- function to turn this record into query format.
 xAs ::
-  (QueryFormat queryFormat, Foldable collection) =>
+  (IsString queryFormat, Monoid queryFormat, Foldable collection) =>
   -- | First is the with group alias.
   queryFormat ->
   -- | The query format transformer

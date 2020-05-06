@@ -38,7 +38,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.String as StringUtils (IsString (fromString))
 import Data.UUID
 import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
-import Massalia.QueryFormat (DefaultParamEncoder, QueryFormat (param), TextEncoder)
+import Massalia.QueryFormat (SQLEncoder(sqlEncode))
 import Massalia.SQLSelect (AQueryPart (AQueryPartConst))
 import qualified Massalia.Utils as MassaliaUtils (intercalate, intercalateMap)
 import Protolude
@@ -107,7 +107,7 @@ type GQLFilterInt (fieldName :: Symbol) = GQLScalarFilter (fieldName :: Symbol) 
 instance (KnownSymbol (fieldName :: Symbol)) => GQLType (GQLFilterInt (fieldName :: Symbol)) where
   description = const $ Just "All the common operation you can think of for Int"
 
-maybeToQueryFormat :: (QueryFormat content) => Maybe content -> content
+maybeToQueryFormat :: Monoid content => Maybe content -> content
 maybeToQueryFormat Nothing = mempty
 maybeToQueryFormat (Just content) = content
 
@@ -121,15 +121,11 @@ filterFieldToMabeContent ::
   forall fieldName.
   KnownSymbol (fieldName :: Symbol) =>
   forall eqScalarType likeScalarType ordScalarType content.
-  ( TextEncoder eqScalarType,
-    DefaultParamEncoder eqScalarType,
-    DefaultParamEncoder [eqScalarType],
-    TextEncoder likeScalarType,
-    DefaultParamEncoder likeScalarType,
-    TextEncoder ordScalarType,
-    DefaultParamEncoder ordScalarType,
+  ( SQLEncoder eqScalarType content,
+    SQLEncoder [eqScalarType] content,
+    SQLEncoder likeScalarType content,
+    SQLEncoder ordScalarType content,
     PostgresRange ordScalarType,
-    QueryFormat content,
     Data (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
   ) =>
   Maybe content ->
@@ -166,21 +162,19 @@ filterFieldToMabeContent maybeNamespace (Just filter) = case filter of
     actualFieldName = StringUtils.fromString (symbolVal (Proxy :: Proxy (fieldName :: Symbol)))
 
 snippetContent ::
-  (QueryFormat content, TextEncoder a, DefaultParamEncoder a) =>
+  forall content a. (SQLEncoder a content) =>
   content ->
   content ->
   Maybe a ->
   Maybe content
 snippetContent fieldName op maybeVal = effectFunc <$> maybeVal
   where
-    effectFunc parameterVal = fieldName <> " " <> op <> " " <> param parameterVal
+    effectFunc parameterVal = fieldName <> " " <> op <> " " <> sqlEncode parameterVal
 
 wrappedContent ::
   forall content.
-  (QueryFormat content) =>
   content ->
-  ( forall filterValue.
-    (TextEncoder filterValue, DefaultParamEncoder filterValue) =>
+  ( forall filterValue. (SQLEncoder filterValue content) =>
     content ->
     Maybe filterValue ->
     content ->
@@ -188,7 +182,7 @@ wrappedContent ::
   )
 wrappedContent _ _ Nothing _ = []
 wrappedContent fieldName op (Just a) suffix =
-  [ fieldName <> " " <> op <> " " <> param a <> suffix
+  [ fieldName <> " " <> op <> " " <> sqlEncode a <> suffix
   ]
 
 -- int4range — Range of integer
@@ -198,7 +192,7 @@ wrappedContent fieldName op (Just a) suffix =
 -- tstzrange — Range of timestamp with time zone
 -- daterange — Range of date
 -- TODO: map the proper ranges with Hasql/haskell types
-class DefaultParamEncoder a => PostgresRange a where
+class PostgresRange a where
   -- First param is the classname
   getRangeKeyword :: b
 

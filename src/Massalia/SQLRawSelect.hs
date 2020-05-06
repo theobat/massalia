@@ -31,7 +31,8 @@ import Data.Int (Int64)
 import Data.String (IsString (..))
 import Data.Text (Text, pack)
 import Massalia.QueryFormat
-  ( QueryFormat (param),
+  (
+    SQLEncoder (sqlEncode)
   )
 import Massalia.SQLPart
   ( AQueryPart (AQueryPartConst),
@@ -63,7 +64,7 @@ data RawSelectStruct content
 type OffsetLimit = Maybe (Int, Int)
 
 -- | The initial select struct for Massalia use cases.
-initSelect :: (QueryFormat content) => RawSelectStruct content
+initSelect :: (IsString content) => RawSelectStruct content
 initSelect =
   RawSelectStruct
     { wrapFunctionList = [Row],
@@ -78,7 +79,7 @@ initSelect =
     }
 
 -- | This is the neutral element for the monoid instance of the 'RawSelectStruct' struct.
-emptySelect :: (QueryFormat content) => RawSelectStruct content
+emptySelect :: (IsString content) => RawSelectStruct content
 emptySelect =
   RawSelectStruct
     { wrapFunctionList = [], -- either: "row" or "array_agg", "row"
@@ -91,10 +92,6 @@ emptySelect =
       orderByList = [],
       offsetLimit = Nothing
     }
-
--- | A fusion which keep the left values for values with non sensible semigroup instances (such as fromPart).
-leftFusion :: (QueryFormat content) => RawSelectStruct content -> RawSelectStruct content -> RawSelectStruct content
-leftFusion a b = undefined
 
 data SQLSelect
 
@@ -110,20 +107,22 @@ data SQLOrderBy
 
 data RowFunction = Row | ArrayAgg
 
-rowFunctionToContent :: (IsString content) => RowFunction -> content
+rowFunctionToContent :: (IsString queryFormat) => RowFunction -> queryFormat
 rowFunctionToContent Row = "row"
 rowFunctionToContent ArrayAgg = "array_agg"
 
-offsetLimitToContent :: (Monoid content, QueryFormat content) => Maybe (Int, Int) -> [content]
+offsetLimitToContent :: (
+    Monoid queryFormat, SQLEncoder Int64 queryFormat
+  ) => Maybe (Int, Int) -> [queryFormat]
 offsetLimitToContent Nothing = []
 offsetLimitToContent (Just tuple) = pure $ case tuple of
   (0, _) -> limitSnippet
-  (x, _) -> "OFFSET " <> (param $ toInt64 x) <> " " <> limitSnippet
+  (x, _) -> "OFFSET " <> (sqlEncode $ toInt64 x) <> " " <> limitSnippet
   where
-    limitSnippet = "LIMIT " <> (param $ toInt64 $ snd tuple)
+    limitSnippet = "LIMIT " <> (sqlEncode $ toInt64 $ snd tuple)
     toInt64 x = fromIntegral x :: Int64
 
-selectGroup :: (Monoid content, QueryFormat content) => [AQueryPart SQLSelect content] -> [RowFunction] -> content
+selectGroup :: (Monoid content, IsString content) => [AQueryPart SQLSelect content] -> [RowFunction] -> content
 selectGroup selectList functionList = "SELECT " <> rawGroup
   where
     rawGroup = foldr (\rowFunc acc -> rowFunctionToContent rowFunc <> "(" <> acc <> ")") joinedColumns functionList
@@ -132,7 +131,7 @@ selectGroup selectList functionList = "SELECT " <> rawGroup
 -- | An assembly function to transform a structured query to a
 -- content (which is either Text or Snippet)
 structToContent ::
-  (QueryFormat content, Monoid content) =>
+  (Monoid content, SQLEncoder Int64 content) =>
   AssemblingOptions content ->
   RawSelectStruct content ->
   content
@@ -168,7 +167,7 @@ structToContent
       innerSepValue = innerSeparator options
 
 structToSubquery ::
-  (QueryFormat content, Monoid content) =>
+  (Monoid content, SQLEncoder Int64 content) =>
   AssemblingOptions content ->
   RawSelectStruct content ->
   AQueryPart SQLSelect content

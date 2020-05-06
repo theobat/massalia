@@ -9,6 +9,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 
 module MassaliaSchema.Industry.TruckFilter
   ( TruckFilter (..),
@@ -33,7 +34,7 @@ import Massalia.Filter
 import qualified Massalia.HasqlDec as Decoders
 import Massalia.QueryFormat
   ( HasqlSnippet,
-    QueryFormat (fromText, param),
+    SQLEncoder
   )
 import Massalia.SQLPart
   ( AQueryPart,
@@ -54,7 +55,7 @@ testInstance =
       vehicleId = Nothing
     }
 
-toQueryPart :: (QueryFormat content) => Maybe TruckFilter -> Maybe (AQueryPart partType content)
+toQueryPart :: (forall a. SQLEncoder a content) => Maybe TruckFilter -> Maybe (AQueryPart partType content)
 toQueryPart Nothing = mempty
 toQueryPart
   ( Just

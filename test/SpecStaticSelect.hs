@@ -32,7 +32,7 @@ unitTests =
         assertEqual "" ((Just "ok") <> Nothing <> (Just " haha ok")) (Just "ok haha ok")
     ]
 
-testSimpleQuery :: RawSelectStruct String
+testSimpleQuery :: RawSelectStruct Text
 testSimpleQuery =
   RawSelectStruct
     { wrapFunctionList = [ArrayAgg, Row], -- either: "row" or "array_agg", "row"
@@ -49,7 +49,7 @@ testSimpleQuery =
       offsetLimit = Just (0, 2)
     }
 
-testAnotherQuery :: RawSelectStruct String
+testAnotherQuery :: RawSelectStruct Text
 testAnotherQuery =
   RawSelectStruct
     { wrapFunctionList = [Row], -- either: "row" or "array_agg", "row"

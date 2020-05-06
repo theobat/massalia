@@ -2,6 +2,13 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 -- |
@@ -12,36 +19,39 @@
 --  a problem for testing and for debugging. This module defined a typeclass to abstract whatever Type is used for the
 --  query formatting.
 module Massalia.QueryFormat
-  ( QueryFormat (param, fromText),
-    TextEncoder (paramEncode),
+  ( SQLEncoder (sqlEncode),
+    FromText(fromText),
+    IsString(fromString),
     DefaultParamEncoder,
     HasqlSnippet,
     commaAssemble,
     (§),
     takeParam,
     takeMaybeParam,
+    Snippet.param,
+    inSingleQuote,
+    inParens
   )
 where
 
 import Data.Foldable (foldr1)
 import Data.Int (Int64)
 import Data.Sequence (Seq)
-import Data.String (IsString)
+import Data.String (String, IsString)
 import qualified Data.String as String (IsString (fromString))
 import Data.Text (Text, pack, replace, unpack)
-import Data.UUID
+import Data.UUID hiding (fromText, fromString)
 import Data.Vector (Vector)
 import Hasql.DynamicStatements.Snippet (Snippet)
 import qualified Hasql.DynamicStatements.Snippet as Snippet
 import Hasql.Encoders (NullableOrNot, Value)
 import Hasql.Implicits.Encoders (DefaultParamEncoder (defaultParam))
-import Massalia.Utils (intercalate, intercalateMap)
-import PostgreSQL.Binary.Data (LocalTime)
+import Massalia.Utils (EmailAddress, LocalTime, intercalate, intercalateMap, emailToText)
 import Protolude hiding (intercalate, replace)
 
 type HasqlSnippet = Snippet
 
-(§) :: QueryFormat content => content -> content -> content
+(§) :: (IsString content, Monoid content) => content -> content -> content
 (§) a b = a <> "," <> b
 
 commaAssemble :: (IsString a, Monoid a) => [a] -> a
@@ -49,105 +59,95 @@ commaAssemble = intercalateMap identity ","
 
 -- | Yields a query formatted snippet with the given parameter encoded as a parameter in the query format.
 takeParam ::
-  (QueryFormat content, TextEncoder paramValueType, DefaultParamEncoder paramValueType) =>
+  (SQLEncoder paramValueType content) =>
   (recordType -> paramValueType) ->
   recordType ->
   content
-takeParam accessor record = param $ accessor record
+takeParam accessor record = sqlEncode $ accessor record
 
 takeMaybeParam ::
-  (QueryFormat content, TextEncoder paramValueType, DefaultParamEncoder paramValueType) =>
+  (SQLEncoder paramValueType content) =>
   (recordType -> Maybe paramValueType) ->
   recordType ->
   content ->
   content
 takeMaybeParam accessor record defaultValue = case (accessor record) of
   Nothing -> defaultValue
-  Just value -> param value
+  Just value -> sqlEncode value
 
-instance DefaultParamEncoder Void where
-  defaultParam = panic "This should never happen, cannot encode Void as a parameter"
 
--- | This typeclass is a wrapper around the existing 'Snippet' type in "Hasql.DynamicStatements.Snippet"
--- which conveniently provide the ability to generate queries as 'Text' for testing/debugging
--- purposes while retaining the performance gain by having pure bytecode in production.
-class (IsString content, Monoid content) => QueryFormat content where
-  -- | A function to transform any 'Text' to the current content type.
+
+class FromText content where
   fromText :: Text -> content
-
-  -- | A function to safely encode any variable value into the current content type.
-  param :: (TextEncoder a, DefaultParamEncoder a) => a -> content
-
-  -- | A function to encode a parameter using an explicit encoder.
-  paramWithEncoder :: (TextEncoder a, DefaultParamEncoder a) => NullableOrNot Value a -> a -> content
-
--- | ALL the supported Query formats in this library
-
--- | The legacy 'String' type for your query.
--- BEWARE: this is __not safe in case of SQL injections__, you should **not** actually pass that to the database.
-instance QueryFormat [Char] where
-  fromText = unpack
-  param = unpack . paramEncode
-  paramWithEncoder = const (unpack . paramEncode)
-
--- | The query format for tests, debugging and any human interaction oriented action with your queries.
--- BEWARE: this is __not safe in case of SQL injections__, you should **not** actually pass that to the database.
-instance QueryFormat Text where
+instance FromText Text where
   fromText = identity
-  param = paramEncode
-  paramWithEncoder = const paramEncode
+instance FromText String where
+  fromText = unpack
+instance FromText Snippet where
+  fromText = String.fromString . unpack
 
--- | The production oriented 'Snippet' type for your query.
--- This is  __safe in case of SQL injections__, it's the right format form communicating with your database.
-instance QueryFormat Snippet where
-  fromText = String.fromString . unpack -- THIS IS BAD, TODO: use a direct encoding from text
-  param = Snippet.param
-  paramWithEncoder = Snippet.encoderAndParam
+class (IsString queryFormat, Monoid queryFormat, FromText queryFormat) =>
+  SQLEncoder underlyingType queryFormat where
+  sqlEncode :: underlyingType -> queryFormat
 
-class TextEncoder a where
-  paramEncode :: a -> Text
+instance SQLEncoder Void Text where
+  sqlEncode = mempty
+instance (SQLEncoder a Text) => SQLEncoder (Maybe a) Text where
+  sqlEncode = maybe "null" sqlEncode
+instance (SQLEncoder a Snippet) => SQLEncoder (Maybe a) Snippet where
+  sqlEncode = maybe "null" sqlEncode
+instance (SQLEncoder a Text) => SQLEncoder [a] Text where
+  sqlEncode = collectionTextEncode
+instance (DefaultParamEncoder [a]) => SQLEncoder [a] Snippet where
+  sqlEncode = Snippet.param
+instance (SQLEncoder a Text) => SQLEncoder (Vector a) Text where
+  sqlEncode = collectionTextEncode
+instance (DefaultParamEncoder (Vector a)) => SQLEncoder (Vector a) Snippet where
+  sqlEncode = Snippet.param
+instance (SQLEncoder a Text) => SQLEncoder (Seq a) Text where
+  sqlEncode = collectionTextEncode
+instance (DefaultParamEncoder (Seq a)) => SQLEncoder (Seq a) Snippet where
+  sqlEncode = Snippet.param
+instance (SQLEncoder a Text) => SQLEncoder (Set a) Text where
+  sqlEncode = collectionTextEncode
+instance (DefaultParamEncoder (Set a)) => SQLEncoder (Set a) Snippet where
+  sqlEncode = Snippet.param
 
-instance TextEncoder Void where
-  paramEncode _ = ""
+-- instance (Foldable collection, DefaultParamEncoder (collection elementType)) =>
+--   SQLEncoder (collection elementType) Snippet where
+--   sqlEncode = Snippet.param
 
-instance TextEncoder UUID where
-  paramEncode = wrap . toText
+instance SQLEncoder UUID Text where
+  sqlEncode = inSingleQuote . toText
+instance SQLEncoder UUID Snippet where
+  sqlEncode = Snippet.param
+  
+instance SQLEncoder Text Text where
+  sqlEncode = inSingleQuote
+instance SQLEncoder Text Snippet where
+  sqlEncode = Snippet.param
+  
+instance SQLEncoder Int64 Text where
+  sqlEncode = pack . show
+instance SQLEncoder Int64 Snippet where
+  sqlEncode = Snippet.param
 
-instance TextEncoder Text where
-  paramEncode = wrap
+instance SQLEncoder EmailAddress Text where
+  sqlEncode = pack . show
+instance SQLEncoder EmailAddress Snippet where
+  sqlEncode = Snippet.param . emailToText 
 
-instance TextEncoder Int64 where
-  paramEncode = pack . show
+inSingleQuote a = "'" <> a <> "'"
+inParens a = "(" <> a <> ")"
 
-instance TextEncoder Int where
-  paramEncode = pack . show
-
-instance TextEncoder LocalTime where
-  paramEncode = pack . show
-
--- | A Text encoding for any foldable collection in haskell.
--- It encodes everything as an array literal in postgres (@select '{}'::ARRAY[];@).
--- It uses the string literal encoding instead of the ARRAY[] syntax for better type inference.
-collectionEncode :: (Foldable a, TextEncoder b) => a b -> Text
-collectionEncode collection = wrapCollection assembled
+collectionTextEncode :: (Foldable collection, SQLEncoder underlyingType Text) =>
+  collection underlyingType -> Text
+collectionTextEncode collection = wrapCollection assembled
   where
     assembled = foldr assemblerFun "" collection
-    assemblerFun :: TextEncoder b => b -> Text -> Text
+    assemblerFun :: SQLEncoder b Text => b -> Text -> Text
     assemblerFun val "" = rawEncode val
     assemblerFun val currentEncoded = currentEncoded <> "," <> rawEncode val
-    rawEncode val = replace "'" "" $ paramEncode val
+    rawEncode val = replace "'" "" $ sqlEncode val
     wrapCollection a = "'{" <> a <> "}'"
-
-instance (TextEncoder a) => TextEncoder [a] where
-  paramEncode = collectionEncode
-
-instance (TextEncoder a) => TextEncoder (Vector a) where
-  paramEncode = collectionEncode
-
-instance (TextEncoder a) => TextEncoder (Set a) where
-  paramEncode = collectionEncode
-
-instance (TextEncoder a) => TextEncoder (Seq a) where
-  paramEncode = collectionEncode
-
-wrap a = "'" <> a <> "'"
+    

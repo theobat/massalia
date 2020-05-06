@@ -16,6 +16,7 @@ module Massalia.Utils
     EmailAddress,
     emailValidate,
     emailToByteString,
+    emailToText,
     -- UUID
     UUID.UUID,
     uuidNil,
@@ -81,6 +82,7 @@ uuidV4 = nextRandom
 emailValidate = EmailAddress.validate
 
 emailToByteString = EmailAddress.toByteString
+emailToText = decodeUtf8 . EmailAddress.toByteString
 
 -- | A very simple snake_case converter. It's using 'String' so
 -- unless you're doing type level programming it's not what you want.

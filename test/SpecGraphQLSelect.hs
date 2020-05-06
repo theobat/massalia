@@ -30,10 +30,10 @@ import Test.Tasty.HUnit
 -- testTruckQuery :: SelectStruct () Truck
 -- testTruckQuery = truckInitSQL truckSelection
 
-testPlantQuery :: SelectStruct Plant String
+testPlantQuery :: SelectStruct Plant Text
 testPlantQuery = plantInitSQL defaultFilter plantSelection
 
-testTruckList :: SelectStruct Truck String
+testTruckList :: SelectStruct Truck Text
 testTruckList = truckInitSQL Nothing truckSelection
 
 unitTests =

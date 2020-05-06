@@ -2,6 +2,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 -- |
 -- Module      : Massalia.SQLPart
@@ -11,12 +13,12 @@ module Massalia.SQLPart where
 
 import Data.String (IsString)
 import qualified Data.String as String (IsString (fromString))
-import Massalia.QueryFormat (QueryFormat)
+import Massalia.QueryFormat (SQLEncoder, FromText)
 import Massalia.Utils (intercalate)
 
 newtype AQueryPart partType content = AQueryPartConst content
 
-deriving instance (QueryFormat content) => QueryFormat (AQueryPart partType content)
+deriving instance (FromText content) => FromText (AQueryPart partType content)
 
 deriving instance (IsString content) => IsString (AQueryPart partType content)
 
@@ -30,14 +32,14 @@ data AssemblingOptions content
         innerSeparator :: content
       }
 
-defaultAssemblingOptions :: QueryFormat content => AssemblingOptions content
+defaultAssemblingOptions :: (IsString content) => AssemblingOptions content
 defaultAssemblingOptions =
   AssemblingOptions
     { partSeparator = "\n",
       innerSeparator = ","
     }
 
-testAssemblingOptions :: QueryFormat content => AssemblingOptions content
+testAssemblingOptions :: (IsString content) => AssemblingOptions content
 testAssemblingOptions =
   AssemblingOptions
     { partSeparator = " ",

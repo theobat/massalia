@@ -27,9 +27,9 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Prelude hiding (id)
 
-realStructToContent = structToContent (testAssemblingOptions :: AssemblingOptions String)
+realStructToContent = structToContent (testAssemblingOptions :: AssemblingOptions Text)
 
-realStructToSubquery = structToSubquery (testAssemblingOptions :: AssemblingOptions String)
+realStructToSubquery = structToSubquery (testAssemblingOptions :: AssemblingOptions Text)
 
 unitTests =
   testGroup
@@ -38,7 +38,7 @@ unitTests =
         assertEqual "" (realStructToContent testSimpleQuery) "SELECT row(truck.id, truck.vehicle_id) FROM truck WHERE truck.id =ANY( '{5a7478bc-4190-44b1-86ce-206f0ca64f43}')"
     ]
 
-testSimpleQuery :: RawSelectStruct String
+testSimpleQuery :: RawSelectStruct Text
 testSimpleQuery =
   RawSelectStruct
     { wrapFunctionList = [Row], -- either: "row" or "array_agg", "row"

@@ -5,6 +5,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 
 module Massalia.SQLSelect
   ( SelectStruct (..),
@@ -41,7 +43,8 @@ import Massalia.HasqlExec
   )
 import Massalia.QueryFormat
   ( HasqlSnippet,
-    QueryFormat (fromText, param),
+    SQLEncoder (sqlEncode),
+    FromText(fromText)
   )
 import Massalia.SQLRawSelect
   ( AQueryPart (AQueryPartConst),
@@ -78,7 +81,7 @@ type Updater a decoder = decoder -> a -> decoder
 type ValueDec a = Decoders.Value a
 
 scalar ::
-  (QueryFormat queryFormat) =>
+  (FromText queryFormat) =>
   Text ->
   Text ->
   Updater a decoder ->
@@ -92,7 +95,7 @@ scalar tableName column = object $ tableName <> "." <> snakeColumn
       Right e -> e
 
 object ::
-  (QueryFormat queryFormat) =>
+  (FromText queryFormat) =>
   Text ->
   Updater a decoder ->
   ValueDec a ->
@@ -111,7 +114,7 @@ type DecoderContainer wrapperType nestedRecordType = Decoders.NullableOrNot Deco
 type UpdaterWrap nestedRecordType decoder = decoder -> nestedRecordType -> decoder
 
 collection ::
-  (QueryFormat queryFormat, Monoid (wrapperType nestedRecordType)) =>
+  (SQLEncoder Int64 queryFormat, Monoid (wrapperType nestedRecordType)) =>
   AssemblingOptions queryFormat ->
   DecoderContainer wrapperType nestedRecordType ->
   SelectStruct nestedRecordType queryFormat ->
@@ -129,10 +132,10 @@ collection assemblingOptions decoderInstance subQuery updater currentQuery =
     subqueryContent = addSelectColumns [] [ArrayAgg] $ query subQuery
     subQueryListDecoder = Decoders.field (Decoders.nullable $ decoderInstance $ Decoders.nonNullable $ Decoders.composite (decoder subQuery))
 
-selectStructToContent :: (QueryFormat content) => AssemblingOptions content -> SelectStruct decoder content -> content
+selectStructToContent :: (SQLEncoder Int64 content) => AssemblingOptions content -> SelectStruct decoder content -> content
 selectStructToContent options = structToContent options . query
 
-selectStructToContentDefault :: (QueryFormat content) => SelectStruct decoder content -> content
+selectStructToContentDefault :: (SQLEncoder Int64 content) => SelectStruct decoder content -> content
 selectStructToContentDefault = structToContent defaultAssemblingOptions . query
 
 -- | select query to a HASQL Statement, which can be executed in a Session.
@@ -154,7 +157,7 @@ selectStructToSnippetAndResult selectSt = (content, decoderValue)
     content = selectStructToContentDefault selectSt
     decoderValue = Decoders.rowList (Decoders.column $ Decoders.nonNullable $ Decoders.composite $ decoder selectSt)
 
-transformQuery :: (QueryFormat content) => (RawSelectStruct content -> RawSelectStruct content) -> SelectStruct decoder content -> SelectStruct decoder content
+transformQuery :: (RawSelectStruct content -> RawSelectStruct content) -> SelectStruct decoder content -> SelectStruct decoder content
 transformQuery transformer currentQuery =
   currentQuery
     { query = transformer $ query currentQuery
