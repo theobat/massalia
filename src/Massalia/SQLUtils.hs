@@ -30,3 +30,12 @@ insertIntoWrapper tableName assembledColList = "INSERT INTO \"" <> tableName <> 
 selectWrapper ::
   (Monoid queryFormat, IsString queryFormat) => queryFormat -> queryFormat -> queryFormat -> queryFormat
 selectWrapper name assembledColList valueRows = "SELECT * FROM (" <> valueRows <> ") as " <> name <> " " <> assembledColList
+
+-- | Wraps a list of columns into a queryFormat type
+--  as a comma separated-value wrapped in parens.
+-- e.g.
+-- @
+--  columnFromList ["id", "name", "some_thing"] == "(id, name, some_thing)"
+-- @
+columnFromList :: [queryFormat] -> queryFormat
+columnFromList = undefined

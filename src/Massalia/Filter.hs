@@ -200,3 +200,6 @@ instance PostgresRange Void where
   getRangeKeyword = panic "EA1: should never call PostgresRange for Void"
 
 data RangeInclusivity = Inclusive | Exclusive | RightInclusive | LeftInclusive deriving (Eq, Show, Data, Generic, FromJSON, ToJSON)
+
+-- class SQLFilter a where
+--   toFilterQuery :: a -> 

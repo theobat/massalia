@@ -64,6 +64,7 @@ import MassaliaSchema.Industry.Truck (Truck, truckInitSQL)
 import PostgreSQL.Binary.Data (LocalTime)
 import Protolude hiding (first)
 import Text.Pretty.Simple (pPrint)
+import Massalia.HasqlExec (Pool, use)
 
 data Plant
   = Plant
@@ -117,18 +118,20 @@ initialPlantQuery filter =
 
 defaultPlant = Plant {id = nil, truckList = mempty, name = ""}
 
-plantListQuery dbConnection queryArgs = do
+plantListQuery pool queryArgs = do
   Context {currentSelection = selection} <- unsafeInternalContext
   lift (exec (validSelectionToSelectionSet selection))
   where
     exec validSel = do
       -- res <- Session.run (statement validSel) dbConnection
       let (snippet, result) = selectStructToSnippetAndResult $ initialSnippet validSel
-      let fullSnippet = "SELECT 1" -- (queryTest) <> " " <> snippet
-      res <- Session.run (dynamicallyParameterizedStatement fullSnippet result) dbConnection
-      -- case res2 of
+      let fullSnippet = queryTest <> " " <> snippet
+      let session = dynamicallyParameterizedStatement fullSnippet result
+      res <- use pool session
+      -- case res of
       --   Left e -> (error $ show e)
       --   Right listRes -> pPrint listRes
+
       case res of
         Left e -> (panic $ show e)
         Right listRes -> pure listRes

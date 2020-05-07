@@ -33,8 +33,12 @@ class GTypeName f where
 --   gtypename = datatypeName (undefined :: M1 D s i ())
 -- instance (Datatype s) =>  GTypeName (M1 C s (K1 R t)) where
 --   gtypename = datatypeName (undefined :: M1 C s (K1 R t) ())
-instance GTypeName (M1 i s a) where
-  gtypename = "ok"
+instance (Datatype s) => GTypeName (M1 D s a) where
+  gtypename = datatypeName (undefined :: M1 D s i ())
+instance GTypeName (M1 C s a) where
+  gtypename = ""
+instance GTypeName (M1 S s a) where
+  gtypename = ""
 instance GTypeName U1 where
   gtypename = ""
 

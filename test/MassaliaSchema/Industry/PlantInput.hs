@@ -32,7 +32,10 @@ import Massalia.QueryFormat
     (§),
   )
 import Massalia.SQLWith (withXAs)
-import Massalia.SQLClass (DBContext(toWithQuery), SQLName, SQLColumns, SQLValues)
+import Massalia.SQLClass (
+    DBContext(toWithQuery), SQLName, SQLColumns, SQLValues,
+    WithQueryOption(PureSelect)
+  )
 import Prelude hiding (id)
 import MassaliaSchema.Industry.TruckInput (TruckInput) 
 import qualified Prelude (id)
@@ -44,7 +47,8 @@ data PlantInput
       }
   deriving (
     Eq, Show, Generic, JSON.FromJSON,
-    SQLName, SQLColumns, SQLValues Text
+    SQLName, SQLColumns,
+    SQLValues Text, SQLValues HasqlSnippet
     )
 
 data PlantListInput container
@@ -55,6 +59,7 @@ data PlantListInput container
   deriving (Generic)
 
 deriving instance DBContext Text (PlantListInput [])
+deriving instance DBContext HasqlSnippet (PlantListInput [])
 
 -- toInsertQuery :: (
 --     SQLEncoder Text queryFormat,
@@ -63,9 +68,9 @@ deriving instance DBContext Text (PlantListInput [])
 -- toInsertQuery input =
 --   withXAs "plant" (valuesToSelect plantSchemaTriplet) plant input
 
-queryTest :: Text
+queryTest :: (DBContext queryFormat (PlantListInput [])) => queryFormat
 queryTest =
-  toWithQuery ()
+  toWithQuery (Just PureSelect)
     PlantListInput
       { plant = [PlantInput nil (Just "okokok")],
         truck = []

@@ -8,7 +8,7 @@ module MassaliaSchema.TestAPI where
 
 import qualified Data.ByteString.Lazy.Char8 as B
 import GHC.Generics (Generic)
-import Massalia.HasqlConnection (Connection)
+import Massalia.HasqlExec (Pool)
 import Massalia.Morpheus (interpreter)
 import Massalia.MorpheusTypes
   ( GQLRequest,
@@ -25,13 +25,13 @@ import MassaliaSchema.Industry.DBContext (PlantInputDBContext)
 import MassaliaSchema.Industry.Plant (Plant, PlantListQueryFilter, plantListQuery)
 import MassaliaSchema.Industry.Truck (Truck)
 
-api :: Connection -> GQLRequest -> IO GQLResponse
-api dbConnection = interpreter $ rootResolver dbConnection
+api :: Pool -> GQLRequest -> IO GQLResponse
+api dbConnectionPool = interpreter $ rootResolver dbConnectionPool
 
-rootResolver :: Connection -> GQLRootResolver IO () Query Undefined Undefined
-rootResolver dbConnection =
+rootResolver :: Pool -> GQLRootResolver IO () Query Undefined Undefined
+rootResolver dbConnectionPool =
   GQLRootResolver
-    { queryResolver = rootQuery dbConnection,
+    { queryResolver = rootQuery dbConnectionPool,
       mutationResolver = Undefined,
       subscriptionResolver = Undefined
     }
@@ -48,8 +48,8 @@ data Query m
       }
   deriving (Generic, GQLType)
 
-rootQuery :: Connection -> Query (Resolver QUERY () IO)
-rootQuery dbConnection =
+rootQuery :: Pool -> Query (Resolver QUERY () IO)
+rootQuery dbConnectionPool =
   Query
-    { plantListPaginated = plantListQuery dbConnection
+    { plantListPaginated = plantListQuery dbConnectionPool
     }

@@ -12,6 +12,7 @@ module Massalia.Utils
     intercalateMap,
     stringToText,
     toUnderscore,
+    toCSVInParens,
     -- EmailAddress
     EmailAddress,
     emailValidate,
@@ -65,6 +66,11 @@ intercalateMap mapper separator currentList = case currentList of
   [e1] -> mapper e1
   (e1 : reducedList) -> mapper e1 <> separator <> intercalateMap mapper separator reducedList
 
+
+toCSVInParens :: (IsString a, Monoid a) => [a] -> a
+toCSVInParens list = inParens $ intercalate "," list
+
+inParens a = "(" <> a <> ")"
 stringToText = pack
 
 -- --------------- UUID
@@ -96,3 +102,4 @@ simpleSnakeCase = foldl' iterator baseCase
     iterator name c
       | isUpper c = name ++ "_" ++ [toLower c]
       | otherwise = name ++ [toLower c]
+    

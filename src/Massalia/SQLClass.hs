@@ -20,13 +20,14 @@ module Massalia.SQLClass
   ( SQLName(..),
     SQLColumns(..),
     SQLValues(..),
-    DBContext(..)
+    DBContext(..),
+    WithQueryOption(..)
   )
 where
 
 import Massalia.QueryFormat
   (
-    FromText,
+    FromText(fromText),
     SQLEncoder(sqlEncode),
     HasqlSnippet,
     DefaultParamEncoder,
@@ -34,9 +35,10 @@ import Massalia.QueryFormat
     (§),
     inParens
   )
-import Massalia.SQLUtils (selectWrapper, rowsAssembler)
+import Massalia.SQLUtils (insertIntoWrapper, selectWrapper, rowsAssembler)
 import Massalia.GenericUtils (GTypeName(gtypename), GSelectors(selectors))
 import Data.String (String, IsString(fromString))
+import qualified Data.Text as Text
 import GHC.Generics (
     U1,
     D,
@@ -47,26 +49,39 @@ import GHC.Generics (
     datatypeName,
     K1(K1)
   )
-import Massalia.Utils (simpleSnakeCase, intercalate)
+import Massalia.Utils (simpleSnakeCase, intercalate, toCSVInParens)
 import Protolude hiding (intercalate)
 
 -- | This class represents all the haskell types with a corresponding SQL
--- name whether this name is the group alias in a @WITH@ CTE query or an 
--- ordinary table name.
+-- name. It provides 2 functions: @sqlName@ and @tableName@. @sqlName@ is meant
+-- to be used as a a free name for aliases (in CTE or FROM parts) whereas the 
+-- @tableName@ is meant to exist as a table in the SQL schema.
+-- The default instances take th type name and:
+--    - turn it into snake case for @sqlName@
+--    - turn it into snake case and remove any @"_input"@ occurence for @sqlName@
 -- e.g.
 -- @
---     sqlName $ HaskellRecord { name = "some text" }
+--     sqlName $ HaskellRecord { name = " abc" } == "haskell_record"
 -- @
--- Would default-yield something like @"haskell_record"@.
+-- @
+--     sqlTable $ RecordInput { name = "some text" } == "record"
+-- @
 -- 
 class SQLName a where
   sqlName :: (IsString queryFormat) => queryFormat
+  sqlTable :: (FromText queryFormat) => queryFormat
   -- | The default SQLName is merely a snake case alternative of the 
   default sqlName :: (IsString queryFormat, Generic a, GTypeName (Rep a)) => queryFormat
   sqlName = fromString snakeTypename
     where
       snakeTypename = simpleSnakeCase typename
       typename = gtypename @(Rep a)
+  -- | The default sqlTable is snake case + dropping the "input" word
+  default sqlTable :: (FromText queryFormat, Generic a, GTypeName (Rep a)) => queryFormat
+  sqlTable = fromText snakeTypename
+    where
+      snakeTypename = Text.replace "_input" "" typename
+      typename = fromString $ simpleSnakeCase $ gtypename @(Rep a) :: Text
 
 -- | This class represents all the haskell types with a corresponding list
 -- of SQL column associated (mainly haskell records, representing sql tables).
@@ -123,18 +138,23 @@ instance (SQLEncoder a HasqlSnippet, GValues (K1 i a) HasqlSnippet) =>
 
 ---------------------------- DBContext queries
 
+-- | A type to specify which type of query should be generated in
+-- 'Default' is an insert query statement with values wrapped in
+--  a 
+data WithQueryOption = Default | PureSelect
+
 class DBContext queryFormat record where
-  toWithQuery :: () -> record -> queryFormat
+  toWithQuery :: Maybe WithQueryOption -> record -> queryFormat
   default toWithQuery :: (
       IsString queryFormat, Monoid queryFormat, Generic record,
       GDBContext (Rep record) queryFormat
     ) =>
-    () -> record -> queryFormat
+    Maybe WithQueryOption -> record -> queryFormat
   toWithQuery options value = "WITH " <> (intercalate "," genericRes)
     where genericRes = gtoWithQuery options (from value)
 
 class GDBContext f queryFormat where
-  gtoWithQuery :: () -> f a -> [queryFormat]
+  gtoWithQuery :: Maybe WithQueryOption -> f a -> [queryFormat]
 
 instance (Monoid queryFormat) => GDBContext U1 queryFormat where
   gtoWithQuery _ U1 = mempty
@@ -154,20 +174,47 @@ instance (GDBContext a queryFormat) => GDBContext (M1 C c a) queryFormat where
 instance (
     Foldable collection,
     Functor collection,
+    Eq (collection a),
+    Monoid (collection a),
     Monoid queryFormat,
+    FromText queryFormat,
     IsString queryFormat,
     SQLName a,
     SQLColumns a,
     SQLValues queryFormat a
   ) =>
   GDBContext (K1 i (collection a)) queryFormat where
-  gtoWithQuery _ (K1 val) = pure $ sqlName @a <> " AS " <> (inParens selectInstance)
-    where selectInstance = selectValuesQuery () val
+  gtoWithQuery options (K1 val) = result
+    where
+      result
+        | val == mempty = []
+        | otherwise = pure $ sqlName @a <> " AS " <> (inParens selectInstance)
+      selectInstance = case options of
+        Nothing -> insertValuesQuery () val
+        Just PureSelect -> selectValuesQuery Nothing val
     -- where values = 
 -- instance (SQLEncoder a HasqlSnippet, GValues (K1 i a) HasqlSnippet) =>
 --   GValues (K1 i a) HasqlSnippet where
 --   goToValues (K1 val) = [(sqlEncode val)]
 
+
+insertValuesQuery :: 
+  forall collection recordType queryFormat. (
+    Foldable collection,
+    Functor collection,
+    FromText queryFormat,
+    IsString queryFormat,
+    Monoid queryFormat,
+    SQLValues queryFormat recordType,
+    SQLColumns recordType,
+    SQLName recordType
+  ) =>
+  () -> collection recordType -> queryFormat
+insertValuesQuery _ recordCollection = insertHeader <> "\n" <> selectBody
+  where
+    insertHeader = insertIntoWrapper (sqlTable @recordType) columnListVal
+    selectBody = selectValuesQuery (Just columnListVal) recordCollection
+    columnListVal = columnList @recordType
 
 selectValuesQuery ::
   forall collection recordType queryFormat. (
@@ -179,12 +226,15 @@ selectValuesQuery ::
     SQLColumns recordType,
     SQLName recordType
   ) =>
-  () -> collection recordType -> queryFormat
-selectValuesQuery _ recordCollection = result
+  (Maybe queryFormat) -> collection recordType -> queryFormat
+selectValuesQuery (maybeCols) recordCollection = result
   where
     result = selectWrapper name cols assembledRows
     name = sqlName @recordType
     assembledRows = ("VALUES " <>) $ rowsAssembler " " listOfRows
     listOfRows = (inParens . intercalate ",") <$> listOfListOfValues
     listOfListOfValues = toSQLValues @queryFormat <$> recordCollection
-    cols = inParens $ intercalate "," $ sqlColumns @recordType
+    cols = fromMaybe (columnList @recordType) maybeCols
+
+columnList :: forall a queryFormat. (IsString queryFormat, SQLColumns a) => queryFormat
+columnList = fromString $ toCSVInParens (sqlColumns @a)
