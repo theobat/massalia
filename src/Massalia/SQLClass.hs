@@ -21,7 +21,8 @@ module Massalia.SQLClass
     SQLColumns(..),
     SQLValues(..),
     DBContext(..),
-    WithQueryOption(..)
+    WithQueryOption(..),
+    SQLFilter(toQueryFormatFilter)
   )
 where
 
@@ -51,6 +52,13 @@ import GHC.Generics (
   )
 import Massalia.Utils (simpleSnakeCase, intercalate, toCSVInParens)
 import Protolude hiding (intercalate)
+import Massalia.Filter (
+    GQLScalarFilter(GQLScalarFilter),
+    filterFieldToMabeContent,
+    PostgresRange
+  )
+import Massalia.TreeClass (Tree(getChildren))
+import Massalia.SQLSelect (SelectStruct(SelectStruct))
 
 -- | This class represents all the haskell types with a corresponding SQL
 -- name. It provides 2 functions: @sqlName@ and @tableName@. @sqlName@ is meant
@@ -136,7 +144,69 @@ instance (SQLEncoder a HasqlSnippet, GValues (K1 i a) HasqlSnippet) =>
   GValues (K1 i a) HasqlSnippet where
   goToValues (K1 val) = [(sqlEncode val)]
 
+
+----------------------------------------------------------------------------
+---------------------------- SQL Filter
+----------------------------------------------------------------------------
+
+data SQLFilterOption = TableName Text
+
+class SQLFilter queryFormat record where
+  toQueryFormatFilter :: Maybe SQLFilterOption -> record -> queryFormat
+  default toQueryFormatFilter :: (
+      IsString queryFormat, Monoid queryFormat, Generic record,
+      GSQLFilter (Rep record) queryFormat
+    ) =>
+    Maybe SQLFilterOption -> record -> queryFormat
+  toQueryFormatFilter options value = intercalate " AND " filterGroupList
+    where filterGroupList = gtoQueryFormatFilter options (from value)
+
+class GSQLFilter f queryFormat where
+  gtoQueryFormatFilter :: Maybe SQLFilterOption -> f a -> [queryFormat]
+
+instance (Monoid queryFormat) => GSQLFilter U1 queryFormat where
+  gtoQueryFormatFilter _ U1 = mempty
+instance (Monoid queryFormat, GSQLFilter a queryFormat, GSQLFilter b queryFormat) =>
+  GSQLFilter (a :*: b) queryFormat where
+  gtoQueryFormatFilter options (a :*: b) = withStatement a <> withStatement b
+    where
+      withStatement a = gtoQueryFormatFilter options a
+
+instance (GSQLFilter a queryFormat) => GSQLFilter (M1 D c a) queryFormat where
+  gtoQueryFormatFilter options (M1 x) = gtoQueryFormatFilter options x
+instance (GSQLFilter a queryFormat) => GSQLFilter (M1 S c a) queryFormat where
+  gtoQueryFormatFilter options (M1 x) = gtoQueryFormatFilter options x
+instance (GSQLFilter a queryFormat) => GSQLFilter (M1 C c a) queryFormat where
+  gtoQueryFormatFilter options (M1 x) = gtoQueryFormatFilter options x
+  
+instance (
+    IsString queryFormat,
+    SQLEncoder filterType queryFormat
+  ) => GSQLFilter (K1 i (
+    Maybe filterType)
+  ) queryFormat where
+  gtoQueryFormatFilter options (K1 val) = result
+    where
+      result = case val of
+        Nothing -> []
+        Just a -> [sqlEncode a]
+
+instance (
+    IsString queryFormat, KnownSymbol a,
+    SQLEncoder [b] queryFormat,
+    SQLEncoder b queryFormat,
+    SQLEncoder c queryFormat,
+    SQLEncoder d queryFormat,
+    PostgresRange d
+  ) => SQLEncoder (GQLScalarFilter a b c d) queryFormat where
+  sqlEncode val = case filterFieldToMabeContent (Nothing @queryFormat) (Just val) of
+    Nothing -> mempty
+    Just a -> a
+      
+
+----------------------------------------------------------------------------
 ---------------------------- DBContext queries
+----------------------------------------------------------------------------
 
 -- | A type to specify which type of query should be generated in
 -- 'Default' is an insert query statement with values wrapped in
@@ -238,3 +308,35 @@ selectValuesQuery (maybeCols) recordCollection = result
 
 columnList :: forall a queryFormat. (IsString queryFormat, SQLColumns a) => queryFormat
 columnList = fromString $ toCSVInParens (sqlColumns @a)
+
+
+
+
+
+---------------------- SQLSelect test
+class NodeFilter filter nodeType where
+  getQueryPart :: filter -> SelectStruct nodeType queryFormat
+
+class SQLSelect a where
+  toSelectQuery ::
+    (NodeFilter filter nodeType, Tree selectionType) =>
+    selectionType -> filter -> SelectStruct decoder queryFormat
+
+
+class GSQLSelect f queryFormat where
+  gtoSelectQuery :: Maybe WithQueryOption -> f a -> [queryFormat]
+
+-- instance (Monoid queryFormat) => GDBContext U1 queryFormat where
+--   gtoWithQuery _ U1 = mempty
+-- instance (Monoid queryFormat, GDBContext a queryFormat, GDBContext b queryFormat) =>
+--   GDBContext (a :*: b) queryFormat where
+--   gtoWithQuery options (a :*: b) = withStatement a <> withStatement b
+--     where
+--       withStatement a = gtoWithQuery options a
+
+-- instance (GDBContext a queryFormat) => GDBContext (M1 D c a) queryFormat where
+--   gtoWithQuery options (M1 x) = gtoWithQuery options x
+-- instance (GDBContext a queryFormat) => GDBContext (M1 S c a) queryFormat where
+--   gtoWithQuery options (M1 x) = gtoWithQuery options x
+-- instance (GDBContext a queryFormat) => GDBContext (M1 C c a) queryFormat where
+--   gtoWithQuery options (M1 x) = gtoWithQuery options x

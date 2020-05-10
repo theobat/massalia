@@ -65,6 +65,8 @@ import PostgreSQL.Binary.Data (LocalTime)
 import Protolude hiding (first)
 import Text.Pretty.Simple (pPrint)
 import Massalia.HasqlExec (Pool, use)
+import MassaliaSchema.Industry.TruckFilter (TruckFilter)
+import Massalia.SQLClass (SQLFilter(toQueryFormatFilter))
 
 data Plant
   = Plant
@@ -75,10 +77,17 @@ data Plant
       }
   deriving (Show, Generic, GQLType)
 
+data PlantNodeFilter
+  = PlantNodeFilter
+      { onCurrentNode :: (),
+        onTruckList :: TruckFilter
+      }
+
 type SelectStructPlant queryFormat = SelectStruct Plant queryFormat
 
 plantSelect ::  (
-    SQLEncoder Int64 queryFormat
+    SQLEncoder Int64 queryFormat,
+    SQLFilter queryFormat TruckFilter
   ) =>
   ValidSelection -> SelectStructPlant queryFormat -> SelectStructPlant queryFormat
 plantSelect selection = case fieldName of
@@ -101,7 +110,8 @@ plantSelect selection = case fieldName of
     fieldName = selectionName selection
 
 plantInitSQL ::  (
-    SQLEncoder Int64 queryFormat
+    SQLEncoder Int64 queryFormat,
+    SQLFilter queryFormat TruckFilter
   ) =>
   PlantListQueryFilter -> ValidSelectionSet -> SelectStructPlant queryFormat
 plantInitSQL filters = foldr plantSelect (initialPlantQuery filters)

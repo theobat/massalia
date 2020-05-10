@@ -46,8 +46,14 @@ import Hasql.DynamicStatements.Snippet (Snippet)
 import qualified Hasql.DynamicStatements.Snippet as Snippet
 import Hasql.Encoders (NullableOrNot, Value)
 import Hasql.Implicits.Encoders (DefaultParamEncoder (defaultParam))
-import Massalia.Utils (EmailAddress, LocalTime, intercalate, intercalateMap, emailToText)
+import Massalia.Utils (
+    EmailAddress, LocalTime,
+    Day, Scientific, UTCTime,
+    intercalate, intercalateMap, emailToText
+  )
+import qualified Hasql.Decoders as Decoders
 import Protolude hiding (intercalate, replace)
+
 
 type HasqlSnippet = Snippet
 
@@ -90,8 +96,12 @@ class (IsString queryFormat, Monoid queryFormat, FromText queryFormat) =>
   SQLEncoder underlyingType queryFormat where
   sqlEncode :: underlyingType -> queryFormat
 
+voidMessage = "cannot happen because Void has no inhabitant and SQLEncoder expect Void -> queryFormat"
 instance SQLEncoder Void Text where
-  sqlEncode = mempty
+  sqlEncode = panic $ "(SQLEncoder Void Text)" <> voidMessage
+instance SQLEncoder Void Snippet where
+  sqlEncode = panic $ "(SQLEncoder Void Snippet)" <> voidMessage
+
 instance (SQLEncoder a Text) => SQLEncoder (Maybe a) Text where
   sqlEncode = maybe "null" sqlEncode
 instance (SQLEncoder a Snippet) => SQLEncoder (Maybe a) Snippet where
@@ -151,3 +161,23 @@ collectionTextEncode collection = wrapCollection assembled
     rawEncode val = replace "'" "" $ sqlEncode val
     wrapCollection a = "'{" <> a <> "}'"
     
+------------------------- Decoder stuff
+
+class SQLDecoder haskellType where
+  sqlDecode :: Decoders.Value haskellType
+instance SQLDecoder UUID where
+  sqlDecode = Decoders.uuid
+instance SQLDecoder Text where
+  sqlDecode = Decoders.text
+instance SQLDecoder LocalTime where
+  sqlDecode = Decoders.timestamp
+instance SQLDecoder Day where
+  sqlDecode = Decoders.date
+instance SQLDecoder Scientific where
+  sqlDecode = Decoders.numeric
+instance SQLDecoder UTCTime where
+  sqlDecode = Decoders.timestamptz
+
+-- todo:
+-- instance SQLDecoder EmailAddress where
+--   sqlDecode = emailToText <$> Decoders.custom

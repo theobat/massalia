@@ -5,7 +5,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
@@ -13,6 +13,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 -- |
@@ -25,6 +26,7 @@ module Massalia.Filter
     defaultScalarFilter,
     filterFieldToMabeContent,
     filterFieldToMaybeQueryPart,
+    PostgresRange(postgresRangeName)
   )
 where
 
@@ -40,6 +42,7 @@ import Data.UUID
 import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import Massalia.QueryFormat (SQLEncoder(sqlEncode))
 import Massalia.SQLSelect (AQueryPart (AQueryPartConst))
+import Massalia.Utils (LocalTime)
 import qualified Massalia.Utils as MassaliaUtils (intercalate, intercalateMap)
 import Protolude
 
@@ -56,7 +59,7 @@ data GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalar
         isNotInSet :: Maybe (Set ordScalarType),
         isGT :: Maybe ordScalarType, -- is greater than
         isLT :: Maybe ordScalarType, -- is lesser than
-        isBetween :: Maybe (ordScalarType, ordScalarType, RangeInclusivity) -- [0, 1[
+        isBetween :: Maybe (SimpleRange ordScalarType) -- [0, 1[
       }
   deriving (Eq, Show, Generic)
 
@@ -67,10 +70,6 @@ deriving instance
 deriving instance
   (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType, Ord ordScalarType) =>
   ToJSON (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
-
-deriving instance
-  (KnownSymbol (fieldName :: Symbol), Data eqScalarType, Data likeScalarType, Data ordScalarType, Ord ordScalarType) =>
-  Data (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
 
 -- | Filter with no effect
 defaultScalarFilter =
@@ -125,8 +124,7 @@ filterFieldToMabeContent ::
     SQLEncoder [eqScalarType] content,
     SQLEncoder likeScalarType content,
     SQLEncoder ordScalarType content,
-    PostgresRange ordScalarType,
-    Data (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
+    PostgresRange ordScalarType
   ) =>
   Maybe content ->
   Maybe (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType) ->
@@ -152,7 +150,7 @@ filterFieldToMabeContent maybeNamespace (Just filter) = case filter of
                   <> wrappedContent prefixedFieldName "ilike" isIlikeValue ""
                   <> wrappedContent prefixedFieldName ">" isGTValue ""
                   <> wrappedContent prefixedFieldName "<" isLTValue ""
-                  <> []
+                  <> wrappedContent prefixedFieldName "<@" isBetweenValue ""
               ) of
       [] -> Nothing
       list -> Just (MassaliaUtils.intercalate " AND " list)
@@ -191,15 +189,27 @@ wrappedContent fieldName op (Just a) suffix =
 -- tsrange — Range of timestamp without time zone
 -- tstzrange — Range of timestamp with time zone
 -- daterange — Range of date
--- TODO: map the proper ranges with Hasql/haskell types
+
+instance (PostgresRange a, SQLEncoder a content) => SQLEncoder (SimpleRange a) content where
+  sqlEncode value = postgresRangeName @a <> "(" <> startValue <> "," <> endValue <> ")"
+    where
+      startValue = getBoundary start
+      endValue = getBoundary end
+      getBoundary accessor = fromMaybe "null" $ (sqlEncode <$> accessor value)
+
+data SimpleRange a = SimpleRange {
+  start :: Maybe a,
+  end :: Maybe a,
+  inclusivity :: Maybe a
+} deriving (Eq, Show, Generic, FromJSON, ToJSON)
+data Inclusivity = Inclusive | Exclusive deriving (Eq, Show, Generic, FromJSON, ToJSON)
+data RangeInc = RangeInc Inclusivity Inclusivity deriving (Eq, Show, Generic, FromJSON, ToJSON)
+
 class PostgresRange a where
-  -- First param is the classname
-  getRangeKeyword :: b
-
+  postgresRangeName :: (IsString textFormat) => textFormat
+instance PostgresRange Int where
+  postgresRangeName = "int8range"
+instance PostgresRange LocalTime where
+  postgresRangeName = "tsrange"
 instance PostgresRange Void where
-  getRangeKeyword = panic "EA1: should never call PostgresRange for Void"
-
-data RangeInclusivity = Inclusive | Exclusive | RightInclusive | LeftInclusive deriving (Eq, Show, Data, Generic, FromJSON, ToJSON)
-
--- class SQLFilter a where
---   toFilterQuery :: a -> 
+  postgresRangeName = panic "in theory cannot happen, (PostgresRange Void)"

@@ -25,8 +25,14 @@ module Massalia.Utils
     uuidFromText,
     uuidFromString,
     uuidV4,
-    -- LocalTime
+    -- Time/Date
     LocalTime,
+    Day,
+    TimeOfDay,
+    TimeZone,
+    UTCTime,
+    -- postgres numbers
+    Scientific,
     -- PrettyPrint
     pPrint,
     -- String
@@ -43,7 +49,14 @@ import Data.UUID.V4 (nextRandom)
 -- Email
 
 -- LocalTime
-import PostgreSQL.Binary.Data (LocalTime)
+import PostgreSQL.Binary.Data (
+    LocalTime,
+    Day,
+    TimeOfDay,
+    TimeZone,
+    UTCTime,
+    Scientific
+  )
 import Protolude hiding (intercalate)
 import Text.Email.Validate (EmailAddress)
 import qualified Text.Email.Validate as EmailAddress

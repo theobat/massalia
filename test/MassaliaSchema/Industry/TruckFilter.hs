@@ -12,8 +12,7 @@
 {-# LANGUAGE QuantifiedConstraints #-}
 
 module MassaliaSchema.Industry.TruckFilter
-  ( TruckFilter (..),
-    toQueryPart,
+  ( TruckFilter (..)
   )
 where
 
@@ -21,7 +20,7 @@ import qualified Data.Aeson as JSON
 import Data.Data (Data, gmapQ)
 import Data.Text (Text)
 import Data.UUID (UUID, nil)
-import GHC.Generics (Generic)
+import GHC.Generics (Generic, from)
 import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import Massalia.Filter
   ( GQLFilterText,
@@ -36,6 +35,7 @@ import Massalia.QueryFormat
   ( HasqlSnippet,
     SQLEncoder
   )
+import Massalia.SQLClass (SQLFilter)
 import Massalia.SQLPart
   ( AQueryPart,
   )
@@ -47,7 +47,8 @@ data TruckFilter
       { id :: Maybe (GQLFilterUUID "id"),
         vehicleId :: Maybe (GQLFilterText "vehicle_id")
       }
-  deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON, Data)
+  deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON,
+    SQLFilter Text, SQLFilter HasqlSnippet)
 
 testInstance =
   TruckFilter
@@ -55,17 +56,3 @@ testInstance =
       vehicleId = Nothing
     }
 
-toQueryPart :: (forall a. SQLEncoder a content) => Maybe TruckFilter -> Maybe (AQueryPart partType content)
-toQueryPart Nothing = mempty
-toQueryPart
-  ( Just
-      TruckFilter
-        { id = idVal,
-          vehicleId = vehicleIdVal
-        }
-    ) =
-    ( filterFieldToMaybeQueryPart tableName idVal
-        <> filterFieldToMaybeQueryPart tableName vehicleIdVal
-    )
-    where
-      tableName = Just "truck"

@@ -26,6 +26,7 @@ import Massalia.QueryFormat
 import Massalia.SQLSelect (RawSelectStruct (RawSelectStruct, fromPart, whereConditions), SelectStruct, getInitialValueSelect, initSelect, scalar)
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
 import qualified MassaliaSchema.Industry.TruckFilter as TruckFilter
+import Massalia.SQLClass (SQLFilter(toQueryFormatFilter))
 import Protolude
 
 data Truck
@@ -46,19 +47,23 @@ truckSelect selection = case fieldName of
     scalarField = scalar "truck" fieldName
     fieldName = selectionName selection
 
-truckInitSQL :: (IsString content, FromText content, Monoid content) =>
-  Maybe TruckListFilter -> ValidSelectionSet -> SelectStruct Truck content
+truckInitSQL :: (
+    IsString queryFormat, FromText queryFormat, Monoid queryFormat,
+    SQLFilter queryFormat TruckFilter
+  ) =>
+  Maybe TruckListFilter -> ValidSelectionSet -> SelectStruct Truck queryFormat
 truckInitSQL filters = foldr truckSelect (initialTruckQuery filters)
 
 initialTruckQuery :: (
-    Monoid content,
-    IsString content
-  ) => Maybe TruckListFilter -> SelectStruct Truck content
+    Monoid queryFormat,
+    IsString queryFormat,
+    SQLFilter queryFormat TruckFilter
+  ) => Maybe TruckListFilter -> SelectStruct Truck queryFormat
 initialTruckQuery filterVal =
   getInitialValueSelect
     initSelect
       { fromPart = "truck",
-        whereConditions = toQueryPart filterVal
+        whereConditions = pure <$> toQueryPart filterVal
       }
     defaultTruck
 
@@ -69,7 +74,8 @@ data TruckListFilter
       { truck :: Maybe TruckFilter
       }
 
-toQueryPart :: Maybe filter -> Maybe content
-toQueryPart Nothing = Nothing
-toQueryPart (Just listFilter) = Nothing
-  -- TruckFilter.toQueryPart (truck listFilter)
+toQueryPart :: (SQLFilter queryFormat TruckFilter) => Maybe TruckListFilter -> Maybe queryFormat
+toQueryPart input = toQueryFormatFilter Nothing <$> truckFilterValue
+  where
+    truckFilterValue = join $ truck <$> input
+

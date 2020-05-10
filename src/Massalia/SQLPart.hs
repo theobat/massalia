@@ -2,6 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
@@ -18,6 +19,11 @@ import Massalia.Utils (intercalate)
 
 newtype AQueryPart partType content = AQueryPartConst content
 
+instance Applicative (AQueryPart partType) where
+  pure = AQueryPartConst
+  (<*>) (AQueryPartConst func) (AQueryPartConst arg) = AQueryPartConst $ func arg
+
+deriving instance Functor (AQueryPart partType)
 deriving instance (FromText content) => FromText (AQueryPart partType content)
 
 deriving instance (IsString content) => IsString (AQueryPart partType content)
