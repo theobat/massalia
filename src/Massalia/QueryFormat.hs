@@ -20,6 +20,7 @@
 --  query formatting.
 module Massalia.QueryFormat
   ( SQLEncoder (sqlEncode),
+    SQLDecoder(sqlDecode),
     FromText(fromText),
     IsString(fromString),
     DefaultParamEncoder,
@@ -36,6 +37,7 @@ where
 
 import Data.Foldable (foldr1)
 import Data.Int (Int64)
+import Massalia.TreeClass (Tree(getName))
 import Data.Sequence (Seq)
 import Data.String (String, IsString)
 import qualified Data.String as String (IsString (fromString))
@@ -162,21 +164,25 @@ collectionTextEncode collection = wrapCollection assembled
     wrapCollection a = "'{" <> a <> "}'"
     
 ------------------------- Decoder stuff
+scalar decoder input = (\tablename -> fromText $ tablename <> "." <> getName input, decoder)
 
+-- | A class to decode
 class SQLDecoder haskellType where
-  sqlDecode :: Decoders.Value haskellType
+  sqlDecode :: (IsString queryFormat, FromText queryFormat, Tree nodeType) =>
+    nodeType -> (Text -> queryFormat, Decoders.Value haskellType)
 instance SQLDecoder UUID where
-  sqlDecode = Decoders.uuid
+  sqlDecode = scalar Decoders.uuid
 instance SQLDecoder Text where
-  sqlDecode = Decoders.text
+  sqlDecode = scalar Decoders.text
 instance SQLDecoder LocalTime where
-  sqlDecode = Decoders.timestamp
+  sqlDecode = scalar Decoders.timestamp
 instance SQLDecoder Day where
-  sqlDecode = Decoders.date
+  sqlDecode = scalar Decoders.date
 instance SQLDecoder Scientific where
-  sqlDecode = Decoders.numeric
+  sqlDecode = scalar Decoders.numeric
 instance SQLDecoder UTCTime where
-  sqlDecode = Decoders.timestamptz
+  sqlDecode = scalar Decoders.timestamptz
+
 
 -- todo:
 -- instance SQLDecoder EmailAddress where

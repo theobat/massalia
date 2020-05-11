@@ -30,6 +30,7 @@ module Massalia.SQLSelect
     addWhereJoinGroup,
     scalar,
     collection,
+    simpleSelectGroup,
   )
 where
 
@@ -101,13 +102,7 @@ object ::
   ValueDec a ->
   SelectStruct decoder queryFormat ->
   SelectStruct decoder queryFormat
-object expr updater hasqlValue selectStruct =
-  selectStruct
-    { query = addSelectColumns [fromText expr] [] (query selectStruct),
-      decoder = do
-        entity <- decoder selectStruct
-        updater entity <$> Decoders.field (Decoders.nonNullable hasqlValue)
-    }
+object expr = simpleSelectGroup (fromText expr)
 
 type DecoderContainer wrapperType nestedRecordType = Decoders.NullableOrNot Decoders.Value nestedRecordType -> Decoders.Value (wrapperType nestedRecordType)
 
@@ -166,3 +161,18 @@ transformQuery transformer currentQuery =
 transformOrderLimit orderList limitTuple = transformQuery (addOrderLimit orderList limitTuple)
 
 transformWhereJoinGroup wherePart joinPart groupPart = transformQuery (addWhereJoinGroup wherePart joinPart groupPart)
+
+
+simpleSelectGroup ::
+  queryFormat ->
+  (decoder -> a -> decoder) ->
+  ValueDec a ->
+  SelectStruct decoder queryFormat ->
+  SelectStruct decoder queryFormat
+simpleSelectGroup expr updater hasqlValue selectStruct =
+  selectStruct
+    { query = addSelectColumns [pure expr] [] (query selectStruct),
+      decoder = do
+        entity <- decoder selectStruct
+        updater entity <$> Decoders.field (Decoders.nonNullable hasqlValue)
+    }

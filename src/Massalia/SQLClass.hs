@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE QuantifiedConstraints #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 -- |
@@ -22,7 +23,9 @@ module Massalia.SQLClass
     SQLValues(..),
     DBContext(..),
     WithQueryOption(..),
-    SQLFilter(toQueryFormatFilter)
+    SQLFilter(toQueryFormatFilter),
+    SQLSelect(toSelectQuery),
+    SetField(setField)
   )
 where
 
@@ -30,6 +33,7 @@ import Massalia.QueryFormat
   (
     FromText(fromText),
     SQLEncoder(sqlEncode),
+    SQLDecoder(sqlDecode),
     HasqlSnippet,
     DefaultParamEncoder,
     param,
@@ -39,6 +43,7 @@ import Massalia.QueryFormat
 import Massalia.SQLUtils (insertIntoWrapper, selectWrapper, rowsAssembler)
 import Massalia.GenericUtils (GTypeName(gtypename), GSelectors(selectors))
 import Data.String (String, IsString(fromString))
+import Massalia.SQLRawSelect (RawSelectStruct)
 import qualified Data.Text as Text
 import GHC.Generics (
     U1,
@@ -57,8 +62,10 @@ import Massalia.Filter (
     filterFieldToMabeContent,
     PostgresRange
   )
-import Massalia.TreeClass (Tree(getChildren))
-import Massalia.SQLSelect (SelectStruct(SelectStruct))
+import Massalia.TreeClass (Tree(getChildrenList, lookupChildren))
+import qualified Data.Set as Set
+import qualified Data.Map as Map
+import Massalia.SQLSelect (SelectStruct(SelectStruct), simpleSelectGroup)
 
 -- | This class represents all the haskell types with a corresponding SQL
 -- name. It provides 2 functions: @sqlName@ and @tableName@. @sqlName@ is meant
@@ -309,34 +316,82 @@ selectValuesQuery (maybeCols) recordCollection = result
 columnList :: forall a queryFormat. (IsString queryFormat, SQLColumns a) => queryFormat
 columnList = fromString $ toCSVInParens (sqlColumns @a)
 
+--------------------- FilterTree
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+------------------- SQLRelation class
+
+-- | This is to materialize relations between two types
+-- e.g.
+-- @
+--    SQLRelation Plant [Truck] where
+--      getRelation "truckList" (plantName, truckName) = addWhereJoinGroup ...
+-- @
+class SQLRelation sourceType targetType where
+  getRelation :: (IsString queryFormat) =>
+    Text -> RawSelectStruct queryFormat -> RawSelectStruct queryFormat
 
 
 ---------------------- SQLSelect test
-class NodeFilter filter nodeType where
-  getQueryPart :: filter -> SelectStruct nodeType queryFormat
 
-class SQLSelect a where
+class SetField recordType fieldType where
+  setField :: Text -> recordType -> fieldType -> recordType
+
+-- | This is the filter's impact, it has no automatic instance
+-- class NodeFilter filter nodeType where
+--   getQueryPart :: filter -> SelectStruct nodeType queryFormat -> SelectStruct nodeType queryFormat
+
+-- | This is the way to get a select query out of a select tree and a filter
+class SQLSelect queryFormat nodeType where
   toSelectQuery ::
-    (NodeFilter filter nodeType, Tree selectionType) =>
-    selectionType -> filter -> SelectStruct decoder queryFormat
+    (Tree selectionType) =>
+    selectionType -> filter -> SelectStruct nodeType queryFormat -> SelectStruct nodeType queryFormat
+  default toSelectQuery :: (
+      IsString queryFormat, Generic nodeType,
+      GSQLSelect queryFormat (Rep nodeType) nodeType,
+      Tree selectionType
+    ) =>
+    selectionType -> filter -> SelectStruct nodeType queryFormat -> SelectStruct nodeType queryFormat
+  toSelectQuery = gtoSelectQuery @queryFormat @(Rep nodeType) @nodeType
 
+class GSQLSelect queryFormat (f :: * -> *) nodeType where
+  gtoSelectQuery :: (Tree selectionType) =>
+    selectionType -> filter -> SelectStruct nodeType queryFormat -> SelectStruct nodeType queryFormat
 
-class GSQLSelect f queryFormat where
-  gtoSelectQuery :: Maybe WithQueryOption -> f a -> [queryFormat]
+instance (GSQLSelect queryFormat a nodeType, GSQLSelect queryFormat b nodeType) =>
+  GSQLSelect queryFormat (a :*: b) nodeType where
+  gtoSelectQuery selectionMap filter input = gtoSelectQuery @queryFormat @a selectionMap filter firstExec
+    where firstExec = gtoSelectQuery @queryFormat @b selectionMap filter input
 
--- instance (Monoid queryFormat) => GDBContext U1 queryFormat where
---   gtoWithQuery _ U1 = mempty
--- instance (Monoid queryFormat, GDBContext a queryFormat, GDBContext b queryFormat) =>
---   GDBContext (a :*: b) queryFormat where
---   gtoWithQuery options (a :*: b) = withStatement a <> withStatement b
---     where
---       withStatement a = gtoWithQuery options a
+instance (
+    IsString queryFormat,
+    FromText queryFormat,
+    Selector s,
+    SetField nodeType t,
+    SQLDecoder t,
+    Generic (f nodeType)
+  ) => GSQLSelect queryFormat (M1 S s (K1 R (Rec0 t b))) nodeType where
+  gtoSelectQuery selection filter input = case lookupChildren keyname selection of
+    Nothing -> input
+    Just childrenNode -> res
+    where
+      keyname = fromString $ selName (undefined :: M1 S s (K1 R t) ())
+      (queryValue, decoder) = sqlDecode @t selection
+      fieldSetter = setField @nodeType @t keyname
+      res = simpleSelectGroup (queryValue "") fieldSetter decoder input
 
--- instance (GDBContext a queryFormat) => GDBContext (M1 D c a) queryFormat where
---   gtoWithQuery options (M1 x) = gtoWithQuery options x
--- instance (GDBContext a queryFormat) => GDBContext (M1 S c a) queryFormat where
---   gtoWithQuery options (M1 x) = gtoWithQuery options x
--- instance (GDBContext a queryFormat) => GDBContext (M1 C c a) queryFormat where
---   gtoWithQuery options (M1 x) = gtoWithQuery options x
+-- instance (SQLDecoder a) => GSQLSelect queryFormat (K1 i a) where
+--   gtoSelectQuery selection _ = undefined --  simpleSelectGroup sqlDecode 
+

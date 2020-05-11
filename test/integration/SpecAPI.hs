@@ -46,7 +46,8 @@ executionScheme = do
           operationName = Nothing,
           variables = Nothing
         }
-  liftIO $ api pool queryStruct
+  res <- liftIO $ api pool queryStruct
+  liftIO $ pPrint res
   liftIO $ release pool
   where
     migrationConfig = defaultMigrationPattern {basePath = "./test"}

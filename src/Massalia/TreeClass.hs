@@ -17,14 +17,12 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Massalia.TreeClass
 
 where
 
-import Massalia.QueryFormat
-  ( HasqlSnippet
-  )
 import Massalia.GenericUtils (GTypeName(gtypename))
 import Data.String (String, IsString(fromString))
 import GHC.Generics (
@@ -52,14 +50,18 @@ import Protolude
 
 -- ------------------------------------------------------------
 
+-- | Beware the lookup operation is n2
 instance Tree ValidSelection where
   isLeaf node = case selectionContent node of
     SelectionField -> True
     _ -> False
   getName = selectionName
-  getChildren node = case selectionContent node of
+  getChildrenList node = case selectionContent node of
     SelectionField -> mempty
     (SelectionSet deeperSel) -> toList deeperSel
+  lookupChildren name node = case selectionContent node of
+    SelectionField -> Nothing
+    (SelectionSet deeperSel) -> find (\s -> name == getName s) deeperSel
   foldrChildren iterator init node = case selectionContent node of
     SelectionField -> init
     (SelectionSet deeperSel) -> foldr iterator init deeperSel
@@ -77,10 +79,18 @@ class Tree a where
   {-# INLINE isInner #-}
 
   -- | Get the children
-  getChildren :: a -> [a]
+  getChildrenList :: a -> [a]
+  
+  -- | A loopuk for children. Beware, the complexity will depend on the underlying implementation.
+  -- The lookup is done using names
+  lookupChildren :: Text -> a -> Maybe a
 
   -- | Directly foldr on children
   foldrChildren :: (a -> b -> b) -> b -> a -> b
 
   -- | get a node's name
   getName :: a -> Text
+
+-- class MassaliaNode selection nodeType nodeFilter where
+--   nodeName :: Text
+--   nodeName :: Text

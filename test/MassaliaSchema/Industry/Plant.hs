@@ -5,6 +5,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE QuantifiedConstraints #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module MassaliaSchema.Industry.Plant
   ( Plant (..),
@@ -43,7 +45,8 @@ import Massalia.MorpheusTypes
 import Massalia.QueryFormat
   ( HasqlSnippet,
     SQLEncoder,
-    DefaultParamEncoder
+    DefaultParamEncoder,
+    FromText(fromText)
   )
 import Massalia.SQLSelect
   ( RawSelectStruct (RawSelectStruct, fromPart, offsetLimit),
@@ -77,15 +80,10 @@ data Plant
       }
   deriving (Show, Generic, GQLType)
 
-data PlantNodeFilter
-  = PlantNodeFilter
-      { onCurrentNode :: (),
-        onTruckList :: TruckFilter
-      }
-
 type SelectStructPlant queryFormat = SelectStruct Plant queryFormat
 
 plantSelect ::  (
+    FromText queryFormat,
     SQLEncoder Int64 queryFormat,
     SQLFilter queryFormat TruckFilter
   ) =>
@@ -99,14 +97,16 @@ plantSelect selection = case fieldName of
       truckBasicSubquery = (truckInitSQL Nothing (validSelectionToSelectionSet selection))
       truckSubquery =
         transformWhereJoinGroup
-          "truck_plant.plant_id=plant.id"
+          ("truck_plant.plant_id=" <> pure tableNameQueryFormat <> ".id")
           [ "JOIN truck_plant ON truck.id=truck_plant.truck_id"
           ]
-          ["plant.id"]
+          [pure tableNameQueryFormat <> ".id"]
           truckBasicSubquery
   _ -> identity
   where
-    scalarField = scalar "plant" fieldName
+    scalarField = scalar tableName fieldName
+    tableName = "plant_input"
+    tableNameQueryFormat = (fromText tableName)
     fieldName = selectionName selection
 
 plantInitSQL ::  (
@@ -121,7 +121,7 @@ initialPlantQuery :: (Monoid queryFormat, IsString queryFormat) =>
 initialPlantQuery filter =
   getInitialValueSelect
     initSelect
-      { fromPart = "plant",
+      { fromPart = "plant_input",
         offsetLimit = Just (offset filter, first filter)
       }
     defaultPlant
