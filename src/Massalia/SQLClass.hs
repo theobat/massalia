@@ -24,8 +24,7 @@ module Massalia.SQLClass
     DBContext(..),
     WithQueryOption(..),
     SQLFilter(toQueryFormatFilter),
-    SQLSelect(toSelectQuery),
-    SetField(setField)
+    -- SQLSelect(toSelectQuery),
   )
 where
 
@@ -62,7 +61,6 @@ import Massalia.Filter (
     filterFieldToMabeContent,
     PostgresRange
   )
-import Massalia.TreeClass (Tree(getChildrenList, lookupChildren))
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import Massalia.SQLSelect (SelectStruct(SelectStruct), simpleSelectGroup)
@@ -346,51 +344,48 @@ class SQLRelation sourceType targetType where
 
 ---------------------- SQLSelect test
 
-class SetField recordType fieldType where
-  setField :: Text -> recordType -> fieldType -> recordType
-
 -- | This is the filter's impact, it has no automatic instance
 -- class NodeFilter filter nodeType where
 --   getQueryPart :: filter -> SelectStruct nodeType queryFormat -> SelectStruct nodeType queryFormat
 
 -- | This is the way to get a select query out of a select tree and a filter
-class SQLSelect queryFormat nodeType where
-  toSelectQuery ::
-    (Tree selectionType) =>
-    selectionType -> filter -> SelectStruct nodeType queryFormat -> SelectStruct nodeType queryFormat
-  default toSelectQuery :: (
-      IsString queryFormat, Generic nodeType,
-      GSQLSelect queryFormat (Rep nodeType) nodeType,
-      Tree selectionType
-    ) =>
-    selectionType -> filter -> SelectStruct nodeType queryFormat -> SelectStruct nodeType queryFormat
-  toSelectQuery = gtoSelectQuery @queryFormat @(Rep nodeType) @nodeType
+-- class SQLSelect queryFormat nodeType where
+--   toSelectQuery ::
+--     (Tree selectionType) =>
+--     selectionType -> filter -> SelectStruct nodeType queryFormat -> SelectStruct nodeType queryFormat
+--   default toSelectQuery :: (
+--       IsString queryFormat, Generic nodeType,
+--       GSQLSelect queryFormat (Rep nodeType) nodeType,
+--       Tree selectionType
+--     ) =>
+--     selectionType -> filter -> SelectStruct nodeType queryFormat -> SelectStruct nodeType queryFormat
+--   toSelectQuery = gtoSelectQuery @queryFormat @(Rep nodeType) @nodeType
 
-class GSQLSelect queryFormat (f :: * -> *) nodeType where
-  gtoSelectQuery :: (Tree selectionType) =>
-    selectionType -> filter -> SelectStruct nodeType queryFormat -> SelectStruct nodeType queryFormat
+-- class GSQLSelect queryFormat (f :: * -> *) nodeType where
+--   gtoSelectQuery :: (Tree selectionType) =>
+--     selectionType -> filter -> SelectStruct nodeType queryFormat -> SelectStruct nodeType queryFormat
 
-instance (GSQLSelect queryFormat a nodeType, GSQLSelect queryFormat b nodeType) =>
-  GSQLSelect queryFormat (a :*: b) nodeType where
-  gtoSelectQuery selectionMap filter input = gtoSelectQuery @queryFormat @a selectionMap filter firstExec
-    where firstExec = gtoSelectQuery @queryFormat @b selectionMap filter input
+-- instance (GSQLSelect queryFormat a nodeType, GSQLSelect queryFormat b nodeType) =>
+--   GSQLSelect queryFormat (a :*: b) nodeType where
+--   gtoSelectQuery selectionMap filter input = gtoSelectQuery @queryFormat @a selectionMap filter firstExec
+--     where firstExec = gtoSelectQuery @queryFormat @b selectionMap filter input
 
-instance (
-    IsString queryFormat,
-    FromText queryFormat,
-    Selector s,
-    SetField nodeType t,
-    SQLDecoder t,
-    Generic (f nodeType)
-  ) => GSQLSelect queryFormat (M1 S s (K1 R (Rec0 t b))) nodeType where
-  gtoSelectQuery selection filter input = case lookupChildren keyname selection of
-    Nothing -> input
-    Just childrenNode -> res
-    where
-      keyname = fromString $ selName (undefined :: M1 S s (K1 R t) ())
-      (queryValue, decoder) = sqlDecode @t selection
-      fieldSetter = setField @nodeType @t keyname
-      res = simpleSelectGroup (queryValue "") fieldSetter decoder input
+-- instance (
+--     IsString queryFormat,
+--     FromText queryFormat,
+--     Selector s,
+--     SetField nodeType t,
+--     SQLDecoder t,
+--     Generic (f nodeType)
+--   ) => GSQLSelect queryFormat (M1 S s (K1 R (Rec0 t b))) nodeType where
+--   gtoSelectQuery selection filter input = case lookupChildren keyname selection of
+--     Nothing -> input
+--     Just childrenNode -> res
+--     where
+--       keyname = fromString $ selName (undefined :: M1 S s (K1 R t) ())
+--       (queryValue, decoder) = sqlDecode @t selection
+--       fieldSetter = setField @nodeType @t keyname
+--       res = simpleSelectGroup (queryValue "") fieldSetter decoder input
 
 -- instance (SQLDecoder a) => GSQLSelect queryFormat (K1 i a) where
 --   gtoSelectQuery selection _ = undefined --  simpleSelectGroup sqlDecode 

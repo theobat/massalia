@@ -15,7 +15,7 @@ import Data.Aeson (FromJSON, ToJSON, decode, encode)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import GHC.TypeLits (Symbol)
-import GraphQLMorpheusTestData (plantSelection, truckSelection)
+import GraphQLMorpheusTestData (plantQuery, truckQuery)
 import Massalia.Filter (GQLFilterText, GQLScalarFilter (isEq), defaultScalarFilter)
 import qualified Massalia.HasqlDec as Decoders
 import Massalia.HasqlExec (dynamicallyParameterizedStatement)
@@ -31,10 +31,10 @@ import Test.Tasty.HUnit
 -- testTruckQuery = truckInitSQL truckSelection
 
 testPlantQuery :: SelectStruct Plant Text
-testPlantQuery = plantInitSQL defaultFilter plantSelection
+testPlantQuery = plantInitSQL defaultFilter plantQuery
 
 testTruckList :: SelectStruct Truck Text
-testTruckList = truckInitSQL Nothing truckSelection
+testTruckList = truckInitSQL Nothing truckQuery
 
 unitTests =
   testGroup

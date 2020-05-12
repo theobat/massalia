@@ -13,11 +13,11 @@ where
 
 import Data.Data (Data)
 import Data.Morpheus.Types (GQLRootResolver (..), GQLType)
+import Massalia.SelectionTree (MassaliaTree (getName, foldrChildren))
 import Data.Text (Text)
 import Data.UUID (UUID, nil)
 import GHC.Generics (Generic)
 import qualified Massalia.HasqlDec as Decoders
-import Massalia.MorpheusTypes (Key, Selection (selectionName), ValidSelection, ValidSelectionSet)
 import Massalia.QueryFormat
   ( SQLEncoder (sqlEncode),
     IsString,
@@ -37,22 +37,23 @@ data Truck
   deriving (Show, Generic, GQLType)
 
 truckSelect ::
-  (FromText content) =>
-  ValidSelection -> SelectStruct Truck content -> SelectStruct Truck content
+  (FromText content, MassaliaTree nodeType) =>
+  nodeType -> SelectStruct Truck content -> SelectStruct Truck content
 truckSelect selection = case fieldName of
   "id" -> scalarField (\e v -> e {id = v}) Decoders.uuid
   -- "vehicleId" -> simpleCol fieldName (\e v -> e{vehicleId=v}) vehicleId Decoders.text
   _ -> identity
   where
     scalarField = scalar "truck" fieldName
-    fieldName = selectionName selection
+    fieldName = getName selection
 
 truckInitSQL :: (
     IsString queryFormat, FromText queryFormat, Monoid queryFormat,
+    MassaliaTree nodeType,
     SQLFilter queryFormat TruckFilter
   ) =>
-  Maybe TruckListFilter -> ValidSelectionSet -> SelectStruct Truck queryFormat
-truckInitSQL filters = foldr truckSelect (initialTruckQuery filters)
+  Maybe TruckListFilter -> nodeType -> SelectStruct Truck queryFormat
+truckInitSQL filters = foldrChildren truckSelect (initialTruckQuery filters)
 
 initialTruckQuery :: (
     Monoid queryFormat,

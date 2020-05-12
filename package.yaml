@@ -24,7 +24,6 @@ dependencies:
 - protolude
 - text
 - mtl
-- morpheus-graphql
 - bytestring
 - vector
 - uuid
@@ -50,6 +49,8 @@ dependencies:
 - filepattern
 - filepath
 - time
+- morpheus-graphql >=0.11.0
+- morpheus-graphql-core >= 0.11.0
 
 library:
   source-dirs: src

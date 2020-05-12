@@ -6,21 +6,7 @@
 -- Module      : Massalia.MorpheusTypes
 -- Description : A reexport of the handy functions and types from "Morpheus".
 module Massalia.MorpheusTypes
-  ( Arguments,
-    ValidArguments,
-    Selection (..),
-    SelectionContent (SelectionField, SelectionSet),
-    SelectionSet,
-    ValidSelection,
-    ValidSelectionSet,
-    ValidSelectionContent,
-    Key,
-    Position (Position),
-    validSelectionField,
-    Name,
-    selectionGen,
-    MergeSet (MergeSet),
-    validSelectionToSelectionSet,
+  (
     module Data.Morpheus.Types
   )
 where
@@ -30,48 +16,13 @@ import qualified Data.Aeson as JSON
 import Data.Morpheus.Kind (SCALAR)
 import Data.Morpheus.Types
 import qualified Data.Morpheus.Types as GQLT
-import Data.Morpheus.Types.Internal.AST.Base (Key, Name, Position (Position), VALID)
-import Data.Morpheus.Types.Internal.AST.MergeSet (MergeSet (MergeSet))
-import Data.Morpheus.Types.Internal.AST.Selection
-  ( Arguments,
-    Selection (..),
-    SelectionContent (SelectionField, SelectionSet),
-    SelectionSet,
-  )
 import Massalia.Utils (EmailAddress, LocalTime, Text, UUID, emailToByteString, emailValidate, stringToText, uuidFromText, uuidToText)
 import Massalia.Auth (JWTEncodedString(JWTEncodedString))
 import Protolude
 
-type ValidSelection = Selection VALID
-
-type ValidSelectionSet = SelectionSet VALID
-
-type ValidArguments = Arguments VALID
-
-type ValidSelectionContent = SelectionContent VALID
-
-validSelectionField :: ValidSelectionContent
-validSelectionField = SelectionField
-
-selectionGen :: Name -> ValidArguments -> ValidSelectionContent -> ValidSelection
-selectionGen name a content =
-  Selection
-    { selectionName = name,
-      selectionAlias = Nothing,
-      selectionPosition = (Position 0 0),
-      selectionArguments = a,
-      selectionContent = content
-    }
-
-validSelectionToSelectionSet (Selection {selectionContent = selection}) = case selection of
-  SelectionField -> undefined -- error "graphql validation should prevent this, it should not exist"
-  (SelectionSet deeperSel) -> deeperSel
-
--- GQL Scalar useful definitions
-
 instance GQLScalar UUID where
   parseValue (GQLT.String x) = case uuidFromText x of
-    Nothing -> undefined -- pure ("The given value = " <> x <> " is not a correct UUID")
+    Nothing -> Left $ "The given value = " <> x <> " is not a correct UUID"
     Just iid -> pure iid
   serialize = GQLT.String . uuidToText
 

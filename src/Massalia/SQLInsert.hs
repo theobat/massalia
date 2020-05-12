@@ -22,14 +22,6 @@ import Data.Text (Text)
 import Hasql.DynamicStatements.Snippet (Snippet)
 import qualified Hasql.Encoders as Encoders
 import qualified Massalia.HasqlDec as Decoders
-import Massalia.MorpheusTypes
-  ( Arguments,
-    Selection (..),
-    SelectionContent (SelectionField, SelectionSet),
-    SelectionSet,
-    ValidSelection,
-    ValidSelectionSet,
-  )
 import Massalia.QueryFormat
   ( HasqlSnippet,
     commaAssemble,

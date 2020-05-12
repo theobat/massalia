@@ -11,80 +11,39 @@
 module GraphQLMorpheusTestData
   ( testSelection,
     organizationQuery,
-    organizationContent,
     organizationSelection,
     plantQuery,
-    plantContent,
     plantSelection,
     truckQuery,
-    truckContent,
     truckSelection,
   )
 where
 
-import Data.Morpheus.Kind (ENUM, OBJECT, SCALAR)
-import Data.Morpheus.Types
-  ( GQLRequest (..),
-    GQLResponse,
-    GQLRootResolver (..),
-    GQLScalar (..),
-    GQLType (..),
-    IORes,
-    ResolveQ,
-    Resolver (..),
-    ScalarValue (String),
-    Undefined (..),
-    liftEither,
-  )
-import Massalia.MorpheusTypes
-  ( Arguments,
-    Key,
-    MergeSet (MergeSet),
-    Name,
-    Position (Position),
-    Selection (..),
-    SelectionContent (SelectionField, SelectionSet),
-    SelectionSet,
-    ValidArguments,
-    ValidSelection,
-    ValidSelectionContent,
-    ValidSelectionSet,
-    selectionGen,
-    validSelectionField,
-  )
+import Massalia.SelectionTree (MassaliaNode, leaf, over, overAll, node, nodeOver)
 
-norAgs = undefined
+-- norAgs = undefined
 
-organizationQuery = selectionGen "organizationList" norAgs organizationContent
+-- organizationQuery = selectionGen "organizationList" norAgs organizationContent
 
-organizationContent = SelectionSet organizationSelection
+-- organizationContent = SelectionSet organizationSelection
 
-organizationSelection =
-  MergeSet
-    [ selectionGen "id" norAgs validSelectionField,
-      plantQuery
-    ]
+-- organizationSelection =
+--   MergeSet
+--     [ selectionGen "id" norAgs validSelectionField,
+--       plantQuery
+--     ]
+organizationQuery = node2 "organizationList" organizationSelection [
+    "plantList" `node` plantSelection
+  ]
+organizationSelection = ["id"]
 
--- plantSelection :: ValidSelectionSet
--- plantSelection = undefined
-plantQuery = selectionGen "plantList" norAgs plantContent
+plantQuery = node2 "plantList" plantSelection [
+    "truckList" `node` truckSelection
+  ]
+plantSelection = ["id"]
+truckQuery = "truckList" `node` truckSelection
+truckSelection = ["id", "vehicleId"]
 
-plantContent = SelectionSet plantSelection
+node2 name leafList nodeList = nodeOver name ((leaf <$> leafList) <> nodeList)
 
-plantSelection =
-  MergeSet
-    [ selectionGen "id" norAgs validSelectionField,
-      truckQuery
-    ]
-
-truckQuery = selectionGen "truckList" norAgs truckContent
-
-truckContent = SelectionSet truckSelection
-
-truckSelection =
-  MergeSet
-    [ selectionGen "id" norAgs validSelectionField,
-      selectionGen "vehicleId" norAgs validSelectionField
-    ]
-
-testSelection = organizationSelection
+testSelection = plantQuery

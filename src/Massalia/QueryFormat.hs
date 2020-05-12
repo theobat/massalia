@@ -37,7 +37,7 @@ where
 
 import Data.Foldable (foldr1)
 import Data.Int (Int64)
-import Massalia.TreeClass (Tree(getName))
+import Massalia.SelectionTree (MassaliaTree(getName))
 import Data.Sequence (Seq)
 import Data.String (String, IsString)
 import qualified Data.String as String (IsString (fromString))
@@ -168,7 +168,7 @@ scalar decoder input = (\tablename -> fromText $ tablename <> "." <> getName inp
 
 -- | A class to decode
 class SQLDecoder haskellType where
-  sqlDecode :: (IsString queryFormat, FromText queryFormat, Tree nodeType) =>
+  sqlDecode :: (IsString queryFormat, FromText queryFormat, MassaliaTree nodeType) =>
     nodeType -> (Text -> queryFormat, Decoders.Value haskellType)
 instance SQLDecoder UUID where
   sqlDecode = scalar Decoders.uuid

@@ -28,19 +28,11 @@ import qualified Hasql.Session as Session
 import qualified Hasql.Statement as Statement
 import qualified Massalia.HasqlDec as Decoders
 import Massalia.HasqlExec (dynamicallyParameterizedStatement)
+import Massalia.SelectionTree (MassaliaTree (getName, foldrChildren), fromMorpheusContext)
 import Massalia.MorpheusTypes
-  ( Key,
-    Selection (Selection, selectionContent, selectionName),
-    SelectionContent (..),
-    ValidSelection,
-    ValidSelectionSet,
-    validSelectionToSelectionSet,
-  )
-import Massalia.MorpheusTypes
-  ( Context (Context, currentSelection),
+  (
     GQLRootResolver (..),
     GQLType,
-    unsafeInternalContext,
   )
 import Massalia.QueryFormat
   ( HasqlSnippet,
@@ -70,6 +62,7 @@ import Text.Pretty.Simple (pPrint)
 import Massalia.HasqlExec (Pool, use)
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
 import Massalia.SQLClass (SQLFilter(toQueryFormatFilter))
+import Data.Morpheus.Types (unsafeInternalContext)
 
 data Plant
   = Plant
@@ -83,18 +76,19 @@ data Plant
 type SelectStructPlant queryFormat = SelectStruct Plant queryFormat
 
 plantSelect ::  (
+    MassaliaTree nodeType,
     FromText queryFormat,
     SQLEncoder Int64 queryFormat,
     SQLFilter queryFormat TruckFilter
   ) =>
-  ValidSelection -> SelectStructPlant queryFormat -> SelectStructPlant queryFormat
+  nodeType -> SelectStructPlant queryFormat -> SelectStructPlant queryFormat
 plantSelect selection = case fieldName of
   "id" -> scalarField (\e v -> e {id = v}) Decoders.uuid
   "name" -> scalarField (\e v -> e {name = v}) Decoders.text
   "createdAt" -> scalarField (\e v -> e {createdAt = v}) Decoders.timestamp
   "truckList" -> collection testAssemblingOptions Decoders.listArray truckSubquery (\e v -> e {truckList = v})
     where
-      truckBasicSubquery = (truckInitSQL Nothing (validSelectionToSelectionSet selection))
+      truckBasicSubquery = truckInitSQL Nothing selection
       truckSubquery =
         transformWhereJoinGroup
           ("truck_plant.plant_id=" <> pure tableNameQueryFormat <> ".id")
@@ -107,14 +101,15 @@ plantSelect selection = case fieldName of
     scalarField = scalar tableName fieldName
     tableName = "plant_input"
     tableNameQueryFormat = (fromText tableName)
-    fieldName = selectionName selection
+    fieldName = getName selection
 
 plantInitSQL ::  (
     SQLEncoder Int64 queryFormat,
-    SQLFilter queryFormat TruckFilter
+    SQLFilter queryFormat TruckFilter,
+    MassaliaTree nodeType
   ) =>
-  PlantListQueryFilter -> ValidSelectionSet -> SelectStructPlant queryFormat
-plantInitSQL filters = foldr plantSelect (initialPlantQuery filters)
+  PlantListQueryFilter -> nodeType -> SelectStructPlant queryFormat
+plantInitSQL filters = foldrChildren plantSelect (initialPlantQuery filters)
 
 initialPlantQuery :: (Monoid queryFormat, IsString queryFormat) =>
   PlantListQueryFilter -> SelectStructPlant queryFormat
@@ -129,24 +124,18 @@ initialPlantQuery filter =
 defaultPlant = Plant {id = nil, truckList = mempty, name = ""}
 
 plantListQuery pool queryArgs = do
-  Context {currentSelection = selection} <- unsafeInternalContext
-  lift (exec (validSelectionToSelectionSet selection))
+  massaliaTree <- (pure . fromMorpheusContext) =<< unsafeInternalContext
+  lift (exec massaliaTree)
   where
     exec validSel = do
-      -- res <- Session.run (statement validSel) dbConnection
       let (snippet, result) = selectStructToSnippetAndResult $ initialSnippet validSel
       let fullSnippet = queryTest <> " " <> snippet
       let session = dynamicallyParameterizedStatement fullSnippet result
       res <- use pool session
-      -- case res of
-      --   Left e -> (error $ show e)
-      --   Right listRes -> pPrint listRes
-
       case res of
         Left e -> (panic $ show e)
         Right listRes -> pure listRes
     statement validSel = selectStructToSession $ initialSnippet validSel
-    initialSnippet :: ValidSelectionSet -> SelectStructPlant HasqlSnippet
     initialSnippet = plantInitSQL defaultFilter
 
 type PlantListQueryFilter = QueryArgsPaginated (Maybe Text)

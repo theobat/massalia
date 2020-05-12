@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 
 module MassaliaSchema.TestAPI where
 
@@ -18,12 +19,11 @@ import Massalia.MorpheusTypes
     IORes,
     QUERY,
     ResolveQ,
-    Resolver,
     Undefined (..),
   )
-import MassaliaSchema.Industry.DBContext (PlantInputDBContext)
 import MassaliaSchema.Industry.Plant (Plant, PlantListQueryFilter, plantListQuery)
 import MassaliaSchema.Industry.Truck (Truck)
+import Data.Morpheus.Types.Internal.Resolving (Resolver)
 
 api :: Pool -> GQLRequest -> IO GQLResponse
 api dbConnectionPool = interpreter $ rootResolver dbConnectionPool
@@ -36,11 +36,11 @@ rootResolver dbConnectionPool =
       subscriptionResolver = Undefined
     }
 
-data Mutation m
-  = Mutation
-      { plantListInsert :: PlantInputDBContext -> m [Plant]
-      }
-  deriving (Generic, GQLType)
+-- data Mutation m
+--   = Mutation
+--       { plantListInsert :: PlantInputDBContext -> m [Plant]
+--       }
+--   deriving (Generic, GQLType)
 
 data Query m
   = Query
@@ -48,7 +48,7 @@ data Query m
       }
   deriving (Generic, GQLType)
 
-rootQuery :: Pool -> Query (Resolver QUERY () IO)
+rootQuery :: Pool -> Query (_ _ () IO)
 rootQuery dbConnectionPool =
   Query
     { plantListPaginated = plantListQuery dbConnectionPool
