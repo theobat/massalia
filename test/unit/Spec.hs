@@ -11,7 +11,6 @@ import qualified Hasql.Connection as Connection
 import Hasql.DynamicStatements.Session (dynamicallyParameterizedStatement)
 import qualified Hasql.Session as Session
 import Protolude
-import qualified SpecDynamicSelect
 import qualified SpecGraphQLSelect
 import qualified SpecStaticInsert
 import qualified SpecStaticSelect
@@ -37,8 +36,7 @@ main = defaultMain tests
 tests :: TestTree
 tests = testGroup "Tests" testList
   where
-    testList = [staticSelect, dynamicSelect, graphqlSelect, staticInsert]
+    testList = [staticSelect, graphqlSelect, staticInsert]
     staticSelect = SpecStaticSelect.unitTests
     staticInsert = SpecStaticInsert.unitTests
-    dynamicSelect = SpecDynamicSelect.unitTests
     graphqlSelect = SpecGraphQLSelect.unitTests

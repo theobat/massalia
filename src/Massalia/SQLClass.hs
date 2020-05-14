@@ -51,7 +51,6 @@ import Massalia.SQLUtils (insertIntoWrapper, selectWrapper, rowsAssembler)
 import Massalia.GenericUtils (GTypeName(gtypename), GSelectors(selectors))
 import Data.String (String, IsString(fromString))
 import Hasql.Decoders (Composite)
-import Massalia.SQLRawSelect (RawSelectStruct)
 import qualified Data.Text as Text
 import GHC.Generics (
     U1,
@@ -75,7 +74,7 @@ import Massalia.Filter (
   )
 import qualified Data.Set as Set
 import qualified Data.Map as Map
-import Massalia.SQLSelect (SelectStruct(SelectStruct), simpleSelectGroup)
+import Massalia.SQLSelectStruct (QueryAndDecoder(..))
 
 -- | This class represents all the haskell types with a corresponding SQL
 -- name. It provides 2 functions: @sqlName@ and @tableName@. @sqlName@ is meant
@@ -345,12 +344,6 @@ columnList = fromString $ toCSVInParens (sqlColumns @a)
 
 ---------------------- SQLSelect test
 
--- | This is the filter's impact, it has no automatic instance
--- class NodeFilter filter nodeType where
---   getQueryPart :: filter -> SelectStruct nodeType queryFormat -> SelectStruct nodeType queryFormat
-
----------------------- SQLSelect test
-
 -- | A simple default value for the given 'nodeType' type.
 class SQLDefault nodeType where
   getDefault :: nodeType
@@ -370,7 +363,7 @@ class SQLSelect queryFormat filterType nodeType | nodeType -> filterType where
     -- | The node's filter type
     Paginated filterType ->
     -- | A query for this node with all its decoder
-    SelectStruct nodeType queryFormat
+    QueryAndDecoder queryFormat nodeType
 
 -- | This is the way to get a select query out of a select tree and a filter
 class SQLColumn queryFormat filterType domainType | domainType -> filterType where

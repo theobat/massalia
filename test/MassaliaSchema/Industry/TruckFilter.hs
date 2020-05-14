@@ -27,8 +27,6 @@ import Massalia.Filter
     GQLFilterUUID,
     GQLScalarFilter (isEq, isIn),
     defaultScalarFilter,
-    filterFieldToMabeContent,
-    filterFieldToMaybeQueryPart,
   )
 import qualified Massalia.HasqlDec as Decoders
 import Massalia.QueryFormat

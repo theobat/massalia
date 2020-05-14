@@ -25,8 +25,7 @@ import Massalia.QueryFormat
     FromText(fromText),
     HasqlSnippet
   )
-import Massalia.SQLRawSelect (addSelectColumns)
-import Massalia.SQLSelect (SelectStruct(SelectStruct), RawSelectStruct (RawSelectStruct, fromPart, whereConditions), SelectStruct, getInitialValueSelect, initSelect, scalar)
+import Massalia.SQLSelectStruct (SelectStruct(..), QueryAndDecoder(..))
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
 import qualified MassaliaSchema.Industry.TruckFilter as TruckFilter
 import Massalia.SQLClass (
@@ -52,21 +51,21 @@ instance (
     QueryFormat queryFormat,
     SQLFilter queryFormat TruckFilter
   ) => SQLSelect queryFormat TruckFilter Truck where
-  toSelectQuery opt selection filter = SelectStruct queryWithColumnList decoder
+  toSelectQuery opt selection filter = QueryAndDecoder {query=queryWithColumnList, decoder=decoderVal}
     where
-      queryWithColumnList = addSelectColumns (pure <$> colList) [] rawQuery
-      (colList, decoder) = toColumnListAndDecoder (SQLColumnConfig instanceName) selection realFilter
+      queryWithColumnList = rawQuery <> mempty{_select = colList}
+      (colList, decoderVal) = toColumnListAndDecoder (SQLColumnConfig instanceName) selection realFilter
       realFilter = Paginated.filtered filter
       rawQuery = initialTruckQuery (fromText instanceName) filter
       instanceName = "truck"
 
 initialTruckQuery :: (
-    IsString queryFormat,
+    QueryFormat queryFormat,
     SQLFilter queryFormat TruckFilter
-  ) => queryFormat -> Paginated TruckFilter -> RawSelectStruct queryFormat
-initialTruckQuery name filterVal = initSelect
-      { fromPart = pure name,
-        whereConditions = pure <$> toQueryFormatFilter Nothing <$> (Paginated.filtered filterVal)
+  ) => queryFormat -> Paginated TruckFilter -> SelectStruct queryFormat
+initialTruckQuery name filterVal = mempty
+      { _from = Just name,
+        _where = toQueryFormatFilter Nothing <$> (Paginated.filtered filterVal)
       }
 
 instance SQLDefault Truck where

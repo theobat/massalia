@@ -32,7 +32,8 @@ module Massalia.QueryFormat
     takeMaybeParam,
     Snippet.param,
     inSingleQuote,
-    inParens
+    inParens,
+    commaSepInParens
   )
 where
 
@@ -168,6 +169,7 @@ instance SQLEncoder EmailAddress Snippet where
 
 inSingleQuote a = "'" <> a <> "'"
 inParens a = "(" <> a <> ")"
+commaSepInParens = inParens . (intercalate ",")
 
 collectionTextEncode :: (Foldable collection, SQLEncoder underlyingType Text) =>
   collection underlyingType -> Text

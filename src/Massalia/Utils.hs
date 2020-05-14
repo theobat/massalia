@@ -42,7 +42,8 @@ module Massalia.Utils
     -- PrettyPrint
     pPrint,
     -- String
-    simpleSnakeCase
+    simpleSnakeCase,
+    inParens
   )
 where
 

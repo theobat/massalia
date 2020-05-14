@@ -29,8 +29,6 @@ import Massalia.Filter
     GQLFilterDay,
     GQLScalarFilter (isBetween),
     defaultScalarFilter,
-    filterFieldToMabeContent,
-    filterFieldToMaybeQueryPart,
   )
 import MassaliaSchema.Industry.TruckFilter (TruckFilter, testInstance)
 import Massalia.QueryFormat

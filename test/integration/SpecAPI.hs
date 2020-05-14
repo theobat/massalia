@@ -16,7 +16,6 @@ import Massalia.Migration (
   ) 
 import MassaliaSchema.TestAPI (api)
 import Protolude
-import qualified SpecDynamicSelect
 import qualified SpecGraphQLSelect
 import qualified SpecStaticSelect
 import Test.Tasty

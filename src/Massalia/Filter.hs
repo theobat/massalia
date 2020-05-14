@@ -28,7 +28,6 @@ module Massalia.Filter
     GQLScalarFilter (..),
     defaultScalarFilter,
     filterFieldToMabeContent,
-    filterFieldToMaybeQueryPart,
     PostgresRange(postgresRangeName)
   )
 where
@@ -44,7 +43,6 @@ import Data.String as StringUtils (IsString (fromString))
 import Data.UUID
 import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import Massalia.QueryFormat (SQLEncoder(sqlEncode))
-import Massalia.SQLSelect (AQueryPart (AQueryPartConst))
 import Massalia.Utils (Day, LocalTime, SimpleRange(..), Inclusivity(..))
 import qualified Massalia.Utils as MassaliaUtils (intercalate, intercalateMap)
 
@@ -116,12 +114,6 @@ defaultScalarFilter =
 maybeToQueryFormat :: Monoid content => Maybe content -> content
 maybeToQueryFormat Nothing = mempty
 maybeToQueryFormat (Just content) = content
-
-filterFieldToQueryPart maybePrefix maybeField = AQueryPartConst $ filterFieldToContent maybePrefix maybeField
-
-filterFieldToMaybeQueryPart maybePrefix maybeField = AQueryPartConst <$> filterFieldToMabeContent maybePrefix maybeField
-
-filterFieldToContent maybePrefix maybeField = maybeToQueryFormat $ filterFieldToMabeContent maybePrefix maybeField
 
 filterFieldToMabeContent ::
   forall fieldName.
