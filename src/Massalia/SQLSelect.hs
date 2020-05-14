@@ -92,7 +92,7 @@ scalar ::
 scalar tableName column = object $ tableName <> "." <> snakeColumn
   where
     snakeColumn = case toUnderscore column of
-      Left _ -> panic "Failed at transforming field name to underscore = " <> column
+      Left _ -> panic $ "Failed at transforming field name to underscore = " <> column
       Right e -> e
 
 object ::

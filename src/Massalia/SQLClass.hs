@@ -10,8 +10,10 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE QuantifiedConstraints #-}
-{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 -- |
 -- Module      : Massalia.SQLClass
@@ -24,14 +26,19 @@ module Massalia.SQLClass
     DBContext(..),
     WithQueryOption(..),
     SQLFilter(toQueryFormatFilter),
-    -- SQLSelect(toSelectQuery),
+    SQLSelect(toSelectQuery),
+    SQLColumn(toColumnListAndDecoder),
+    SQLDefault(getDefault),
+    SQLSelectOptions(..),
+    SQLColumnConfig(..)
   )
 where
 
 import Massalia.QueryFormat
   (
+    QueryFormat,
     FromText(fromText),
-    SQLEncoder(sqlEncode),
+    SQLEncoder(sqlEncode, ignoreInGenericInstance),
     SQLDecoder(sqlDecode),
     HasqlSnippet,
     DefaultParamEncoder,
@@ -39,9 +46,11 @@ import Massalia.QueryFormat
     (§),
     inParens
   )
+import Massalia.UtilsGQL (Paginated)
 import Massalia.SQLUtils (insertIntoWrapper, selectWrapper, rowsAssembler)
 import Massalia.GenericUtils (GTypeName(gtypename), GSelectors(selectors))
 import Data.String (String, IsString(fromString))
+import Hasql.Decoders (Composite)
 import Massalia.SQLRawSelect (RawSelectStruct)
 import qualified Data.Text as Text
 import GHC.Generics (
@@ -55,6 +64,9 @@ import GHC.Generics (
     K1(K1)
   )
 import Massalia.Utils (simpleSnakeCase, intercalate, toCSVInParens)
+import Massalia.SelectionTree(MassaliaTree)
+import qualified Massalia.SelectionTree as MassaliaTree
+import qualified Hasql.Decoders as Decoders 
 import Protolude hiding (intercalate)
 import Massalia.Filter (
     GQLScalarFilter(GQLScalarFilter),
@@ -192,7 +204,9 @@ instance (
   ) queryFormat where
   gtoQueryFormatFilter options (K1 val) = result
     where
-      result = case val of
+      result
+        | ignoreInGenericInstance @filterType @queryFormat = []
+        | otherwise = case val of
         Nothing -> []
         Just a -> [sqlEncode a]
 
@@ -329,64 +343,112 @@ columnList = fromString $ toCSVInParens (sqlColumns @a)
 
 
 
-------------------- SQLRelation class
-
--- | This is to materialize relations between two types
--- e.g.
--- @
---    SQLRelation Plant [Truck] where
---      getRelation "truckList" (plantName, truckName) = addWhereJoinGroup ...
--- @
-class SQLRelation sourceType targetType where
-  getRelation :: (IsString queryFormat) =>
-    Text -> RawSelectStruct queryFormat -> RawSelectStruct queryFormat
-
-
 ---------------------- SQLSelect test
 
 -- | This is the filter's impact, it has no automatic instance
 -- class NodeFilter filter nodeType where
 --   getQueryPart :: filter -> SelectStruct nodeType queryFormat -> SelectStruct nodeType queryFormat
 
+---------------------- SQLSelect test
+
+-- | A simple default value for the given 'nodeType' type.
+class SQLDefault nodeType where
+  getDefault :: nodeType
+
+data SQLSelectOptions = SQLSelectOptions {
+  ok :: Bool
+}
+data SQLColumnConfig = SQLColumnConfig {
+  columnPrefix :: Text
+}
+
+class SQLSelect queryFormat filterType nodeType | nodeType -> filterType where
+  toSelectQuery :: (MassaliaTree selectionType, SQLColumn queryFormat filterType nodeType) =>
+    Maybe SQLSelectOptions ->
+    -- | The selection set (in the form of a 'Tree' interface)
+    selectionType ->
+    -- | The node's filter type
+    Paginated filterType ->
+    -- | A query for this node with all its decoder
+    SelectStruct nodeType queryFormat
+
 -- | This is the way to get a select query out of a select tree and a filter
--- class SQLSelect queryFormat nodeType where
---   toSelectQuery ::
---     (Tree selectionType) =>
---     selectionType -> filter -> SelectStruct nodeType queryFormat -> SelectStruct nodeType queryFormat
---   default toSelectQuery :: (
---       IsString queryFormat, Generic nodeType,
---       GSQLSelect queryFormat (Rep nodeType) nodeType,
---       Tree selectionType
---     ) =>
---     selectionType -> filter -> SelectStruct nodeType queryFormat -> SelectStruct nodeType queryFormat
---   toSelectQuery = gtoSelectQuery @queryFormat @(Rep nodeType) @nodeType
+class SQLColumn queryFormat filterType domainType | domainType -> filterType where
+  toColumnListAndDecoder ::
+    (MassaliaTree selectionType) =>
+    SQLColumnConfig ->
+    -- | The selection set (in the form of a 'Tree' interface).
+    selectionType ->
+    -- | The node's filter type.
+    Maybe filterType ->
+    -- | A queryFormatted list of columns and a Hasql decoder.
+    ([queryFormat], Composite domainType)
+  default toColumnListAndDecoder :: (
+      SQLDefault domainType,
+      MassaliaTree selectionType,
+      GSQLColumn queryFormat filterType (Rep domainType),
+      Generic domainType
+    ) =>
+    SQLColumnConfig -> selectionType -> Maybe filterType -> ([queryFormat], Composite domainType)
+  toColumnListAndDecoder opt selectionVal filterVal = (selList, to <$> gdeco)
+    where
+      (selList, gdeco) = gtoColumnListAndDecoder @queryFormat opt selectionVal filterVal defaultVal
+      defaultVal = from $ getDefault @domainType
 
--- class GSQLSelect queryFormat (f :: * -> *) nodeType where
---   gtoSelectQuery :: (Tree selectionType) =>
---     selectionType -> filter -> SelectStruct nodeType queryFormat -> SelectStruct nodeType queryFormat
+class GSQLColumn queryFormat filterType (rep :: * -> *) where
+  gtoColumnListAndDecoder ::
+    (MassaliaTree selectionType) =>
+    SQLColumnConfig ->
+    -- | The selection set (in the form of a 'Tree' interface)
+    selectionType ->
+    -- | The node's filter type
+    Maybe filterType ->
+    -- | The node's default value
+    (rep domainType) ->
+    -- | A queryFormatted list of columns and a Hasql decoder.
+    ([queryFormat], Composite (rep domainType))
 
--- instance (GSQLSelect queryFormat a nodeType, GSQLSelect queryFormat b nodeType) =>
---   GSQLSelect queryFormat (a :*: b) nodeType where
---   gtoSelectQuery selectionMap filter input = gtoSelectQuery @queryFormat @a selectionMap filter firstExec
---     where firstExec = gtoSelectQuery @queryFormat @b selectionMap filter input
+-- | A priori this instance should not exist
+-- instance GSQLSelect queryFormat filterType U1 where
+--   gtoSelectQuery _ _ _ U1 = panic "whaat ?"
 
--- instance (
---     IsString queryFormat,
---     FromText queryFormat,
---     Selector s,
---     SetField nodeType t,
---     SQLDecoder t,
---     Generic (f nodeType)
---   ) => GSQLSelect queryFormat (M1 S s (K1 R (Rec0 t b))) nodeType where
---   gtoSelectQuery selection filter input = case lookupChildren keyname selection of
---     Nothing -> input
---     Just childrenNode -> res
---     where
---       keyname = fromString $ selName (undefined :: M1 S s (K1 R t) ())
---       (queryValue, decoder) = sqlDecode @t selection
---       fieldSetter = setField @nodeType @t keyname
---       res = simpleSelectGroup (queryValue "") fieldSetter decoder input
+-- | Use the Monad instance of the composite hasql type
+-- It's where the magic happens
+instance (GSQLColumn queryFormat filterType a, GSQLColumn queryFormat filterType b) =>
+  GSQLColumn queryFormat filterType (a :*: b) where
+  gtoColumnListAndDecoder opt selectionVal filterVal (a :*: b) = result
+    where
+      result = (structA <> structB, compoCombined)
+      (structA, compoA) = gtoColumnListAndDecoder opt selectionVal filterVal a
+      (structB, compoB) = gtoColumnListAndDecoder opt selectionVal filterVal b
+      compoCombined = do
+        ca <- compoA
+        cb <- compoB
+        pure (ca :*: cb)
 
--- instance (SQLDecoder a) => GSQLSelect queryFormat (K1 i a) where
---   gtoSelectQuery selection _ = undefined --  simpleSelectGroup sqlDecode 
+instance (GSQLColumn queryFormat filterType a) => GSQLColumn queryFormat filterType (M1 D c a) where
+  gtoColumnListAndDecoder opt selectionVal filterVal (M1 x) = second (M1 <$>) res
+    where res = gtoColumnListAndDecoder opt selectionVal filterVal x
+instance (GSQLColumn queryFormat filterType a) => GSQLColumn queryFormat filterType (M1 C c a) where
+  gtoColumnListAndDecoder opt selectionVal filterVal (M1 x) = second (M1 <$>) res
+    where res = gtoColumnListAndDecoder opt selectionVal filterVal x
 
+-- | This is where we encouter a leaf, if the leaf is in the tree (asked) we query it
+-- otherwise we simply return the default provided value.
+instance (
+    FromText queryFormat, IsString queryFormat, Selector s,
+    SQLDecoder queryFormat filterType t
+  ) =>
+  GSQLColumn queryFormat filterType (M1 S s (K1 R t)) where
+  gtoColumnListAndDecoder opt selection filterValue defaultValue = case lookupRes of
+    Nothing -> (mempty, pure defaultValue)
+    Just childTree -> result
+      where
+        result = bimap columnInstanceWrapper decoderWrapper decoded
+        decoderWrapper = ((M1 . K1) <$>) . (Decoders.field . Decoders.nonNullable)
+        columnInstanceWrapper = pure . (columnPrefixVal &)
+        decoded = sqlDecode @queryFormat @filterType @t filterValue childTree
+        columnPrefixVal = fromText $ columnPrefix opt
+    where
+      lookupRes = MassaliaTree.lookupChildren key selection
+      key = (fromString $ selName (undefined :: M1 S s (K1 R t) ()))

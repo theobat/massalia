@@ -4,10 +4,10 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module MassaliaSchema.Industry.Truck
   ( Truck (..),
-    truckInitSQL,
   )
 where
 
@@ -20,13 +20,24 @@ import GHC.Generics (Generic)
 import qualified Massalia.HasqlDec as Decoders
 import Massalia.QueryFormat
   ( SQLEncoder (sqlEncode),
+    QueryFormat,
     IsString,
-    FromText
+    FromText(fromText),
+    HasqlSnippet
   )
-import Massalia.SQLSelect (RawSelectStruct (RawSelectStruct, fromPart, whereConditions), SelectStruct, getInitialValueSelect, initSelect, scalar)
+import Massalia.SQLRawSelect (addSelectColumns)
+import Massalia.SQLSelect (SelectStruct(SelectStruct), RawSelectStruct (RawSelectStruct, fromPart, whereConditions), SelectStruct, getInitialValueSelect, initSelect, scalar)
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
 import qualified MassaliaSchema.Industry.TruckFilter as TruckFilter
-import Massalia.SQLClass (SQLFilter(toQueryFormatFilter))
+import Massalia.SQLClass (
+    SQLColumn(toColumnListAndDecoder),
+    SQLSelect(toSelectQuery),
+    SQLDefault(getDefault),
+    SQLFilter(toQueryFormatFilter),
+    SQLColumnConfig(..)
+  )
+import Massalia.UtilsGQL (Paginated, defaultPaginated)
+import qualified Massalia.UtilsGQL as Paginated(first, offset, filtered)
 import Protolude
 
 data Truck
@@ -34,49 +45,31 @@ data Truck
       { id :: UUID,
         vehicleId :: Text
       }
-  deriving (Show, Generic, GQLType)
+  deriving (Show, Generic, GQLType,
+    SQLColumn Text TruckFilter, SQLColumn HasqlSnippet TruckFilter)
 
-truckSelect ::
-  (FromText content, MassaliaTree nodeType) =>
-  nodeType -> SelectStruct Truck content -> SelectStruct Truck content
-truckSelect selection = case fieldName of
-  "id" -> scalarField (\e v -> e {id = v}) Decoders.uuid
-  -- "vehicleId" -> simpleCol fieldName (\e v -> e{vehicleId=v}) vehicleId Decoders.text
-  _ -> identity
-  where
-    scalarField = scalar "truck" fieldName
-    fieldName = getName selection
-
-truckInitSQL :: (
-    IsString queryFormat, FromText queryFormat, Monoid queryFormat,
-    MassaliaTree nodeType,
+instance (
+    QueryFormat queryFormat,
     SQLFilter queryFormat TruckFilter
-  ) =>
-  Maybe TruckListFilter -> nodeType -> SelectStruct Truck queryFormat
-truckInitSQL filters = foldrChildren truckSelect (initialTruckQuery filters)
+  ) => SQLSelect queryFormat TruckFilter Truck where
+  toSelectQuery opt selection filter = SelectStruct queryWithColumnList decoder
+    where
+      queryWithColumnList = addSelectColumns (pure <$> colList) [] rawQuery
+      (colList, decoder) = toColumnListAndDecoder (SQLColumnConfig instanceName) selection realFilter
+      realFilter = Paginated.filtered filter
+      rawQuery = initialTruckQuery (fromText instanceName) filter
+      instanceName = "truck"
 
 initialTruckQuery :: (
-    Monoid queryFormat,
     IsString queryFormat,
     SQLFilter queryFormat TruckFilter
-  ) => Maybe TruckListFilter -> SelectStruct Truck queryFormat
-initialTruckQuery filterVal =
-  getInitialValueSelect
-    initSelect
-      { fromPart = "truck",
-        whereConditions = pure <$> toQueryPart filterVal
+  ) => queryFormat -> Paginated TruckFilter -> RawSelectStruct queryFormat
+initialTruckQuery name filterVal = initSelect
+      { fromPart = pure name,
+        whereConditions = pure <$> toQueryFormatFilter Nothing <$> (Paginated.filtered filterVal)
       }
-    defaultTruck
 
+instance SQLDefault Truck where
+  getDefault = defaultTruck
 defaultTruck = Truck nil ""
-
-data TruckListFilter
-  = TruckListFilter
-      { truck :: Maybe TruckFilter
-      }
-
-toQueryPart :: (SQLFilter queryFormat TruckFilter) => Maybe TruckListFilter -> Maybe queryFormat
-toQueryPart input = toQueryFormatFilter Nothing <$> truckFilterValue
-  where
-    truckFilterValue = join $ truck <$> input
 

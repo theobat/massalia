@@ -1,5 +1,6 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -8,11 +9,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE QuantifiedConstraints #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module MassaliaSchema.Industry.TruckFilter
-  ( TruckFilter (..)
+  ( TruckFilter (..),
+    testInstance
   )
 where
 
@@ -21,7 +22,6 @@ import Data.Data (Data, gmapQ)
 import Data.Text (Text)
 import Data.UUID (UUID, nil)
 import GHC.Generics (Generic, from)
-import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import Massalia.Filter
   ( GQLFilterText,
     GQLFilterUUID,
@@ -32,15 +32,18 @@ import Massalia.Filter
   )
 import qualified Massalia.HasqlDec as Decoders
 import Massalia.QueryFormat
-  ( HasqlSnippet,
-    SQLEncoder
+  ( QueryFormat,
+    HasqlSnippet,
+    FromText,
+    SQLEncoder(sqlEncode, ignoreInGenericInstance)
   )
 import Massalia.SQLClass (SQLFilter)
 import Massalia.SQLPart
   ( AQueryPart,
   )
-import Prelude hiding (id)
-import qualified Prelude (id)
+import Data.Morpheus.Types (GQLType(description), KIND)
+import Data.Morpheus.Kind (INPUT)
+import Protolude
 
 data TruckFilter
   = TruckFilter
@@ -50,9 +53,16 @@ data TruckFilter
   deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON,
     SQLFilter Text, SQLFilter HasqlSnippet)
 
+instance (QueryFormat a) => SQLEncoder TruckFilter a where
+  ignoreInGenericInstance = True
+  sqlEncode = const ""
+
 testInstance =
   TruckFilter
     { id = Just $ defaultScalarFilter {isEq = Just nil},
       vehicleId = Nothing
     }
 
+instance GQLType TruckFilter where
+  type KIND TruckFilter = INPUT
+  description = const $ Just ("A set of filters for the Truck type" :: Text)

@@ -18,6 +18,7 @@ import Data.Data (Data)
 import Data.Text (Text, pack)
 import Data.UUID (UUID)
 import Data.UUID (nil)
+import Massalia.Utils (LocalTime, Day)
 import GHC.Generics (Generic)
 import qualified Hasql.Encoders as Encoders
 import qualified Massalia.HasqlDec as Decoders
@@ -36,14 +37,13 @@ import Massalia.SQLClass (
     DBContext(toWithQuery), SQLName, SQLColumns, SQLValues,
     WithQueryOption(PureSelect)
   )
-import Prelude hiding (id)
-import MassaliaSchema.Industry.TruckInput (TruckInput) 
-import qualified Prelude (id)
+import MassaliaSchema.Industry.TruckInput (TruckInput)
 
 data PlantInput
   = PlantInput
       { id :: UUID,
-        name :: Maybe Text
+        name :: Maybe Text,
+        checkDate :: Maybe Day
       }
   deriving (
     Eq, Show, Generic, JSON.FromJSON,
@@ -61,17 +61,10 @@ data PlantListInput container
 deriving instance DBContext Text (PlantListInput [])
 deriving instance DBContext HasqlSnippet (PlantListInput [])
 
--- toInsertQuery :: (
---     SQLEncoder Text queryFormat,
---     SQLEncoder UUID queryFormat
---   ) => PlantListInput [] -> queryFormat
--- toInsertQuery input =
---   withXAs "plant" (valuesToSelect plantSchemaTriplet) plant input
-
 queryTest :: (DBContext queryFormat (PlantListInput [])) => queryFormat
 queryTest =
   toWithQuery (Just PureSelect)
     PlantListInput
-      { plant = [PlantInput nil (Just "okokok")],
+      { plant = [PlantInput nil (Just "okokok") (JSON.decode "\"1991-08-22\"")],
         truck = []
       }

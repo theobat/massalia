@@ -19,7 +19,8 @@
 --  a problem for testing and for debugging. This module defined a typeclass to abstract whatever Type is used for the
 --  query formatting.
 module Massalia.QueryFormat
-  ( SQLEncoder (sqlEncode),
+  ( QueryFormat,
+    SQLEncoder (sqlEncode, ignoreInGenericInstance),
     SQLDecoder(sqlDecode),
     FromText(fromText),
     IsString(fromString),
@@ -39,6 +40,7 @@ import Data.Foldable (foldr1)
 import Data.Int (Int64)
 import Massalia.SelectionTree (MassaliaTree(getName))
 import Data.Sequence (Seq)
+import Massalia.UtilsGQL (Paginated, filtered)
 import Data.String (String, IsString)
 import qualified Data.String as String (IsString (fromString))
 import Data.Text (Text, pack, replace, unpack)
@@ -83,7 +85,11 @@ takeMaybeParam accessor record defaultValue = case (accessor record) of
   Nothing -> defaultValue
   Just value -> sqlEncode value
 
+class (FromText queryFormat, IsString queryFormat, Monoid queryFormat)
+  => QueryFormat queryFormat
 
+instance QueryFormat Text
+instance QueryFormat Snippet
 
 class FromText content where
   fromText :: Text -> content
@@ -94,8 +100,10 @@ instance FromText String where
 instance FromText Snippet where
   fromText = String.fromString . unpack
 
-class (IsString queryFormat, Monoid queryFormat, FromText queryFormat) =>
+class (QueryFormat queryFormat) =>
   SQLEncoder underlyingType queryFormat where
+  ignoreInGenericInstance :: Bool
+  ignoreInGenericInstance = False
   sqlEncode :: underlyingType -> queryFormat
 
 voidMessage = "cannot happen because Void has no inhabitant and SQLEncoder expect Void -> queryFormat"
@@ -124,10 +132,10 @@ instance (SQLEncoder a Text) => SQLEncoder (Set a) Text where
   sqlEncode = collectionTextEncode
 instance (DefaultParamEncoder (Set a)) => SQLEncoder (Set a) Snippet where
   sqlEncode = Snippet.param
+instance (QueryFormat format) => SQLEncoder (Paginated a) format where
+  ignoreInGenericInstance = True
+  sqlEncode = const ""
 
--- instance (Foldable collection, DefaultParamEncoder (collection elementType)) =>
---   SQLEncoder (collection elementType) Snippet where
---   sqlEncode = Snippet.param
 
 instance SQLEncoder UUID Text where
   sqlEncode = inSingleQuote . toText
@@ -143,9 +151,18 @@ instance SQLEncoder Int64 Text where
   sqlEncode = pack . show
 instance SQLEncoder Int64 Snippet where
   sqlEncode = Snippet.param
+instance SQLEncoder Int Text where
+  sqlEncode = pack . show
+instance SQLEncoder Int Snippet where
+  sqlEncode input = Snippet.param (fromIntegral input :: Int64)
+
+instance SQLEncoder Day Text where
+  sqlEncode = inSingleQuote . pack . show
+instance SQLEncoder Day Snippet where
+  sqlEncode = Snippet.param
 
 instance SQLEncoder EmailAddress Text where
-  sqlEncode = pack . show
+  sqlEncode = inSingleQuote . emailToText
 instance SQLEncoder EmailAddress Snippet where
   sqlEncode = Snippet.param . emailToText 
 
@@ -164,24 +181,29 @@ collectionTextEncode collection = wrapCollection assembled
     wrapCollection a = "'{" <> a <> "}'"
     
 ------------------------- Decoder stuff
-scalar decoder input = (\tablename -> fromText $ tablename <> "." <> getName input, decoder)
+scalar :: (QueryFormat queryFormat, MassaliaTree a ) => b -> a -> (queryFormat -> queryFormat, b)
+scalar decoder input = (\tablename -> tablename <> "." <> (fromText $ getName input), decoder)
 
 -- | A class to decode
-class SQLDecoder haskellType where
-  sqlDecode :: (IsString queryFormat, FromText queryFormat, MassaliaTree nodeType) =>
-    nodeType -> (Text -> queryFormat, Decoders.Value haskellType)
-instance SQLDecoder UUID where
-  sqlDecode = scalar Decoders.uuid
-instance SQLDecoder Text where
-  sqlDecode = scalar Decoders.text
-instance SQLDecoder LocalTime where
-  sqlDecode = scalar Decoders.timestamp
-instance SQLDecoder Day where
-  sqlDecode = scalar Decoders.date
-instance SQLDecoder Scientific where
-  sqlDecode = scalar Decoders.numeric
-instance SQLDecoder UTCTime where
-  sqlDecode = scalar Decoders.timestamptz
+class (QueryFormat queryFormat) => SQLDecoder queryFormat filterType haskellType where
+  sqlDecode :: (QueryFormat queryFormat, MassaliaTree treeNode) =>
+    (Maybe filterType) -> treeNode -> (queryFormat -> queryFormat, Decoders.Value haskellType)
+instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType UUID where
+  sqlDecode _ = scalar Decoders.uuid
+instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType Text where
+  sqlDecode _ = scalar Decoders.text
+instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType Int64 where
+  sqlDecode _ = scalar Decoders.int8
+-- instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType Int where
+--   sqlDecode _ a b = ((fromIntegral <$>) . snd) $ scalar Decoders.int8
+instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType LocalTime where
+  sqlDecode _ = scalar Decoders.timestamp
+instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType Day where
+  sqlDecode _ = scalar Decoders.date
+instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType Scientific where
+  sqlDecode _ = scalar Decoders.numeric
+instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType UTCTime where
+  sqlDecode _ = scalar Decoders.timestamptz
 
 
 -- todo:

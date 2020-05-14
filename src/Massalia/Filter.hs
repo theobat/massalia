@@ -22,6 +22,9 @@
 module Massalia.Filter
   ( GQLFilterUUID,
     GQLFilterText,
+    GQLFilterDay,
+    GQLFilterInt,
+    GQLFilterLocalTime,
     GQLScalarFilter (..),
     defaultScalarFilter,
     filterFieldToMabeContent,
@@ -42,8 +45,9 @@ import Data.UUID
 import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import Massalia.QueryFormat (SQLEncoder(sqlEncode))
 import Massalia.SQLSelect (AQueryPart (AQueryPartConst))
-import Massalia.Utils (LocalTime)
+import Massalia.Utils (Day, LocalTime, SimpleRange(..), Inclusivity(..))
 import qualified Massalia.Utils as MassaliaUtils (intercalate, intercalateMap)
+
 import Protolude
 
 data GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType
@@ -55,13 +59,12 @@ data GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalar
         isNull :: Maybe Bool,
         isLike :: Maybe likeScalarType,
         isIlike :: Maybe likeScalarType,
-        isInSet :: Maybe (Set ordScalarType),
-        isNotInSet :: Maybe (Set ordScalarType),
+        -- The Ord class
         isGT :: Maybe ordScalarType, -- is greater than
         isLT :: Maybe ordScalarType, -- is lesser than
-        isBetween :: Maybe (SimpleRange ordScalarType) -- [0, 1[
+        isBetween :: Maybe (SimpleRange ordScalarType)
       }
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Show, Generic) -- JSON instances below
 
 deriving instance
   (FromJSON eqScalarType, FromJSON likeScalarType, FromJSON ordScalarType, Ord ordScalarType) =>
@@ -71,22 +74,6 @@ deriving instance
   (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType, Ord ordScalarType) =>
   ToJSON (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
 
--- | Filter with no effect
-defaultScalarFilter =
-  GQLScalarFilter
-    { isEq = Nothing,
-      isNotEq = Nothing,
-      isNull = Nothing,
-      isIn = Nothing,
-      isNotIn = Nothing,
-      isLike = Nothing,
-      isIlike = Nothing,
-      isInSet = Nothing,
-      isNotInSet = Nothing,
-      isGT = Nothing,
-      isLT = Nothing,
-      isBetween = Nothing
-    }
 
 -- eq
 type GQLFilterUUID (fieldName :: Symbol) = GQLScalarFilter (fieldName :: Symbol) UUID Void Void
@@ -102,9 +89,29 @@ instance (KnownSymbol (fieldName :: Symbol)) => GQLType (GQLFilterText (fieldNam
 
 -- eq && ord
 type GQLFilterInt (fieldName :: Symbol) = GQLScalarFilter (fieldName :: Symbol) Int Void Int
-
 instance (KnownSymbol (fieldName :: Symbol)) => GQLType (GQLFilterInt (fieldName :: Symbol)) where
   description = const $ Just "All the common operation you can think of for Int"
+
+type GQLFilterLocalTime (fieldName :: Symbol) = GQLScalarFilter (fieldName :: Symbol) LocalTime Void LocalTime
+instance (KnownSymbol (fieldName :: Symbol)) => GQLType (GQLFilterLocalTime (fieldName :: Symbol))
+
+type GQLFilterDay (fieldName :: Symbol) = GQLScalarFilter (fieldName :: Symbol) Day Void Day
+instance (KnownSymbol (fieldName :: Symbol)) => GQLType (GQLFilterDay (fieldName :: Symbol))
+
+-- | Filter with no effect
+defaultScalarFilter =
+  GQLScalarFilter
+    { isEq = Nothing,
+      isNotEq = Nothing,
+      isNull = Nothing,
+      isIn = Nothing,
+      isNotIn = Nothing,
+      isLike = Nothing,
+      isIlike = Nothing,
+      isGT = Nothing,
+      isLT = Nothing,
+      isBetween = Nothing
+    }
 
 maybeToQueryFormat :: Monoid content => Maybe content -> content
 maybeToQueryFormat Nothing = mempty
@@ -191,19 +198,20 @@ wrappedContent fieldName op (Just a) suffix =
 -- daterange — Range of date
 
 instance (PostgresRange a, SQLEncoder a content) => SQLEncoder (SimpleRange a) content where
+  -- | test
+  -- >>> (sqlEncode $ SimpleRange (Just 1::Int) Nothing Nothing) :: Text
+  -- 
   sqlEncode value = postgresRangeName @a <> "(" <> startValue <> "," <> endValue <> ")"
     where
       startValue = getBoundary start
       endValue = getBoundary end
+      bounds = case inclusivity value of
+        Nothing -> ""
+        Just II -> ", []"
+        Just IE -> ", [)"
+        Just EI -> ", (]"
+        Just EE -> ", ()"
       getBoundary accessor = fromMaybe "null" $ (sqlEncode <$> accessor value)
-
-data SimpleRange a = SimpleRange {
-  start :: Maybe a,
-  end :: Maybe a,
-  inclusivity :: Maybe a
-} deriving (Eq, Show, Generic, FromJSON, ToJSON)
-data Inclusivity = Inclusive | Exclusive deriving (Eq, Show, Generic, FromJSON, ToJSON)
-data RangeInc = RangeInc Inclusivity Inclusivity deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
 class PostgresRange a where
   postgresRangeName :: (IsString textFormat) => textFormat
@@ -211,5 +219,7 @@ instance PostgresRange Int where
   postgresRangeName = "int8range"
 instance PostgresRange LocalTime where
   postgresRangeName = "tsrange"
+instance PostgresRange Day where
+  postgresRangeName = "daterange"
 instance PostgresRange Void where
   postgresRangeName = panic "in theory cannot happen, (PostgresRange Void)"

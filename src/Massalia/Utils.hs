@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -18,6 +20,10 @@ module Massalia.Utils
     emailValidate,
     emailToByteString,
     emailToText,
+    -- Ranges
+    SimpleRange(..),
+    Inclusivity(..),
+    defaultSimpleRange,
     -- UUID
     UUID.UUID,
     uuidNil,
@@ -39,6 +45,8 @@ module Massalia.Utils
     simpleSnakeCase
   )
 where
+
+import Data.Aeson (FromJSON, ToJSON)
 
 -- UUID
 
@@ -103,6 +111,12 @@ emailValidate = EmailAddress.validate
 emailToByteString = EmailAddress.toByteString
 emailToText = decodeUtf8 . EmailAddress.toByteString
 
+-- | A very simple snake_case converter. It's using 'Text' and
+-- folds over the characters to lower them and add an @"_"@ prefix
+-- if the char is Upper case.
+naiveSnake :: Text -> Text
+naiveSnake = undefined -- TODO
+
 -- | A very simple snake_case converter. It's using 'String' so
 -- unless you're doing type level programming it's not what you want.
 simpleSnakeCase :: String -> String
@@ -115,4 +129,18 @@ simpleSnakeCase = foldl' iterator baseCase
     iterator name c
       | isUpper c = name ++ "_" ++ [toLower c]
       | otherwise = name ++ [toLower c]
-    
+
+-- | A very simple, JSON oriented, representation for a range.
+-- A null @start@ means @-infinity@ and a null end means @+infinity@.
+-- A null bound (start or end) is always considered excluded
+-- (no matter what the inclusivity says)
+data SimpleRange a = SimpleRange {
+  start :: Maybe a,
+  end :: Maybe a,
+  inclusivity :: Maybe Inclusivity
+} deriving (Eq, Show, Generic, FromJSON, ToJSON)
+data Inclusivity = II | IE | EI | EE deriving (Eq, Show, Generic, FromJSON, ToJSON)
+
+-- | A very simple, JSON oriented, representation for a range.
+defaultSimpleRange :: SimpleRange a
+defaultSimpleRange = SimpleRange { start = Nothing, end = Nothing, inclusivity = Nothing }

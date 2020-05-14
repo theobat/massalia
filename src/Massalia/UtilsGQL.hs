@@ -1,6 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
@@ -9,26 +8,23 @@
 -- Description : A standard interface for query arguments (including pagination).
 module Massalia.UtilsGQL
   ( -- TEXT
-    QueryArgs (..),
-    QueryArgsPaginated (..),
+    Paginated (..),
+    defaultPaginated
   )
 where
 
 import Massalia.MorpheusTypes (GQLType)
+import Data.Aeson (FromJSON, ToJSON)
 import Protolude
 
--- | A normalized API for all (non paginated) query Args.
-data QueryArgs filtered
-  = QueryArgs
-      { filtered :: filtered
-      }
-  deriving (Generic, GQLType)
-
 -- | A normalized API for all paginated query Args.
-data QueryArgsPaginated filtered
-  = QueryArgsPaginated
-      { filtered :: filtered,
-        first :: Int,
-        offset :: Int
+data Paginated filterType
+  = Paginated
+      { filtered :: Maybe filterType,
+        first :: Maybe Int,
+        offset :: Maybe Int
       }
-  deriving (Generic, GQLType)
+  deriving (Eq, Show, Generic, GQLType, FromJSON, ToJSON)
+
+defaultPaginated :: Paginated filterType
+defaultPaginated = Paginated Nothing Nothing Nothing

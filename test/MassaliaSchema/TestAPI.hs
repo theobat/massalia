@@ -21,7 +21,9 @@ import Massalia.MorpheusTypes
     ResolveQ,
     Undefined (..),
   )
-import MassaliaSchema.Industry.Plant (Plant, PlantListQueryFilter, plantListQuery)
+import MassaliaSchema.Industry.Plant (Plant, plantListQuery)
+import MassaliaSchema.Industry.PlantFilter (PlantFilter)
+import Massalia.UtilsGQL (Paginated)
 import MassaliaSchema.Industry.Truck (Truck)
 import Data.Morpheus.Types.Internal.Resolving (Resolver)
 
@@ -44,7 +46,7 @@ rootResolver dbConnectionPool =
 
 data Query m
   = Query
-      { plantListPaginated :: PlantListQueryFilter -> m [Plant]
+      { plantListPaginated :: Paginated PlantFilter -> m [Plant]
       }
   deriving (Generic, GQLType)
 

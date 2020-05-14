@@ -42,7 +42,7 @@ plantQuery = node2 "plantList" plantSelection [
   ]
 plantSelection = ["id"]
 truckQuery = "truckList" `node` truckSelection
-truckSelection = ["id", "vehicleId"]
+truckSelection = ["id"]
 
 node2 name leafList nodeList = nodeOver name ((leaf <$> leafList) <> nodeList)
 

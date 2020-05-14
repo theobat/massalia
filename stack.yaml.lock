@@ -44,16 +44,18 @@ packages:
     git: https://github.com/theobat/hasql-url.git
     commit: e41c9bc3179c36878e8c865685ff2be17a8ecef4
 - completed:
+    subdir: .
     name: hasql-migration
     version: 0.3.0
     git: https://github.com/theobat/hasql-migration.git
     pantry-tree:
-      size: 689
-      sha256: bab259ae943c9218deeaeca9e099aaef130c438d0830880d534b88d31005e05c
-    commit: 3097ccea9c272712101088131a267fc964d1df58
+      size: 795
+      sha256: ce36dc65455030f626e48155f2615e062fe7434db80d47cda90355385db78325
+    commit: 81b1aaaff38a31cd5a74933380027ab9c6dc2efb
   original:
+    subdir: .
     git: https://github.com/theobat/hasql-migration.git
-    commit: 3097ccea9c272712101088131a267fc964d1df58
+    commit: 81b1aaaff38a31cd5a74933380027ab9c6dc2efb
 - completed:
     subdir: .
     name: morpheus-graphql

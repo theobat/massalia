@@ -90,3 +90,4 @@ class MassaliaTree a where
 
   -- | get a node's name
   getName :: a -> Text
+

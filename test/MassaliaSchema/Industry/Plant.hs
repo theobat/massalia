@@ -10,10 +10,7 @@
 
 module MassaliaSchema.Industry.Plant
   ( Plant (..),
-    plantInitSQL,
     plantListQuery,
-    PlantListQueryFilter,
-    defaultFilter,
   )
 where
 
@@ -38,11 +35,13 @@ import Massalia.QueryFormat
   ( HasqlSnippet,
     SQLEncoder,
     DefaultParamEncoder,
-    FromText(fromText)
+    FromText(fromText),
+    QueryFormat,
+    SQLDecoder(sqlDecode)
   )
 import Massalia.SQLSelect
-  ( RawSelectStruct (RawSelectStruct, fromPart, offsetLimit),
-    SelectStruct,
+  ( RawSelectStruct (RawSelectStruct, fromPart, whereConditions, offsetLimit),
+    SelectStruct(SelectStruct),
     collection,
     getInitialValueSelect,
     initSelect,
@@ -53,74 +52,74 @@ import Massalia.SQLSelect
     testAssemblingOptions,
     transformWhereJoinGroup,
   )
-import Massalia.UtilsGQL (QueryArgsPaginated (QueryArgsPaginated, first, offset))
 import MassaliaSchema.Industry.PlantInput (queryTest)
-import MassaliaSchema.Industry.Truck (Truck, truckInitSQL)
-import PostgreSQL.Binary.Data (LocalTime)
+import MassaliaSchema.Industry.Truck (Truck)
 import Protolude hiding (first)
 import Text.Pretty.Simple (pPrint)
 import Massalia.HasqlExec (Pool, use)
+import MassaliaSchema.Industry.PlantFilter (PlantFilter, plantFilterTest)
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
 import Massalia.SQLClass (SQLFilter(toQueryFormatFilter))
 import Data.Morpheus.Types (unsafeInternalContext)
+import Massalia.Utils (LocalTime, Day)
+import Massalia.UtilsGQL (Paginated, defaultPaginated)
+import Massalia.SQLRawSelect (addSelectColumns)
+import qualified Massalia.UtilsGQL as Paginated(first, offset, filtered)
+import Massalia.SQLClass (
+    SQLColumn(toColumnListAndDecoder),
+    SQLSelect(toSelectQuery),
+    SQLDefault(getDefault),
+    SQLFilter(toQueryFormatFilter),
+    SQLColumnConfig(..)
+  )
 
 data Plant
   = Plant
       { id :: UUID,
         name :: Text,
         createdAt :: LocalTime,
+        checkDate :: Day,
         truckList :: [Truck]
       }
-  deriving (Show, Generic, GQLType)
+  deriving (Show, Generic, GQLType,
+    SQLColumn Text PlantFilter, SQLColumn HasqlSnippet PlantFilter)
 
-type SelectStructPlant queryFormat = SelectStruct Plant queryFormat
-
-plantSelect ::  (
-    MassaliaTree nodeType,
-    FromText queryFormat,
-    SQLEncoder Int64 queryFormat,
-    SQLFilter queryFormat TruckFilter
-  ) =>
-  nodeType -> SelectStructPlant queryFormat -> SelectStructPlant queryFormat
-plantSelect selection = case fieldName of
-  "id" -> scalarField (\e v -> e {id = v}) Decoders.uuid
-  "name" -> scalarField (\e v -> e {name = v}) Decoders.text
-  "createdAt" -> scalarField (\e v -> e {createdAt = v}) Decoders.timestamp
-  "truckList" -> collection testAssemblingOptions Decoders.listArray truckSubquery (\e v -> e {truckList = v})
+instance (
+    QueryFormat queryFormat,
+    SQLFilter queryFormat PlantFilter
+  ) => SQLSelect queryFormat PlantFilter Plant where
+  toSelectQuery opt selection filter = SelectStruct queryWithColumnList decoder
     where
-      truckBasicSubquery = truckInitSQL Nothing selection
-      truckSubquery =
-        transformWhereJoinGroup
-          ("truck_plant.plant_id=" <> pure tableNameQueryFormat <> ".id")
-          [ "JOIN truck_plant ON truck.id=truck_plant.truck_id"
-          ]
-          [pure tableNameQueryFormat <> ".id"]
-          truckBasicSubquery
-  _ -> identity
-  where
-    scalarField = scalar tableName fieldName
-    tableName = "plant_input"
-    tableNameQueryFormat = (fromText tableName)
-    fieldName = getName selection
+      queryWithColumnList = addSelectColumns (pure <$> colList) [] rawQuery
+      (colList, decoder) = toColumnListAndDecoder (SQLColumnConfig instanceName) selection realFilter
+      realFilter = Paginated.filtered filter
+      rawQuery = initialPlantQuery (fromText $ instanceName) filter
+      instanceName = "plant"
 
-plantInitSQL ::  (
-    SQLEncoder Int64 queryFormat,
-    SQLFilter queryFormat TruckFilter,
-    MassaliaTree nodeType
+instance (QueryFormat queryFormat) => SQLDecoder queryFormat PlantFilter [Truck] where
+  sqlDecode = undefined
+
+        -- transformWhereJoinGroup
+        --   ("truck_plant.plant_id=" <> pure tableNameQueryFormat <> ".id")
+        --   [ "JOIN truck_plant ON truck.id=truck_plant.truck_id"
+        --   ]
+        --   [pure tableNameQueryFormat <> ".id"]
+        --   truckBasicSubquery
+
+initialPlantQuery :: (
+    SQLFilter queryFormat PlantFilter,
+    Monoid queryFormat, IsString queryFormat
   ) =>
-  PlantListQueryFilter -> nodeType -> SelectStructPlant queryFormat
-plantInitSQL filters = foldrChildren plantSelect (initialPlantQuery filters)
-
-initialPlantQuery :: (Monoid queryFormat, IsString queryFormat) =>
-  PlantListQueryFilter -> SelectStructPlant queryFormat
-initialPlantQuery filter =
-  getInitialValueSelect
-    initSelect
-      { fromPart = "plant_input",
-        offsetLimit = Just (offset filter, first filter)
+  queryFormat -> Paginated PlantFilter -> RawSelectStruct queryFormat
+initialPlantQuery name filter = initSelect
+      { fromPart = pure name,
+        whereConditions = pure <$> toQueryFormatFilter Nothing <$> (Paginated.filtered filter),
+        offsetLimit = Just (
+          fromMaybe 0 $ Paginated.offset filter, fromMaybe 10000 $ Paginated.first filter)
       }
-    defaultPlant
 
+instance SQLDefault Plant where
+  getDefault = defaultPlant
 defaultPlant = Plant {id = nil, truckList = mempty, name = ""}
 
 plantListQuery pool queryArgs = do
@@ -136,12 +135,6 @@ plantListQuery pool queryArgs = do
         Left e -> (panic $ show e)
         Right listRes -> pure listRes
     statement validSel = selectStructToSession $ initialSnippet validSel
-    initialSnippet = plantInitSQL defaultFilter
+    initialSnippet selSet = toSelectQuery Nothing selSet arg
+    arg = defaultPaginated{Paginated.filtered = Just plantFilterTest}
 
-type PlantListQueryFilter = QueryArgsPaginated (Maybe Text)
-
-defaultFilter =
-  QueryArgsPaginated
-    { first = 20,
-      offset = 0
-    }

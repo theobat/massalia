@@ -80,7 +80,9 @@ extra-deps:
   - git: https://github.com/theobat/hasql-url.git
     commit: e41c9bc3179c36878e8c865685ff2be17a8ecef4
   - git: https://github.com/theobat/hasql-migration.git
-    commit: 3097ccea9c272712101088131a267fc964d1df58 # uses updateChecksum
+    commit: 81b1aaaff38a31cd5a74933380027ab9c6dc2efb
+    subdirs:
+      - .
   - git: https://github.com/theobat/morpheus-graphql.git
     commit: cb7e1a60887b1997bc850b32c621204778f696f0
     subdirs:
