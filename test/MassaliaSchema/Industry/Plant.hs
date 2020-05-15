@@ -32,7 +32,7 @@ import Massalia.MorpheusTypes
     GQLType,
   )
 import Massalia.QueryFormat
-  ( HasqlSnippet,
+  ( BinaryQuery,
     SQLEncoder,
     DefaultParamEncoder,
     FromText(fromText),
@@ -75,7 +75,7 @@ data Plant
         truckList :: [Truck]
       }
   deriving (Show, Generic, GQLType,
-    SQLColumn Text PlantFilter, SQLColumn HasqlSnippet PlantFilter)
+    SQLColumn Text PlantFilter, SQLColumn BinaryQuery PlantFilter)
 
 instance (
     QueryFormat queryFormat,

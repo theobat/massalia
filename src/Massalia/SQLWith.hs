@@ -9,7 +9,7 @@ module Massalia.SQLWith
 where
 
 import Massalia.QueryFormat
-  ( HasqlSnippet
+  ( BinaryQuery
   )
 import Massalia.GenericUtils (GTypeName(gtypename))
 import Data.String (String, IsString(fromString))

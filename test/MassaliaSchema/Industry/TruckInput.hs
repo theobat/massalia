@@ -21,7 +21,7 @@ import GHC.Generics (Generic)
 import qualified Hasql.Encoders as Encoders
 import qualified Massalia.HasqlDec as Decoders
 import Massalia.QueryFormat
-  ( HasqlSnippet,
+  ( BinaryQuery,
     takeMaybeParam,
     takeParam,
     (§),
@@ -41,7 +41,7 @@ data TruckInput
     Eq, Show, Generic,
     JSON.FromJSON,
     SQLName, SQLColumns,
-    SQLValues Text, SQLValues HasqlSnippet
+    SQLValues Text, SQLValues BinaryQuery
   )
 
 data Chassis = C8x4 | C6x4 | C4x4 | C4x2 | CUnknown
@@ -49,7 +49,7 @@ data Chassis = C8x4 | C6x4 | C4x4 | C4x2 | CUnknown
 
 instance SQLEncoder Chassis Text where
   sqlEncode = chassisToQueryFormat
-instance SQLEncoder Chassis HasqlSnippet where
+instance SQLEncoder Chassis BinaryQuery where
   sqlEncode = fromText . chassisToQueryFormat
 
 chassisFromTuple :: (Int, Int) -> Chassis

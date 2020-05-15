@@ -25,7 +25,8 @@ module Massalia.QueryFormat
     FromText(fromText),
     IsString(fromString),
     DefaultParamEncoder,
-    HasqlSnippet,
+    BinaryQuery,
+    TextQuery,
     commaAssemble,
     (§),
     takeParam,
@@ -59,8 +60,15 @@ import Massalia.Utils (
 import qualified Hasql.Decoders as Decoders
 import Protolude hiding (intercalate, replace)
 
+-- | The text query format is the canonical representation for debugging
+-- and printing queries.
+type TextQuery = Text
 
-type HasqlSnippet = Snippet
+-- | The binary query format is the internal query representation in Hasql.
+-- It's called 'Snippet' and it's defined in "Hasql.DynamicStatements.Snippet".
+-- It enables the representation of a query alongside it's parametrized values.
+-- It has no instance of show, which explains the presence of its 'TextQuery' counterpart.
+type BinaryQuery = Snippet
 
 (§) :: (IsString content, Monoid content) => content -> content -> content
 (§) a b = a <> "," <> b

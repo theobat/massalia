@@ -23,7 +23,7 @@ import Massalia.QueryFormat
     QueryFormat,
     IsString,
     FromText(fromText),
-    HasqlSnippet
+    BinaryQuery
   )
 import Massalia.SQLSelectStruct (SelectStruct(..), QueryAndDecoder(..))
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
@@ -45,7 +45,7 @@ data Truck
         vehicleId :: Text
       }
   deriving (Show, Generic, GQLType,
-    SQLColumn Text TruckFilter, SQLColumn HasqlSnippet TruckFilter)
+    SQLColumn Text TruckFilter, SQLColumn BinaryQuery TruckFilter)
 
 instance (
     QueryFormat queryFormat,

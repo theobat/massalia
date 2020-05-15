@@ -32,7 +32,7 @@ import Massalia.Filter
   )
 import MassaliaSchema.Industry.TruckFilter (TruckFilter, testInstance)
 import Massalia.QueryFormat
-  ( HasqlSnippet,
+  ( BinaryQuery,
     SQLEncoder(..),
     QueryFormat
   )
@@ -51,7 +51,7 @@ data PlantFilter
         existsTruck :: Maybe TruckFilter
       }
   deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON,
-    SQLFilter Text, SQLFilter HasqlSnippet)
+    SQLFilter Text, SQLFilter BinaryQuery)
 
 
 instance (QueryFormat a) => SQLEncoder PlantFilter a where

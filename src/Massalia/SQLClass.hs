@@ -40,7 +40,7 @@ import Massalia.QueryFormat
     FromText(fromText),
     SQLEncoder(sqlEncode, ignoreInGenericInstance),
     SQLDecoder(sqlDecode),
-    HasqlSnippet,
+    BinaryQuery,
     DefaultParamEncoder,
     param,
     (§),
@@ -156,8 +156,8 @@ instance (GValues a queryFormat) => GValues (M1 C c a) queryFormat where
 instance (SQLEncoder a Text, GValues (K1 i a) Text) =>
   GValues (K1 i a) Text where
   goToValues (K1 val) = [(sqlEncode val)]
-instance (SQLEncoder a HasqlSnippet, GValues (K1 i a) HasqlSnippet) =>
-  GValues (K1 i a) HasqlSnippet where
+instance (SQLEncoder a BinaryQuery, GValues (K1 i a) BinaryQuery) =>
+  GValues (K1 i a) BinaryQuery where
   goToValues (K1 val) = [(sqlEncode val)]
 
 
@@ -281,8 +281,8 @@ instance (
         Nothing -> insertValuesQuery () val
         Just PureSelect -> selectValuesQuery Nothing val
     -- where values = 
--- instance (SQLEncoder a HasqlSnippet, GValues (K1 i a) HasqlSnippet) =>
---   GValues (K1 i a) HasqlSnippet where
+-- instance (SQLEncoder a BinaryQuery, GValues (K1 i a) BinaryQuery) =>
+--   GValues (K1 i a) BinaryQuery where
 --   goToValues (K1 val) = [(sqlEncode val)]
 
 

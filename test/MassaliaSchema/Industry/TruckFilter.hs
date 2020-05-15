@@ -31,7 +31,7 @@ import Massalia.Filter
 import qualified Massalia.HasqlDec as Decoders
 import Massalia.QueryFormat
   ( QueryFormat,
-    HasqlSnippet,
+    BinaryQuery,
     FromText,
     SQLEncoder(sqlEncode, ignoreInGenericInstance)
   )
@@ -49,7 +49,7 @@ data TruckFilter
         vehicleId :: Maybe (GQLFilterText "vehicle_id")
       }
   deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON,
-    SQLFilter Text, SQLFilter HasqlSnippet)
+    SQLFilter Text, SQLFilter BinaryQuery)
 
 instance (QueryFormat a) => SQLEncoder TruckFilter a where
   ignoreInGenericInstance = True

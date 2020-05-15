@@ -23,7 +23,7 @@ import Hasql.DynamicStatements.Snippet (Snippet)
 import qualified Hasql.Encoders as Encoders
 import qualified Massalia.HasqlDec as Decoders
 import Massalia.QueryFormat
-  ( HasqlSnippet,
+  ( BinaryQuery,
     commaAssemble,
     inParens
   )

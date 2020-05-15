@@ -2,6 +2,7 @@
 CREATE TABLE IF NOT EXISTS "plant" (
   "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   "name" TEXT NOT NULL DEFAULT '',
+  "check_date" DATE NOT NULL DEFAULT now()::date,
   "createdAt" TIMESTAMP NOT NULL DEFAULT now()
 );
 

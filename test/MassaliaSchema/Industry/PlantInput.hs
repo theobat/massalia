@@ -26,7 +26,7 @@ import Data.String as StringUtils (IsString (fromString))
 import Massalia.QueryFormat
   (
     SQLEncoder,
-    HasqlSnippet,
+    BinaryQuery,
     commaAssemble,
     takeMaybeParam,
     takeParam,
@@ -48,7 +48,7 @@ data PlantInput
   deriving (
     Eq, Show, Generic, JSON.FromJSON,
     SQLName, SQLColumns,
-    SQLValues Text, SQLValues HasqlSnippet
+    SQLValues Text, SQLValues BinaryQuery
     )
 
 data PlantListInput container
@@ -59,7 +59,7 @@ data PlantListInput container
   deriving (Generic)
 
 deriving instance DBContext Text (PlantListInput [])
-deriving instance DBContext HasqlSnippet (PlantListInput [])
+deriving instance DBContext BinaryQuery (PlantListInput [])
 
 queryTest :: (DBContext queryFormat (PlantListInput [])) => queryFormat
 queryTest =

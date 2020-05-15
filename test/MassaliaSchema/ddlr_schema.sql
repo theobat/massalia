@@ -1,1 +1,0 @@
-ALTER TABLE plant ADD COLUMN check_date DATE;

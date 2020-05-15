@@ -30,7 +30,7 @@ import Massalia.HasqlExec
     dynamicallyParameterizedStatement,
   )
 import Massalia.QueryFormat
-  ( HasqlSnippet,
+  ( BinaryQuery,
     SQLEncoder (sqlEncode),
     FromText(fromText),
     QueryFormat,
@@ -46,19 +46,19 @@ data QueryAndDecoder queryFormat decoder
       }
 
 -- | select query to a HASQL Statement, which can be executed in a Session.
-queryAndDecoderToStatement :: QueryAndDecoder HasqlSnippet decoder -> Statement () [decoder]
+queryAndDecoderToStatement :: QueryAndDecoder BinaryQuery decoder -> Statement () [decoder]
 queryAndDecoderToStatement selectSt = dynamicallyParameterized snippet result
   where
     (snippet, result) = queryAndDecoderToSnippetAndResult selectSt
 
 -- | select query to a HASQL Statement, which can be executed in a Session.
-queryAndDecoderToSession :: QueryAndDecoder HasqlSnippet decoder -> Session [decoder]
+queryAndDecoderToSession :: QueryAndDecoder BinaryQuery decoder -> Session [decoder]
 queryAndDecoderToSession selectSt = dynamicallyParameterizedStatement snippet result
   where
     (snippet, result) = queryAndDecoderToSnippetAndResult selectSt
 
 -- | select query to a HASQL Statement, which can be executed in a Session.
-queryAndDecoderToSnippetAndResult :: QueryAndDecoder HasqlSnippet decoder -> (HasqlSnippet, Decoders.Result [decoder])
+queryAndDecoderToSnippetAndResult :: QueryAndDecoder BinaryQuery decoder -> (BinaryQuery, Decoders.Result [decoder])
 queryAndDecoderToSnippetAndResult selectSt = (content, decoderValue)
   where
     content = assembleSelectStruct [Row] (query selectSt)
