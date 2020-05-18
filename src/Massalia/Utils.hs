@@ -39,6 +39,7 @@ module Massalia.Utils
     TimeOfDay,
     TimeZone,
     UTCTime,
+    localTimeDefault,
     -- postgres numbers
     Scientific,
     -- PrettyPrint
@@ -68,6 +69,8 @@ import PostgreSQL.Binary.Data (
     UTCTime,
     Scientific
   )
+import Data.Time.LocalTime (LocalTime(LocalTime), midnight)
+import Data.Time.Calendar (Day(ModifiedJulianDay))
 import Protolude hiding (intercalate)
 import Text.Email.Validate (EmailAddress)
 import Text.Email.QuasiQuotation (email)
@@ -112,9 +115,15 @@ uuidV4 = nextRandom
 --------------------- EmailAddress
 emailValidate = EmailAddress.validate
 
+emailToByteString :: EmailAddress -> ByteString
 emailToByteString = EmailAddress.toByteString
 emailToText = decodeUtf8 . EmailAddress.toByteString
 emailDefault = [email|default@default.com|]
+
+--------------- Time/Day/Timestamp
+
+localTimeDefault = LocalTime (ModifiedJulianDay 0) midnight  
+
 
 -- | A very simple snake_case converter. It's using 'Text' and
 -- folds over the characters to lower them and add an @"_"@ prefix
