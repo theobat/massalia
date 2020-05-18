@@ -72,9 +72,10 @@ data MigrationPattern
         revisionMigrationPrefix :: String,
         seedMigrationPrefix :: Maybe String,
         migrationPatternList :: [FilePattern],
-        basePath :: FilePath
+        basePath :: FilePath,
+        migrationOrder :: Maybe (MigrationArgs -> MigrationArgs -> Ordering)
       }
-      deriving (Eq, Show, Read)
+      
 
 defaultMigrationPattern :: MigrationPattern
 defaultMigrationPattern = MigrationPattern {
@@ -82,7 +83,8 @@ defaultMigrationPattern = MigrationPattern {
   revisionMigrationPrefix = "ddlr",
   seedMigrationPrefix = Just "dml",
   migrationPatternList = ["**/*.sql"],
-  basePath = "./"
+  basePath = "./",
+  migrationOrder = Nothing
 }
 
 findAndRunAllMigration ::
@@ -90,9 +92,10 @@ findAndRunAllMigration ::
   String ->
   ExceptT [GlobalMigrationError] IO ()
 findAndRunAllMigration migrationPattern databaseURL = do
-  migrationRegister <- withExceptT (StepFileGatheringError <$>) gatherFileAttempt 
+  migrationRegister <- withExceptT (StepFileGatheringError <$>) gatherFileAttempt
+  let orderedMigrationRegister = orderMigrationRegister migrationPattern migrationRegister
   connection <- withStepError StepInitDBError connectionAttempt
-  finalRes <- withStepError StepFileExecutionError $ executionScheme migrationRegister connection
+  finalRes <- withStepError StepFileExecutionError $ executionScheme orderedMigrationRegister connection
   liftIO $ Connection.release finalRes
   where
     gatherFileAttempt = gatherFileFailOnError migrationPattern
@@ -100,14 +103,14 @@ findAndRunAllMigration migrationPattern databaseURL = do
     withStepError errConstructor = withExceptT (pure . errConstructor)
 
 executionScheme ::
-  MigrationRegister ->
+  MigrationOrderedRegister ->
   Connection ->
   ExceptT MigrationExecutionError IO Connection
 executionScheme register dbCo = do
   dbCoWithInit <- ExceptT $ runMassaliaMigrationCommand dbCo MigrationInitialization
-  tupleToRevise <- foldM (initMigrationProcess dbCoWithInit) [] (initRevMap register)
+  tupleToRevise <- foldM (initMigrationProcess dbCoWithInit) [] (initRevList register)
   dbCoWithRevision <- foldM revisionMigrationProcess dbCoWithInit tupleToRevise
-  foldM simpleExec dbCoWithRevision (seed register) -- connection has to be passed along to ensure sequential execution
+  foldM simpleExec dbCoWithRevision (seedList register) -- connection has to be passed along to ensure sequential execution
   where
     simpleExec a b = ExceptT $ runMassaliaMigrationArgs a b
 
@@ -152,6 +155,21 @@ gatherAllMigrationFiles mig = do
   let (migrationErrorList, migrationRegister) = buildMigrationRegister mig filePathList
   pure (migrationErrorList, migrationRegister)
 
+orderMigrationRegister :: MigrationPattern -> MigrationRegister -> MigrationOrderedRegister
+orderMigrationRegister MigrationPattern{migrationOrder=ord} register = case ord of
+  Nothing -> getRes identity identity
+  Just orderFunction -> getRes (sortBy tupleMigrationOrder) (sortBy orderFunction)
+    where
+      tupleMigrationOrder = applyMigration getInitMigration
+      applyMigration f a b = orderFunction (f a) (f b)
+  where
+    getRes ord1 ord2 = MigrationOrderedRegister {
+      initRevList = ord1 defaultInitRevList,
+      seedList = ord2 defaultSeedList
+    }
+    defaultInitRevList = toList $ initRevMap register
+    defaultSeedList = seed register
+
 -- splitFileName
 data MigrationArgs
   = MigrationArgs
@@ -195,6 +213,12 @@ data MigrationRegister
   = MigrationRegister
       { initRevMap :: Map ScriptName TupleMigration,
         seed :: [MigrationArgs]
+      }
+      deriving (Eq, Show)
+data MigrationOrderedRegister
+  = MigrationOrderedRegister
+      { initRevList :: [TupleMigration],
+        seedList :: [MigrationArgs]
       }
       deriving (Eq, Show)
 
