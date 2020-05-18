@@ -92,15 +92,22 @@ findAndRunAllMigration ::
   String ->
   ExceptT [GlobalMigrationError] IO ()
 findAndRunAllMigration migrationPattern databaseURL = do
-  migrationRegister <- withExceptT (StepFileGatheringError <$>) gatherFileAttempt
-  let orderedMigrationRegister = orderMigrationRegister migrationPattern migrationRegister
+  orderedMigrationRegister <- withExceptT (StepFileGatheringError <$>) gatherAndOrderFile
   connection <- withStepError StepInitDBError connectionAttempt
   finalRes <- withStepError StepFileExecutionError $ executionScheme orderedMigrationRegister connection
   liftIO $ Connection.release finalRes
   where
-    gatherFileAttempt = gatherFileFailOnError migrationPattern
+    gatherAndOrderFile = findAndOrderAllMigration migrationPattern
     connectionAttempt = ExceptT $ connectionFromURL databaseURL
     withStepError errConstructor = withExceptT (pure . errConstructor)
+
+-- | A function to assemble, classify and return the migration files
+-- in the form of a migration register ('MigrationOrderedRegister').
+findAndOrderAllMigration :: 
+  MigrationPattern ->
+  ExceptT [FileGatheringError] IO MigrationOrderedRegister
+findAndOrderAllMigration migrationPattern =
+  orderMigrationRegister migrationPattern <$> gatherFileFailOnError migrationPattern
 
 executionScheme ::
   MigrationOrderedRegister ->
