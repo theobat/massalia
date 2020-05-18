@@ -28,6 +28,7 @@ module Massalia.SQLClass
     SQLFilter(toQueryFormatFilter),
     SQLSelect(toSelectQuery),
     SQLColumn(toColumnListAndDecoder),
+    gsqlColumns,
     SQLDefault(getDefault),
     SQLSelectOptions(..),
     SQLColumnConfig(..)
@@ -117,11 +118,14 @@ class SQLName a where
 -- 
 class SQLColumns a where
   sqlColumns :: (IsString queryFormat) => [queryFormat]
-  default sqlColumns :: (IsString queryFormat, Generic a, GSelectors (Rep a)) => [queryFormat]
-  sqlColumns = snakeTypename
-    where
-      snakeTypename = (fromString . simpleSnakeCase . fst) <$> list
-      list = selectors @(Rep a)
+  default sqlColumns :: forall queryFormat a. (IsString queryFormat, Generic a, GSelectors (Rep a)) => [queryFormat]
+  sqlColumns = gsqlColumns @queryFormat @a
+
+gsqlColumns :: forall queryFormat a. (IsString queryFormat, Generic a, GSelectors (Rep a)) => [queryFormat]
+gsqlColumns = snakeTypename
+  where
+    snakeTypename = (fromString . simpleSnakeCase . fst) <$> list
+    list = selectors @(Rep a) 
 
 -- | This class represents all the haskell types with a corresponding 'toSQLValues'
 -- function. It's a function meant to encode a haskell record as an SQL comma separated

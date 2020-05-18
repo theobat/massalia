@@ -87,6 +87,8 @@ defaultMigrationPattern = MigrationPattern {
   migrationOrder = Nothing
 }
 
+-- | A function to assemble, classify and order the migration files
+-- And then execute them (and, stop in the way if any error is encountered).
 findAndRunAllMigration ::
   MigrationPattern ->
   String ->
