@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 -- |
@@ -20,6 +21,7 @@ module Massalia.Utils
     emailValidate,
     emailToByteString,
     emailToText,
+    emailDefault,
     -- Ranges
     SimpleRange(..),
     Inclusivity(..),
@@ -68,6 +70,7 @@ import PostgreSQL.Binary.Data (
   )
 import Protolude hiding (intercalate)
 import Text.Email.Validate (EmailAddress)
+import Text.Email.QuasiQuotation (email)
 import qualified Text.Email.Validate as EmailAddress
 import Text.Inflections (toUnderscore)
 -- pretty print
@@ -111,6 +114,7 @@ emailValidate = EmailAddress.validate
 
 emailToByteString = EmailAddress.toByteString
 emailToText = decodeUtf8 . EmailAddress.toByteString
+emailDefault = [email|default@default.com|]
 
 -- | A very simple snake_case converter. It's using 'Text' and
 -- folds over the characters to lower them and add an @"_"@ prefix
