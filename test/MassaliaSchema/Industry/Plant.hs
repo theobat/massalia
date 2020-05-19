@@ -79,7 +79,7 @@ data Plant
 
 instance (
     QueryFormat queryFormat,
-    SQLEncoder Int queryFormat,
+    SQLEncoder queryFormat Int,
     SQLFilter queryFormat PlantFilter
   ) => SQLSelect queryFormat PlantFilter Plant where
   toSelectQuery opt selection filter = QueryAndDecoder {query=queryWithColumnList, decoder=decoderVal}
@@ -108,7 +108,7 @@ instance (
 
 initialPlantQuery :: (
     SQLFilter queryFormat PlantFilter,
-    SQLEncoder Int queryFormat,
+    SQLEncoder queryFormat Int,
     Monoid queryFormat, IsString queryFormat
   ) =>
   queryFormat -> Paginated PlantFilter -> SelectStruct queryFormat

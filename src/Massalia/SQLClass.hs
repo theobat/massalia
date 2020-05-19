@@ -157,10 +157,10 @@ instance (GValues a queryFormat) => GValues (M1 S c a) queryFormat where
 instance (GValues a queryFormat) => GValues (M1 C c a) queryFormat where
   goToValues (M1 x) = goToValues x
 
-instance (SQLEncoder a Text, GValues (K1 i a) Text) =>
+instance (SQLEncoder Text a, GValues (K1 i a) Text) =>
   GValues (K1 i a) Text where
   goToValues (K1 val) = [(sqlEncode val)]
-instance (SQLEncoder a BinaryQuery, GValues (K1 i a) BinaryQuery) =>
+instance (SQLEncoder BinaryQuery a, GValues (K1 i a) BinaryQuery) =>
   GValues (K1 i a) BinaryQuery where
   goToValues (K1 val) = [(sqlEncode val)]
 
@@ -201,26 +201,26 @@ instance (GSQLFilter a queryFormat) => GSQLFilter (M1 C c a) queryFormat where
   
 instance (
     IsString queryFormat,
-    SQLEncoder filterType queryFormat
+    SQLEncoder queryFormat filterType
   ) => GSQLFilter (K1 i (
     Maybe filterType)
   ) queryFormat where
   gtoQueryFormatFilter options (K1 val) = result
     where
       result
-        | ignoreInGenericInstance @filterType @queryFormat = []
+        | ignoreInGenericInstance @queryFormat @filterType = []
         | otherwise = case val of
         Nothing -> []
         Just a -> [sqlEncode a]
 
 instance (
     IsString queryFormat, KnownSymbol a,
-    SQLEncoder [b] queryFormat,
-    SQLEncoder b queryFormat,
-    SQLEncoder c queryFormat,
-    SQLEncoder d queryFormat,
+    SQLEncoder queryFormat [b],
+    SQLEncoder queryFormat b,
+    SQLEncoder queryFormat c,
+    SQLEncoder queryFormat d,
     PostgresRange d
-  ) => SQLEncoder (GQLScalarFilter a b c d) queryFormat where
+  ) => SQLEncoder queryFormat (GQLScalarFilter a b c d) where
   sqlEncode val = case filterFieldToMabeContent (Nothing @queryFormat) (Just val) of
     Nothing -> mempty
     Just a -> a
@@ -285,7 +285,7 @@ instance (
         Nothing -> insertValuesQuery () val
         Just PureSelect -> selectValuesQuery Nothing val
     -- where values = 
--- instance (SQLEncoder a BinaryQuery, GValues (K1 i a) BinaryQuery) =>
+-- instance (SQLEncoder BinaryQuery a, GValues (K1 i a) BinaryQuery) =>
 --   GValues (K1 i a) BinaryQuery where
 --   goToValues (K1 val) = [(sqlEncode val)]
 

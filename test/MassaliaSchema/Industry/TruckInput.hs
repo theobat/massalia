@@ -47,9 +47,9 @@ data TruckInput
 data Chassis = C8x4 | C6x4 | C4x4 | C4x2 | CUnknown
   deriving (Eq, Show, Generic, JSON.FromJSON)
 
-instance SQLEncoder Chassis Text where
+instance SQLEncoder Text Chassis where
   sqlEncode = chassisToQueryFormat
-instance SQLEncoder Chassis BinaryQuery where
+instance SQLEncoder BinaryQuery Chassis where
   sqlEncode = fromText . chassisToQueryFormat
 
 chassisFromTuple :: (Int, Int) -> Chassis

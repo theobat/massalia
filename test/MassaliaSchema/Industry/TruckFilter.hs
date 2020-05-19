@@ -51,7 +51,7 @@ data TruckFilter
   deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON,
     SQLFilter Text, SQLFilter BinaryQuery)
 
-instance (QueryFormat a) => SQLEncoder TruckFilter a where
+instance (QueryFormat a) => SQLEncoder a TruckFilter where
   ignoreInGenericInstance = True
   sqlEncode = const ""
 

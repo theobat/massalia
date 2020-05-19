@@ -119,10 +119,10 @@ filterFieldToMabeContent ::
   forall fieldName.
   KnownSymbol (fieldName :: Symbol) =>
   forall eqScalarType likeScalarType ordScalarType content.
-  ( SQLEncoder eqScalarType content,
-    SQLEncoder [eqScalarType] content,
-    SQLEncoder likeScalarType content,
-    SQLEncoder ordScalarType content,
+  ( SQLEncoder content eqScalarType,
+    SQLEncoder content [eqScalarType],
+    SQLEncoder content likeScalarType,
+    SQLEncoder content ordScalarType,
     PostgresRange ordScalarType
   ) =>
   Maybe content ->
@@ -159,7 +159,7 @@ filterFieldToMabeContent maybeNamespace (Just filter) = case filter of
     actualFieldName = StringUtils.fromString (symbolVal (Proxy :: Proxy (fieldName :: Symbol)))
 
 snippetContent ::
-  forall content a. (SQLEncoder a content) =>
+  forall content a. (SQLEncoder content a) =>
   content ->
   content ->
   Maybe a ->
@@ -171,7 +171,7 @@ snippetContent fieldName op maybeVal = effectFunc <$> maybeVal
 wrappedContent ::
   forall content.
   content ->
-  ( forall filterValue. (SQLEncoder filterValue content) =>
+  ( forall filterValue. (SQLEncoder content filterValue) =>
     content ->
     Maybe filterValue ->
     content ->
@@ -189,7 +189,7 @@ wrappedContent fieldName op (Just a) suffix =
 -- tstzrange — Range of timestamp with time zone
 -- daterange — Range of date
 
-instance (PostgresRange a, SQLEncoder a content) => SQLEncoder (SimpleRange a) content where
+instance (PostgresRange a, SQLEncoder content a) => SQLEncoder content (SimpleRange a) where
   -- | test
   -- >>> (sqlEncode $ SimpleRange (Just 1::Int) Nothing Nothing) :: Text
   -- 

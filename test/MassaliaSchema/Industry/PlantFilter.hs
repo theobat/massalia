@@ -54,7 +54,7 @@ data PlantFilter
     SQLFilter Text, SQLFilter BinaryQuery)
 
 
-instance (QueryFormat a) => SQLEncoder PlantFilter a where
+instance (QueryFormat a) => SQLEncoder a PlantFilter where
   ignoreInGenericInstance = True
   sqlEncode = const ""
 instance GQLType PlantFilter where
