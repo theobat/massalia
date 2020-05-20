@@ -19,6 +19,7 @@ module Massalia.Utils
     -- EmailAddress
     EmailAddress,
     emailValidate,
+    emailValidateText,
     emailToByteString,
     emailToText,
     emailDefault,
@@ -114,6 +115,7 @@ uuidV4 = nextRandom
 
 --------------------- EmailAddress
 emailValidate = EmailAddress.validate
+emailValidateText = (first pack) . EmailAddress.validate
 
 emailToByteString :: EmailAddress -> ByteString
 emailToByteString = EmailAddress.toByteString

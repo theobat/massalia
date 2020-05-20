@@ -22,10 +22,20 @@ import Data.Morpheus.Types (
 import qualified Data.Map as Map
 import Protolude
 
+-- | A tree structure but with indexed-by-name children
 data MassaliaNode = MassaliaNode {
   name :: Text,
   children :: Map Text MassaliaNode
-}
+} deriving (Eq, Show)
+
+-- | left associative (prefer data from the left side in case of conflict).
+instance Semigroup MassaliaNode where
+  (<>) a b = MassaliaNode {
+      name=name a,
+      children = children a <> children b
+    }
+
+  
 
 leaf :: Text -> MassaliaNode
 leaf key = MassaliaNode {
