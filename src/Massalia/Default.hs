@@ -10,13 +10,7 @@
 -- Module      : Massalia.Default
 -- Description : A module to define a set of default values for
 -- the SQLDefault table logic.
-module Massalia.Default 
-(
-  uuid,
-  email,
-  int,
-  monoid,
-)
+module Massalia.Default
 where
 
 import Massalia.Utils (
@@ -27,7 +21,7 @@ import Massalia.Utils (
 
 uuid = uuidNil
 email = emailDefault
-timestamp = localTimeDefault
+timestamptz = localTimeDefault
 int = 0
 
 monoid :: (Monoid a) => a
