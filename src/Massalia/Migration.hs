@@ -28,11 +28,10 @@ import Hasql.Migration
   )
 import qualified Hasql.Transaction as Tx
 import qualified Hasql.Transaction.Sessions as Txs
-import Hasql.URL (parseDatabaseUrl)
 import Massalia.HasqlConnection as Connection
 import Massalia.HasqlExec (QueryError, run)
-import Massalia.Utils (pPrint, uuidV4)
-import Protolude
+import Massalia.Utils (uuidV4, intercalate)
+import Protolude hiding (intercalate)
 import System.FilePath.Posix (splitFileName, (</>))
 import System.FilePattern.Directory (FilePattern, getDirectoryFiles)
 
@@ -66,6 +65,8 @@ data MigrationExecutionError
 --
 -- revision =>
 -- Revision ==
+
+-- | A set of options to create/change the execution of the migration process.
 data MigrationPattern
   = MigrationPattern
       { initMigrationPrefix :: String,
@@ -73,8 +74,16 @@ data MigrationPattern
         seedMigrationPrefix :: Maybe String,
         migrationPatternList :: [FilePattern],
         basePath :: FilePath,
+        dbSchemaOption :: Maybe DBSchemaOption,
         migrationOrder :: Maybe (MigrationArgs -> MigrationArgs -> Ordering)
       }
+-- | Options to operate the migration(s) within a given schema.
+-- This is only if you want to change the overall default schema,
+-- otherwise you can specify a schema in a migration file directly.
+data DBSchemaOption = DBSchemaOption {
+  withinSchema :: ByteString,
+  setSearchPathTo :: [ByteString]
+}
       
 
 defaultMigrationPattern :: MigrationPattern
@@ -84,6 +93,7 @@ defaultMigrationPattern = MigrationPattern {
   seedMigrationPrefix = Just "dml",
   migrationPatternList = ["**/*.sql"],
   basePath = "./",
+  dbSchemaOption = Nothing,
   migrationOrder = Nothing
 }
 
@@ -96,7 +106,7 @@ findAndRunAllMigration ::
 findAndRunAllMigration migrationPattern databaseURL = do
   orderedMigrationRegister <- withExceptT (StepFileGatheringError <$>) gatherAndOrderFile
   connection <- withStepError StepInitDBError connectionAttempt
-  finalRes <- withStepError StepFileExecutionError $ executionScheme orderedMigrationRegister connection
+  finalRes <- withStepError StepFileExecutionError $ executionScheme (dbSchemaOption migrationPattern) orderedMigrationRegister connection
   liftIO $ Connection.release finalRes
   where
     gatherAndOrderFile = findAndOrderAllMigration migrationPattern
@@ -112,18 +122,26 @@ findAndOrderAllMigration migrationPattern =
   orderMigrationRegister migrationPattern <$> gatherFileFailOnError migrationPattern
 
 executionScheme ::
+  Maybe DBSchemaOption ->
   MigrationOrderedRegister ->
   Connection ->
   ExceptT MigrationExecutionError IO Connection
-executionScheme register dbCo = do
+executionScheme maybeSchemaOption register dbCo = do
   let prepareInitTransaction = migrationCommandToTransaction MigrationInitialization
   initAndRevListOfTransaction <- liftIO $ (sequence $ loadInitAndRevTransaction <$> (initRevList register))
   let initAndRevTransaction = sequence initAndRevListOfTransaction
   seedTransactionList <- liftIO $ sequence <$> (sequence $ migrationArgsToTransaction <$> seedList register)
   let allTransactions = prepareInitTransaction >> initAndRevTransaction >> seedTransactionList
   let liftedTrans = sequence <$> allTransactions
-  let final = join <$> first HasqlQueryError <$> runTx dbCo liftedTrans
+  let schemaTransaction = Right <$> (fromMaybe mempty (schemaTransactions <$> maybeSchemaOption))
+  let finalTransaction = schemaTransaction >> liftedTrans
+  let final = join <$> first HasqlQueryError <$> runTx dbCo finalTransaction
   const dbCo <$> (ExceptT final)
+
+schemaTransactions :: DBSchemaOption -> Tx.Transaction ()
+schemaTransactions DBSchemaOption{withinSchema=schemaName, setSearchPathTo=searchPathList} =
+   Tx.sql ("CREATE SCHEMA IF NOT EXISTS \""<> schemaName <> "\";") >>
+   Tx.sql ("SET search_path TO " <> intercalate "," searchPathList <> ";")
 
 type InitAndRev = (MigrationArgs, MigrationArgs)
 
