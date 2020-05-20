@@ -114,6 +114,8 @@ class (QueryFormat queryFormat) =>
   SQLEncoder queryFormat underlyingType where
   ignoreInGenericInstance :: Bool
   ignoreInGenericInstance = False
+  wrapEncoding :: queryFormat -> queryFormat
+  wrapEncoding = identity
   sqlEncode :: underlyingType -> queryFormat
 
 voidMessage = "cannot happen because Void has no inhabitant and sqlEncode expect Void -> queryFormat"
@@ -123,24 +125,24 @@ instance SQLEncoder Snippet Void where
   sqlEncode = panic $ "(SQLEncoder Snippet Void)" <> voidMessage
 
 instance (SQLEncoder Text a) => SQLEncoder Text (Maybe a) where
-  sqlEncode = maybe "null" sqlEncode
+  sqlEncode = (wrapEncoding @Text @a) . maybe "null" sqlEncode
 instance (SQLEncoder Snippet a) => SQLEncoder Snippet (Maybe a) where
-  sqlEncode = maybe "null" sqlEncode
+  sqlEncode = (wrapEncoding @Snippet @a) . maybe "null" sqlEncode
 instance (SQLEncoder Text a) => SQLEncoder Text [a] where
-  sqlEncode = collectionTextEncode
+  sqlEncode =  collectionTextEncode
 instance (DefaultParamEncoder [a]) => SQLEncoder Snippet [a] where
-  sqlEncode = Snippet.param
+  sqlEncode =  Snippet.param
 instance (SQLEncoder Text a) => SQLEncoder Text (Vector a) where
-  sqlEncode = collectionTextEncode
-instance (DefaultParamEncoder (Vector a)) => SQLEncoder Snippet (Vector a) where
-  sqlEncode = Snippet.param
+  sqlEncode =  collectionTextEncode
+instance (SQLEncoder Snippet a, DefaultParamEncoder (Vector a)) => SQLEncoder Snippet (Vector a) where
+  sqlEncode =  Snippet.param
 instance (SQLEncoder Text a) => SQLEncoder Text (Seq a) where
-  sqlEncode = collectionTextEncode
-instance (DefaultParamEncoder (Seq a)) => SQLEncoder Snippet (Seq a) where
-  sqlEncode = Snippet.param
+  sqlEncode =  collectionTextEncode
+instance (SQLEncoder Snippet a, DefaultParamEncoder (Seq a)) => SQLEncoder Snippet (Seq a) where
+  sqlEncode =  Snippet.param
 instance (SQLEncoder Text a) => SQLEncoder Text (Set a) where
-  sqlEncode = collectionTextEncode
-instance (DefaultParamEncoder (Set a)) => SQLEncoder Snippet (Set a) where
+  sqlEncode =  collectionTextEncode
+instance (SQLEncoder Snippet a, DefaultParamEncoder (Set a)) => SQLEncoder Snippet (Set a) where
   sqlEncode = Snippet.param
 instance (QueryFormat format) => SQLEncoder format (Paginated a) where
   ignoreInGenericInstance = True
@@ -148,7 +150,7 @@ instance (QueryFormat format) => SQLEncoder format (Paginated a) where
 
 
 instance SQLEncoder Text UUID where
-  sqlEncode = inSingleQuote . toText
+  sqlEncode = (inSingleQuote . toText)
 instance SQLEncoder Snippet UUID where
   sqlEncode = Snippet.param
   

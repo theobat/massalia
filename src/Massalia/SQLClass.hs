@@ -333,9 +333,10 @@ columnList = fromString $ toCSVInParens (sqlColumns @a)
 
 --------------------- FilterTree
 
-
-
-
+-- ???????????????
+-- class SQLTranslation queryFormat a b where
+--   translate :: a -> (b queryFormat)
+-- data Ok = Ok [(_, [], [[]])]
 
 
 
