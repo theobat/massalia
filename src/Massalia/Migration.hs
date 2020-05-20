@@ -116,40 +116,16 @@ executionScheme ::
   Connection ->
   ExceptT MigrationExecutionError IO Connection
 executionScheme register dbCo = do
-  dbCoWithInit <- ExceptT $ runMassaliaMigrationCommand dbCo MigrationInitialization
-  tupleToRevise <- foldM (initMigrationProcess dbCoWithInit) [] (initRevList register)
-  dbCoWithRevision <- foldM revisionMigrationProcess dbCoWithInit tupleToRevise
-  foldM simpleExec dbCoWithRevision (seedList register) -- connection has to be passed along to ensure sequential execution
-  where
-    simpleExec a b = ExceptT $ runMassaliaMigrationArgs a b
+  let prepareInitTransaction = migrationCommandToTransaction MigrationInitialization
+  initAndRevListOfTransaction <- liftIO $ (sequence $ loadInitAndRevTransaction <$> (initRevList register))
+  let initAndRevTransaction = sequence initAndRevListOfTransaction
+  seedTransactionList <- liftIO $ sequence <$> (sequence $ migrationArgsToTransaction <$> seedList register)
+  let allTransactions = prepareInitTransaction >> initAndRevTransaction >> seedTransactionList
+  let liftedTrans = sequence <$> allTransactions
+  let final = join <$> first HasqlQueryError <$> runTx dbCo liftedTrans
+  const dbCo <$> (ExceptT final)
 
 type InitAndRev = (MigrationArgs, MigrationArgs)
-
-initMigrationProcess :: Connection -> [InitAndRev] -> TupleMigration -> ExceptT MigrationExecutionError IO [InitAndRev]
-initMigrationProcess connection currentRevisionMigrationList args = finalRes
-  where
-    finalRes = ExceptT $ executionRes <$> runMassaliaMigrationArgs connection (getInitMigration args)
-    executionRes res = case res of
-      Left (HasqlMigrationError (ScriptChanged filePathVal)) -> case args of
-        JustInit _ -> Left $ InitFileChangeWihtoutRev filePathVal
-        InitAndRev initVal revVal -> Right $ currentRevisionMigrationList <> [(initVal, revVal)]
-      Left err -> Left err
-      _ -> Right currentRevisionMigrationList
-
-revisionMigrationProcess :: Connection -> InitAndRev -> ExceptT MigrationExecutionError IO Connection
-revisionMigrationProcess connection (initVal, revVal) = do
-  withExceptT InitChecksumUpdateError $ ExceptT $ join $ updateChecksumIfPossible <$> rawInitMigration
-  revValProperlyNamed <- liftIO $ loadAndRenameRev revVal
-  ExceptT $ runMassaliaMigrationCommand connection revValProperlyNamed
-  where
-    updateChecksumIfPossible input = case input of
-      MigrationScript name content -> runTx connection $ updateChecksum name content
-      -- Partial pattern match OK here because 'rawInitMigration' is built this way.
-    rawInitMigration = loadMigrationArgs initVal
-    loadAndRenameRev migrationArgs = do
-      (MigrationScript name content) <- loadMigrationArgs migrationArgs
-      uuidVal <- uuidV4
-      pure $ MigrationScript (name <> "_" <> show uuidVal) content
 
 gatherFileFailOnError :: MigrationPattern -> ExceptT [FileGatheringError] IO MigrationRegister
 gatherFileFailOnError migPattern = ExceptT $ tupleToEither <$> gatherAllMigrationFiles migPattern
@@ -165,7 +141,7 @@ gatherAllMigrationFiles mig = do
   pure (migrationErrorList, migrationRegister)
 
 orderMigrationRegister :: MigrationPattern -> MigrationRegister -> MigrationOrderedRegister
-orderMigrationRegister MigrationPattern{migrationOrder=ord} register = case ord of
+orderMigrationRegister MigrationPattern{migrationOrder=givenOrderFunction} register = case givenOrderFunction of
   Nothing -> getRes identity identity
   Just orderFunction -> getRes (sortBy tupleMigrationOrder) (sortBy orderFunction)
     where
@@ -287,24 +263,55 @@ handleInitRev input mapp = case input of
 dropPrefixFromName :: String -> ScriptName -> ScriptName
 dropPrefixFromName prefix = drop (length prefix)
   
-runMassaliaMigrationArgs :: 
-  Connection ->
-  MigrationArgs ->
-  IO (Either MigrationExecutionError Connection)
-runMassaliaMigrationArgs connection args = join res
-  where
-    res = runMassaliaMigrationCommand connection <$> migrationCommand
-    migrationCommand = loadMigrationArgs args
+tupleMigrationToTupleTransaction ::
+  (TupleMigration -> MigrationArgs) ->
+  TupleMigration ->
+  IO (Tx.Transaction (TupleMigration, Either MigrationExecutionError ()))
+tupleMigrationToTupleTransaction acc tuple = do
+  migrationCommand <- loadMigrationArgs (acc tuple)
+  let transaction =  migrationCommandToTransaction migrationCommand
+  pure ((\trRes -> (tuple,trRes)) <$> transaction)
 
-runMassaliaMigrationCommand ::
-  Connection ->
-  MigrationCommand ->
-  IO (Either MigrationExecutionError Connection)
-runMassaliaMigrationCommand connection migrationCommand = result
+loadInitAndRevTransaction ::
+  TupleMigration ->
+  IO (Tx.Transaction (Either MigrationExecutionError ()))
+loadInitAndRevTransaction tuple = case tuple of
+  JustInit initMigrationArg -> do
+    initMigrationCommand <- loadMigrationArgs initMigrationArg
+    pure (rewritePureInitError <$> migrationCommandToTransaction initMigrationCommand)
+  InitAndRev initVal revVal -> do
+    initMigrationCommand <- loadMigrationArgs initVal
+    let initTransaction = migrationCommandToTransaction initMigrationCommand
+    revMigrationCommand <- loadAndRenameRev revVal
+    let revTransaction = migrationCommandToTransaction revMigrationCommand
+    let initAndRevOnFileChange = initAndRevFileChanged (revTransaction >> (updateChecksumIfPossible initMigrationCommand)) <$> initTransaction
+    pure (join initAndRevOnFileChange)
   where
-    result = join <$> (runTxMigration connection $ runMigrationWrappedError migrationCommand)
-    runTxMigration connection transaction = first HasqlQueryError <$> runTx connection transaction
-    runMigrationWrappedError migrationCommand = first HasqlMigrationError <$> (maybeToLeft connection <$> runMigration migrationCommand)
+    rewritePureInitError res = case res of
+      Left (HasqlMigrationError (ScriptChanged filePathVal)) -> Left $ InitFileChangeWihtoutRev filePathVal
+      r -> r
+    initAndRevFileChanged nextActions res = case res of
+      Left (HasqlMigrationError (ScriptChanged _)) -> nextActions
+      r -> pure (r)
+    updateChecksumIfPossible migrationCom = case migrationCom of
+      MigrationScript name content -> Right <$> (updateChecksum name content)
+      _ -> panic "Partial pattern match OK here because 'rawInitMigration' is built this way"
+    loadAndRenameRev migrationArgs = do
+      (MigrationScript name content) <- loadMigrationArgs migrationArgs
+      uuidVal <- uuidV4
+      pure $ MigrationScript (name <> "_" <> show uuidVal) content
+
+
+migrationArgsToTransaction ::
+  MigrationArgs ->
+  IO (Tx.Transaction (Either MigrationExecutionError ()))
+migrationArgsToTransaction args = migrationCommandToTransaction <$> loadMigrationArgs args
+
+migrationCommandToTransaction ::
+  MigrationCommand ->
+  Tx.Transaction (Either MigrationExecutionError ())
+migrationCommandToTransaction migrationCommand =
+  first HasqlMigrationError <$> (maybeToLeft () <$> runMigration migrationCommand)
 
 runTx :: Connection.Connection -> Tx.Transaction a -> IO (Either QueryError a)
 runTx con act = run (Txs.transaction Txs.ReadCommitted Txs.Write act) con
