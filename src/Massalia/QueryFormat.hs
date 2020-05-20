@@ -20,7 +20,7 @@
 --  query formatting.
 module Massalia.QueryFormat
   ( QueryFormat,
-    SQLEncoder (sqlEncode, ignoreInGenericInstance),
+    SQLEncoder (sqlEncode, wrapEncoding, ignoreInGenericInstance),
     SQLDecoder(sqlDecode),
     FromText(fromText),
     IsString(fromString),
