@@ -55,7 +55,8 @@ import Hasql.Implicits.Encoders (DefaultParamEncoder (defaultParam))
 import Massalia.Utils (
     EmailAddress, LocalTime,
     Day, Scientific, UTCTime,
-    intercalate, intercalateMap, emailToText
+    intercalate, intercalateMap, emailToText,
+    emailValidateText
   )
 import qualified Hasql.Decoders as Decoders
 import Protolude hiding (intercalate, replace)
@@ -192,7 +193,7 @@ collectionTextEncode collection = wrapCollection assembled
     
 ------------------------- Decoder stuff
 scalar :: (QueryFormat queryFormat, MassaliaTree a ) => b -> a -> (queryFormat -> queryFormat, b)
-scalar decoder input = (\tablename -> tablename <> "." <> (fromText $ getName input), decoder)
+scalar decoder input = (\tablename -> "\"" <> tablename <> "\".\"" <> (fromText $ getName input) <> "\"", decoder)
 
 -- | A class to decode
 class (QueryFormat queryFormat) => SQLDecoder queryFormat filterType haskellType where
@@ -200,8 +201,11 @@ class (QueryFormat queryFormat) => SQLDecoder queryFormat filterType haskellType
     (Maybe filterType) -> treeNode -> (queryFormat -> queryFormat, Decoders.Value haskellType)
 instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType UUID where
   sqlDecode _ = scalar Decoders.uuid
+
 instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType Text where
   sqlDecode _ = scalar Decoders.text
+instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType EmailAddress where
+  sqlDecode _ = scalar (Decoders.custom $ const emailValidateText)
 instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType Int64 where
   sqlDecode _ = scalar Decoders.int8
 -- instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType Int where

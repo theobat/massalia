@@ -84,7 +84,6 @@ data DBSchemaOption = DBSchemaOption {
   withinSchema :: ByteString,
   setSearchPathTo :: [ByteString]
 }
-      
 
 defaultMigrationPattern :: MigrationPattern
 defaultMigrationPattern = MigrationPattern {

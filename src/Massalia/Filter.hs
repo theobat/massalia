@@ -138,7 +138,6 @@ filterFieldToMabeContent maybeNamespace (Just filter) = case filter of
       isNotIn = isNotInValue,
       isLike = isLikeValue,
       isIlike = isIlikeValue,
-      isNull = shouldFieldBeNull,
       isGT = isGTValue,
       isLT = isLTValue,
       isBetween = isBetweenValue
@@ -152,7 +151,7 @@ filterFieldToMabeContent maybeNamespace (Just filter) = case filter of
                   <> wrappedContent prefixedFieldName "<@" isBetweenValue ""
               ) of
       [] -> Nothing
-      list -> Just (MassaliaUtils.intercalate " AND " list)
+      filtList -> Just (MassaliaUtils.intercalate " AND " filtList)
   where
     prefixedFieldName = actualPrefix <> actualFieldName
     actualPrefix = maybe "" (<> ".") maybeNamespace
