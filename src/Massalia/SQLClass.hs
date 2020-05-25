@@ -188,9 +188,10 @@ instance (Monoid queryFormat) => GSQLFilter U1 queryFormat where
   gtoQueryFormatFilter _ U1 = mempty
 instance (Monoid queryFormat, GSQLFilter a queryFormat, GSQLFilter b queryFormat) =>
   GSQLFilter (a :*: b) queryFormat where
-  gtoQueryFormatFilter options (a :*: b) = withStatement a <> withStatement b
+  gtoQueryFormatFilter options (a :*: b) = withStatementA <> withStatementB
     where
-      withStatement = gtoQueryFormatFilter options
+      withStatementA = gtoQueryFormatFilter options a
+      withStatementB = gtoQueryFormatFilter options b
 
 instance (GSQLFilter a queryFormat) => GSQLFilter (M1 D c a) queryFormat where
   gtoQueryFormatFilter options (M1 x) = gtoQueryFormatFilter options x
@@ -450,6 +451,8 @@ instance (
     where
       lookupRes = MassaliaTree.lookupChildren key selection
       key = (fromString $ selName (undefined :: M1 S s (K1 R t) ()))
+
+
 instance (
     FromText queryFormat, IsString queryFormat, Selector s,
     SQLDecoder queryFormat filterType t
