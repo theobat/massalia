@@ -11,6 +11,7 @@
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- |
 -- Module      : Massalia.QueryFormat
@@ -23,6 +24,7 @@ module Massalia.QueryFormat
   ( QueryFormat,
     SQLEncoder (sqlEncode, wrapEncoding, ignoreInGenericInstance),
     SQLDecoder(sqlDecode),
+    DecodeTuple (DecodeTuple),
     FromText(fromText),
     IsString(fromString),
     DefaultParamEncoder,
@@ -199,16 +201,18 @@ scalar ::
   (QueryFormat queryFormat, MassaliaTree a ) =>
   Decoders.Value decodedT ->
   a ->
-  (queryFormat -> queryFormat, (Decoders.Value decodedT, Nullability decodedT))
-scalar decoder input = (col, (decoder, Decoders.nonNullable))
+  (queryFormat -> queryFormat, DecodeTuple decodedT)
+scalar decoder input = (col, (DecodeTuple decoder Decoders.nonNullable))
   where col tablename = "\"" <> tablename <> "\".\"" <> (fromText $ getName input) <> "\""
 
+data DecodeTuple decodedT = DecodeTuple (Decoders.Value decodedT) (Decoders.Value decodedT -> Decoders.NullableOrNot Decoders.Value decodedT)
+-- instance Functor DecodeTuple where
+--   fmap fn (DecodeTuple devVal fnInner) = DecodeTuple (fn <$> devVal) innerFnWrap
 
-type Nullability decodedT = Decoders.Value decodedT -> Decoders.NullableOrNot Decoders.Value decodedT
 -- | A class to decode
 class (QueryFormat qf) => SQLDecoder qf filterType decodedT where
   sqlDecode :: (QueryFormat qf, MassaliaTree treeNode) =>
-    (Maybe filterType) -> treeNode -> (qf -> qf, (Decoders.Value decodedT, Nullability decodedT))
+    (Maybe filterType) -> treeNode -> (qf -> qf, DecodeTuple decodedT)
 instance (QueryFormat qf) => SQLDecoder qf filterType UUID where
   sqlDecode _ = scalar Decoders.uuid
 
@@ -237,5 +241,6 @@ instance (
   ) => SQLDecoder qf filterType (Maybe a) where
   sqlDecode maybeFilter tree = fmap action $ sqlDecode maybeFilter tree
     where
-      action (decoder, _) = (const Nothing <$> decoder, const $ Decoders.nullable decoder) 
+      action (DecodeTuple decoder _) = DecodeTuple
+        (const Nothing <$> decoder) (const $ Decoders.nullable decoder) 
 

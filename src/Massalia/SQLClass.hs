@@ -41,6 +41,7 @@ import Massalia.QueryFormat
     FromText(fromText),
     SQLEncoder(sqlEncode, ignoreInGenericInstance),
     SQLDecoder(sqlDecode),
+    DecodeTuple (DecodeTuple),
     BinaryQuery,
     DefaultParamEncoder,
     param,
@@ -447,27 +448,8 @@ instance (
         decoderWrapper = ((M1 . K1) <$>) . Decoders.field
         columnInstanceWrapper = pure . (columnPrefixVal &)
         decoded = (columnFn, nullability decoder)
-        (columnFn, (decoder, nullability)) = sqlDecode @queryFormat @filterType @t filterValue childTree
+        (columnFn, DecodeTuple decoder nullability) = sqlDecode @queryFormat @filterType @t filterValue childTree
         columnPrefixVal = fromText $ columnPrefix opt
     where
       lookupRes = MassaliaTree.lookupChildren key selection
       key = (fromString $ selName (undefined :: M1 S s (K1 R t) ()))
-
-
--- instance (
---     FromText queryFormat, IsString queryFormat, Selector s,
---     SQLDecoder queryFormat filterType t
---   ) =>
---   GSQLRecord queryFormat filterType (M1 S s (K1 R (Maybe t))) where
---   gtoColumnListAndDecoder opt selection filterValue defaultValue = case lookupRes of
---     Nothing -> (mempty, pure defaultValue)
---     Just childTree -> result
---       where
---         result = bimap columnInstanceWrapper decoderWrapper decoded
---         decoderWrapper = ((M1 . K1) <$>) . (Decoders.field . Decoders.nullable)
---         columnInstanceWrapper = pure . (columnPrefixVal &)
---         decoded = sqlDecode @queryFormat @filterType @t filterValue childTree
---         columnPrefixVal = fromText $ columnPrefix opt
---     where
---       lookupRes = MassaliaTree.lookupChildren key selection
---       key = (fromString $ selName (undefined :: M1 S s (K1 R (Maybe t)) ()))
