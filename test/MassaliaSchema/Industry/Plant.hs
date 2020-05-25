@@ -59,11 +59,11 @@ import Massalia.Utils (LocalTime, Day)
 import Massalia.UtilsGQL (Paginated, defaultPaginated)
 import qualified Massalia.UtilsGQL as Paginated(first, offset, filtered)
 import Massalia.SQLClass (
-    SQLColumn(toColumnListAndDecoder),
+    SQLRecord(toColumnListAndDecoder),
     SQLSelect(toSelectQuery),
     SQLDefault(getDefault),
-    SQLFilter(toQueryFormatFilter),
-    SQLColumnConfig(..)
+    -- SQLFilter(toQueryFormatFilter),
+    SQLRecordConfig(..)
   )
 
 data Plant
@@ -72,10 +72,11 @@ data Plant
         name :: Text,
         createdAt :: LocalTime,
         checkDate :: Day,
+        description :: Maybe Text,
         truckList :: [Truck]
       }
   deriving (Show, Generic, GQLType,
-    SQLColumn Text PlantFilter, SQLColumn BinaryQuery PlantFilter)
+    SQLRecord Text PlantFilter, SQLRecord BinaryQuery PlantFilter)
 
 instance (
     QueryFormat queryFormat,
@@ -85,7 +86,7 @@ instance (
   toSelectQuery opt selection filter = QueryAndDecoder {query=queryWithColumnList, decoder=decoderVal}
     where
       queryWithColumnList = rawQuery <> mempty{_select = colList}
-      (colList, decoderVal) = toColumnListAndDecoder (SQLColumnConfig instanceName) selection realFilter
+      (colList, decoderVal) = toColumnListAndDecoder (SQLRecordConfig instanceName) selection realFilter
       realFilter = Paginated.filtered filter
       rawQuery = initialPlantQuery (fromText $ instanceName) filter
       instanceName = "plant"
@@ -93,7 +94,7 @@ instance (
 instance (
     QueryFormat queryFormat,
     SQLFilter queryFormat TruckFilter,
-    SQLColumn queryFormat TruckFilter Truck
+    SQLRecord queryFormat TruckFilter Truck
   ) => SQLDecoder queryFormat PlantFilter [Truck] where
   sqlDecode filterParent selection = (const qer, dec)
     where

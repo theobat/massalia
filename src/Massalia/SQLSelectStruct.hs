@@ -66,8 +66,8 @@ queryAndDecoderToSnippetAndResult selectSt = (content, decoderValue)
 
 queryAndDecoderToListSubquery ::
   QueryFormat queryFormat =>
-  QueryAndDecoder queryFormat decoder -> (queryFormat, Decoders.Value [decoder])
-queryAndDecoderToListSubquery struct = (assembled, newDecoder)
+  QueryAndDecoder queryFormat decoder -> (queryFormat, (Decoders.Value [decoder], Decoders.Value [decoder] -> Decoders.NullableOrNot Decoders.Value [decoder]))
+queryAndDecoderToListSubquery struct = (assembled, (newDecoder, Decoders.nonNullable))
   where
     assembled = selectStructToListSubquery (query struct)
     newDecoder = compositeToListArray $ decoder struct

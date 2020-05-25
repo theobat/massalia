@@ -10,6 +10,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE KindSignatures #-}
 
 -- |
 -- Module      : Massalia.QueryFormat
@@ -194,36 +195,47 @@ collectionTextEncode collection = wrapCollection assembled
     wrapCollection a = "'{" <> a <> "}'"
     
 ------------------------- Decoder stuff
-scalar :: (QueryFormat queryFormat, MassaliaTree a ) => b -> a -> (queryFormat -> queryFormat, b)
-scalar decoder input = (\tablename -> "\"" <> tablename <> "\".\"" <> (fromText $ getName input) <> "\"", decoder)
+scalar ::
+  (QueryFormat queryFormat, MassaliaTree a ) =>
+  Decoders.Value decodedT ->
+  a ->
+  (queryFormat -> queryFormat, (Decoders.Value decodedT, Nullability decodedT))
+scalar decoder input = (col, (decoder, Decoders.nonNullable))
+  where col tablename = "\"" <> tablename <> "\".\"" <> (fromText $ getName input) <> "\""
 
+
+type Nullability decodedT = Decoders.Value decodedT -> Decoders.NullableOrNot Decoders.Value decodedT
 -- | A class to decode
-class (QueryFormat queryFormat) => SQLDecoder queryFormat filterType haskellType where
-  sqlDecode :: (QueryFormat queryFormat, MassaliaTree treeNode) =>
-    (Maybe filterType) -> treeNode -> (queryFormat -> queryFormat, Decoders.Value haskellType)
-instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType UUID where
+class (QueryFormat qf) => SQLDecoder qf filterType decodedT where
+  sqlDecode :: (QueryFormat qf, MassaliaTree treeNode) =>
+    (Maybe filterType) -> treeNode -> (qf -> qf, (Decoders.Value decodedT, Nullability decodedT))
+instance (QueryFormat qf) => SQLDecoder qf filterType UUID where
   sqlDecode _ = scalar Decoders.uuid
 
-instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType Text where
+instance (QueryFormat qf) => SQLDecoder qf filterType Text where
   sqlDecode _ = scalar Decoders.text
-instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType EmailAddress where
+instance (QueryFormat qf) => SQLDecoder qf filterType Bool where
+  sqlDecode _ = scalar Decoders.bool
+instance (QueryFormat qf) => SQLDecoder qf filterType EmailAddress where
   sqlDecode _ = scalar (Decoders.custom $ const emailValidateText)
-instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType Int64 where
+instance (QueryFormat qf) => SQLDecoder qf filterType Int64 where
   sqlDecode _ = scalar Decoders.int8
--- instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType Int where
+-- instance (QueryFormat qf) => SQLDecoder qf filterType Int where
 --   sqlDecode _ a b = ((fromIntegral <$>) . snd) $ scalar Decoders.int8
-instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType LocalTime where
+instance (QueryFormat qf) => SQLDecoder qf filterType LocalTime where
   sqlDecode _ = scalar Decoders.timestamp
-instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType Day where
+instance (QueryFormat qf) => SQLDecoder qf filterType Day where
   sqlDecode _ = scalar Decoders.date
-instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType Scientific where
+instance (QueryFormat qf) => SQLDecoder qf filterType Scientific where
   sqlDecode _ = scalar Decoders.numeric
-instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType UTCTime where
+instance (QueryFormat qf) => SQLDecoder qf filterType UTCTime where
   sqlDecode _ = scalar Decoders.timestamptz
--- instance (QueryFormat queryFormat) =>
---   SQLDecoder queryFormat filterType (Maybe a) where
---   sqlDecode a b = second (fmap Decoders.nullable) $ sqlDecode a b
 
--- todo:
--- instance SQLDecoder EmailAddress where
---   sqlDecode = emailToText <$> Decoders.custom
+instance (
+    SQLDecoder qf filterType a,
+    QueryFormat qf
+  ) => SQLDecoder qf filterType (Maybe a) where
+  sqlDecode maybeFilter tree = fmap action $ sqlDecode maybeFilter tree
+    where
+      action (decoder, _) = (const Nothing <$> decoder, const $ Decoders.nullable decoder) 
+

@@ -29,11 +29,11 @@ import Massalia.SQLSelectStruct (SelectStruct(..), QueryAndDecoder(..))
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
 import qualified MassaliaSchema.Industry.TruckFilter as TruckFilter
 import Massalia.SQLClass (
-    SQLColumn(toColumnListAndDecoder),
+    SQLRecord(toColumnListAndDecoder),
     SQLSelect(toSelectQuery),
     SQLDefault(getDefault),
     SQLFilter(toQueryFormatFilter),
-    SQLColumnConfig(..)
+    SQLRecordConfig(..)
   )
 import Massalia.UtilsGQL (Paginated, defaultPaginated)
 import qualified Massalia.UtilsGQL as Paginated(first, offset, filtered)
@@ -45,7 +45,7 @@ data Truck
         vehicleId :: Text
       }
   deriving (Show, Generic, GQLType,
-    SQLColumn Text TruckFilter, SQLColumn BinaryQuery TruckFilter)
+    SQLRecord Text TruckFilter, SQLRecord BinaryQuery TruckFilter)
 
 instance (
     QueryFormat queryFormat,
@@ -54,7 +54,7 @@ instance (
   toSelectQuery opt selection filter = QueryAndDecoder {query=queryWithColumnList, decoder=decoderVal}
     where
       queryWithColumnList = rawQuery <> mempty{_select = colList}
-      (colList, decoderVal) = toColumnListAndDecoder (SQLColumnConfig instanceName) selection realFilter
+      (colList, decoderVal) = toColumnListAndDecoder (SQLRecordConfig instanceName) selection realFilter
       realFilter = Paginated.filtered filter
       rawQuery = initialTruckQuery (fromText instanceName) filter
       instanceName = "truck"
