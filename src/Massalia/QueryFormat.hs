@@ -220,7 +220,9 @@ instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType Scientif
   sqlDecode _ = scalar Decoders.numeric
 instance (QueryFormat queryFormat) => SQLDecoder queryFormat filterType UTCTime where
   sqlDecode _ = scalar Decoders.timestamptz
-
+-- instance (QueryFormat queryFormat) =>
+--   SQLDecoder queryFormat filterType (Maybe a) where
+--   sqlDecode a b = second (fmap Decoders.nullable) $ sqlDecode a b
 
 -- todo:
 -- instance SQLDecoder EmailAddress where

@@ -124,8 +124,8 @@ class SQLColumns a where
 gsqlColumns :: forall queryFormat a. (IsString queryFormat, Generic a, GSelectors (Rep a)) => [queryFormat]
 gsqlColumns = snakeTypename
   where
-    snakeTypename = (fromString . simpleSnakeCase . fst) <$> list
-    list = selectors @(Rep a) 
+    snakeTypename = (fromString . simpleSnakeCase . fst) <$> listValue
+    listValue = selectors @(Rep a) 
 
 -- | This class represents all the haskell types with a corresponding 'toSQLValues'
 -- function. It's a function meant to encode a haskell record as an SQL comma separated
@@ -190,7 +190,7 @@ instance (Monoid queryFormat, GSQLFilter a queryFormat, GSQLFilter b queryFormat
   GSQLFilter (a :*: b) queryFormat where
   gtoQueryFormatFilter options (a :*: b) = withStatement a <> withStatement b
     where
-      withStatement a = gtoQueryFormatFilter options a
+      withStatement = gtoQueryFormatFilter options
 
 instance (GSQLFilter a queryFormat) => GSQLFilter (M1 D c a) queryFormat where
   gtoQueryFormatFilter options (M1 x) = gtoQueryFormatFilter options x
@@ -450,3 +450,20 @@ instance (
     where
       lookupRes = MassaliaTree.lookupChildren key selection
       key = (fromString $ selName (undefined :: M1 S s (K1 R t) ()))
+instance (
+    FromText queryFormat, IsString queryFormat, Selector s,
+    SQLDecoder queryFormat filterType t
+  ) =>
+  GSQLColumn queryFormat filterType (M1 S s (K1 R (Maybe t))) where
+  gtoColumnListAndDecoder opt selection filterValue defaultValue = case lookupRes of
+    Nothing -> (mempty, pure defaultValue)
+    Just childTree -> result
+      where
+        result = bimap columnInstanceWrapper decoderWrapper decoded
+        decoderWrapper = ((M1 . K1) <$>) . (Decoders.field . Decoders.nullable)
+        columnInstanceWrapper = pure . (columnPrefixVal &)
+        decoded = sqlDecode @queryFormat @filterType @t filterValue childTree
+        columnPrefixVal = fromText $ columnPrefix opt
+    where
+      lookupRes = MassaliaTree.lookupChildren key selection
+      key = (fromString $ selName (undefined :: M1 S s (K1 R (Maybe t)) ()))
