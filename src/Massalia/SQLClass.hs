@@ -256,7 +256,7 @@ instance (Monoid queryFormat, GDBContext a queryFormat, GDBContext b queryFormat
   GDBContext (a :*: b) queryFormat where
   gtoWithQuery options (a :*: b) = withStatement a <> withStatement b
     where
-      withStatement a = gtoWithQuery options a
+      withStatement input = gtoWithQuery options input
 
 instance (GDBContext a queryFormat) => GDBContext (M1 D c a) queryFormat where
   gtoWithQuery options (M1 x) = gtoWithQuery options x
@@ -373,7 +373,7 @@ class SQLSelect queryFormat filterType nodeType | nodeType -> filterType where
     QueryAndDecoder queryFormat nodeType
 
 -- | This is the way to get a select query out of a select tree and a filter
-class SQLRecord queryFormat filterType domainType | domainType -> filterType where
+class SQLRecord queryFormat filterType domainType where
   toColumnListAndDecoder ::
     (MassaliaTree selectionType) =>
     SQLRecordConfig ->

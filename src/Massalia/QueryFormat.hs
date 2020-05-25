@@ -7,6 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -40,7 +41,7 @@ module Massalia.QueryFormat
     commaSepInParens
   )
 where
-
+import Data.Coerce (coerce)
 import Data.Foldable (foldr1)
 import Data.Int (Int64)
 import Massalia.SelectionTree (MassaliaTree(getName))
@@ -206,9 +207,7 @@ scalar decoder input = (col, (DecodeTuple decoder Decoders.nonNullable))
   where col tablename = "\"" <> tablename <> "\".\"" <> (fromText $ getName input) <> "\""
 
 data DecodeTuple decodedT = DecodeTuple (Decoders.Value decodedT) (Decoders.Value decodedT -> Decoders.NullableOrNot Decoders.Value decodedT)
--- instance Functor DecodeTuple where
---   fmap fn (DecodeTuple devVal fnInner) = DecodeTuple (fn <$> devVal) innerFnWrap
-
+  
 -- | A class to decode
 class (QueryFormat qf) => SQLDecoder qf filterType decodedT where
   sqlDecode :: (QueryFormat qf, MassaliaTree treeNode) =>

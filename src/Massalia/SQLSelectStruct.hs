@@ -34,6 +34,7 @@ import Massalia.QueryFormat
     SQLEncoder (sqlEncode),
     FromText(fromText),
     QueryFormat,
+    DecodeTuple(DecodeTuple),
     commaSepInParens
   )
 import Massalia.Utils (toUnderscore, intercalate, inParens)
@@ -66,8 +67,8 @@ queryAndDecoderToSnippetAndResult selectSt = (content, decoderValue)
 
 queryAndDecoderToListSubquery ::
   QueryFormat queryFormat =>
-  QueryAndDecoder queryFormat decoder -> (queryFormat, (Decoders.Value [decoder], Decoders.Value [decoder] -> Decoders.NullableOrNot Decoders.Value [decoder]))
-queryAndDecoderToListSubquery struct = (assembled, (newDecoder, Decoders.nonNullable))
+  QueryAndDecoder queryFormat decoder -> (queryFormat, DecodeTuple [decoder])
+queryAndDecoderToListSubquery struct = (assembled, DecodeTuple newDecoder Decoders.nonNullable)
   where
     assembled = selectStructToListSubquery (query struct)
     newDecoder = compositeToListArray $ decoder struct
