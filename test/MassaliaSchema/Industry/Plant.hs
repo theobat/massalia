@@ -45,15 +45,17 @@ import Massalia.SQLSelectStruct (
   queryAndDecoderToListSubquery,
   queryAndDecoderToSnippetAndResult
   )
+import Massalia.HasqlExec (use)
 import MassaliaSchema.Industry.PlantInput (queryTest)
 import MassaliaSchema.Industry.Truck (Truck)
 import Protolude hiding (first)
-import Text.Pretty.Simple (pPrint)
-import Massalia.HasqlExec (Pool, use)
 import qualified MassaliaSchema.Industry.PlantFilter as PlantFilter
 import MassaliaSchema.Industry.PlantFilter (PlantFilter, plantFilterTest)
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
-import Massalia.SQLClass (SQLFilter(toQueryFormatFilter))
+import Massalia.SQLClass (
+    basicQueryAndDecoder,
+    SQLFilter(toQueryFormatFilter)
+  )
 import Data.Morpheus.Types (unsafeInternalContext)
 import Massalia.Utils (LocalTime, Day)
 import Massalia.UtilsGQL (Paginated, defaultPaginated)
@@ -83,13 +85,7 @@ instance (
     SQLEncoder queryFormat Int,
     SQLFilter queryFormat PlantFilter
   ) => SQLSelect queryFormat PlantFilter Plant where
-  toSelectQuery opt selection filter = QueryAndDecoder {query=queryWithColumnList, decoder=decoderVal}
-    where
-      queryWithColumnList = rawQuery <> mempty{_select = colList}
-      (colList, decoderVal) = toColumnListAndDecoder (SQLRecordConfig instanceName) selection realFilter
-      realFilter = Paginated.filtered filter
-      rawQuery = initialPlantQuery (fromText $ instanceName) filter
-      instanceName = "plant"
+  toSelectQuery = basicQueryAndDecoder "plant"
 
 instance (
     QueryFormat queryFormat,
@@ -106,18 +102,6 @@ instance (
       }}
       subQueryRaw = toSelectQuery Nothing selection filterChild
       filterChild = fromMaybe defaultPaginated (join $ PlantFilter.truckList <$> filterParent)
-
-initialPlantQuery :: (
-    SQLFilter queryFormat PlantFilter,
-    SQLEncoder queryFormat Int,
-    Monoid queryFormat, IsString queryFormat
-  ) =>
-  queryFormat -> Paginated PlantFilter -> SelectStruct queryFormat
-initialPlantQuery name filter = mempty
-      { _from = Just name,
-        _where = toQueryFormatFilter Nothing <$> (Paginated.filtered filter),
-        _offsetLimit = Just (sqlEncode <$> Paginated.offset filter, sqlEncode $ fromMaybe 10000 $ Paginated.first filter)
-      }
 
 instance SQLDefault Plant where
   getDefault = defaultPlant

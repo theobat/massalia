@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DefaultSignatures #-}
@@ -26,6 +27,9 @@ module Massalia.SQLClass
     DBContext(..),
     WithQueryOption(..),
     SQLFilter(toQueryFormatFilter),
+    SelectConstraint,
+    basicEntityQuery,
+    basicQueryAndDecoder,
     SQLSelect(toSelectQuery),
     SQLRecord(toColumnListAndDecoder),
     gsqlColumns,
@@ -43,26 +47,19 @@ import Massalia.QueryFormat
     SQLDecoder(sqlDecode),
     DecodeTuple (DecodeTuple),
     BinaryQuery,
-    DefaultParamEncoder,
-    param,
-    (§),
     inParens
   )
 import Massalia.UtilsGQL (Paginated)
 import Massalia.SQLUtils (insertIntoWrapper, selectWrapper, rowsAssembler)
 import Massalia.GenericUtils (GTypeName(gtypename), GSelectors(selectors))
-import Data.String (String, IsString(fromString))
+import Data.String (IsString(fromString))
 import Hasql.Decoders (Composite)
 import qualified Data.Text as Text
 import GHC.Generics (
-    U1,
     D,
     S,
     C,
-    R,
-    M1(M1),
-    datatypeName,
-    K1(K1)
+    R
   )
 import Massalia.Utils (simpleSnakeCase, intercalate, toCSVInParens)
 import Massalia.SelectionTree(MassaliaTree)
@@ -70,13 +67,57 @@ import qualified Massalia.SelectionTree as MassaliaTree
 import qualified Hasql.Decoders as Decoders 
 import Protolude hiding (intercalate)
 import Massalia.Filter (
-    GQLScalarFilter(GQLScalarFilter),
+    GQLScalarFilter,
     filterFieldToMabeContent,
     PostgresRange
   )
-import qualified Data.Set as Set
-import qualified Data.Map as Map
-import Massalia.SQLSelectStruct (QueryAndDecoder(..))
+import Massalia.SQLSelectStruct (SelectStruct(..), QueryAndDecoder(..))
+import qualified Massalia.UtilsGQL as Paginated
+
+basicQueryAndDecoder :: (
+    SelectConstraint qf filterType,
+    MassaliaTree selectionType,
+    SQLRecord qf filterType nodeType
+  ) =>
+  -- | The sql table name (or alias).
+  Text ->
+  -- | A set of options
+  Maybe SQLSelectOptions ->
+  -- | The selection set (in the form of a 'Tree' interface)
+  selectionType ->
+  -- | The node's filter type
+  Paginated filterType ->
+  -- | A query for this node with all its decoder
+  QueryAndDecoder qf nodeType
+basicQueryAndDecoder instanceName _ selection filterValue = QueryAndDecoder {
+        query=queryWithColumnList,
+        decoder=decoderVal
+      }
+    where
+      queryWithColumnList = rawQuery <> mempty{_select = colList}
+      (colList, decoderVal) = toColumnListAndDecoder (SQLRecordConfig realInstanceName) selection realFilterValue
+      realFilterValue = Paginated.filtered filterValue
+      rawQuery = basicEntityQuery (fromText $ realInstanceName) filterValue
+      realInstanceName = instanceName
+      
+
+-- | This yields a query with no selection but integrate filter inlining
+-- and pagination arguments.
+basicEntityQuery :: (
+    SelectConstraint queryFormat filterT
+  ) =>
+  queryFormat -> Paginated filterT -> SelectStruct queryFormat
+basicEntityQuery name filter = mempty
+      { _from = Just name,
+        _where = toQueryFormatFilter Nothing <$> (Paginated.filtered filter),
+        _offsetLimit = Just (sqlEncode <$> Paginated.offset filter, sqlEncode $ fromMaybe 10000 $ Paginated.first filter)
+      }
+
+type SelectConstraint qf filterType = (
+    QueryFormat qf,
+    SQLEncoder qf Int,
+    SQLFilter qf filterType
+  )
 
 -- | This class represents all the haskell types with a corresponding SQL
 -- name. It provides 2 functions: @sqlName@ and @tableName@. @sqlName@ is meant
@@ -284,8 +325,9 @@ instance (
         | val == mempty = []
         | otherwise = pure $ sqlName @a <> " AS " <> (inParens selectInstance)
       selectInstance = case options of
-        Nothing -> insertValuesQuery () val
+        _ -> insertValuesQuery () val
         Just PureSelect -> selectValuesQuery Nothing val
+
     -- where values = 
 -- instance (SQLEncoder BinaryQuery a, GValues (K1 i a) BinaryQuery) =>
 --   GValues (K1 i a) BinaryQuery where
@@ -447,8 +489,8 @@ instance (
         result = bimap columnInstanceWrapper decoderWrapper decoded
         decoderWrapper = ((M1 . K1) <$>) . Decoders.field
         columnInstanceWrapper = pure . (columnPrefixVal &)
-        decoded = (columnFn, nullability decoder)
-        (columnFn, DecodeTuple decoder nullability) = sqlDecode @queryFormat @filterType @t filterValue childTree
+        decoded = (columnFn, nullability decValue)
+        (columnFn, DecodeTuple decValue nullability) = sqlDecode @queryFormat @filterType @t filterValue childTree
         columnPrefixVal = fromText $ columnPrefix opt
     where
       lookupRes = MassaliaTree.lookupChildren key selection
