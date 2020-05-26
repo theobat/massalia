@@ -53,6 +53,7 @@ import qualified MassaliaSchema.Industry.PlantFilter as PlantFilter
 import MassaliaSchema.Industry.PlantFilter (PlantFilter, plantFilterTest)
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
 import Massalia.SQLClass (
+    SelectConstraint,
     basicQueryAndDecoder,
     SQLFilter(toQueryFormatFilter)
   )
@@ -64,7 +65,6 @@ import Massalia.SQLClass (
     SQLRecord(toColumnListAndDecoder),
     SQLSelect(toSelectQuery),
     SQLDefault(getDefault),
-    -- SQLFilter(toQueryFormatFilter),
     SQLRecordConfig(..)
   )
 
@@ -81,9 +81,7 @@ data Plant
     SQLRecord Text PlantFilter, SQLRecord BinaryQuery PlantFilter)
 
 instance (
-    QueryFormat queryFormat,
-    SQLEncoder queryFormat Int,
-    SQLFilter queryFormat PlantFilter
+    SelectConstraint queryFormat PlantFilter
   ) => SQLSelect queryFormat PlantFilter Plant where
   toSelectQuery = basicQueryAndDecoder "plant"
 
