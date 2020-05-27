@@ -16,7 +16,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 -- |
 -- Module      : Massalia.Filter
@@ -32,9 +32,12 @@ module Massalia.Filter
     GQLFilterIntCore,
     GQLFilterLocalTime,
     GQLFilterLocalTimeCore,
-    GQLScalarFilter (..),
+    GQLScalarFilter,
+    GQLScalarFilterCore(..),
+    FilterConstraint,
     defaultScalarFilter,
     filterFieldToMaybeContent,
+    filterNamedFieldToMaybeContent,
     PostgresRange(postgresRangeName)
   )
 where
@@ -132,8 +135,9 @@ maybeToQueryFormat Nothing = mempty
 maybeToQueryFormat (Just content) = content
 
 filterNamedFieldToMaybeContent ::
-  forall content fieldName eqScalarType likeScalarType ordScalarType.
-  ( IsString content, KnownSymbol fieldName, 
+  forall fieldName. (KnownSymbol fieldName) =>
+  (forall content eqScalarType likeScalarType ordScalarType.
+  ( IsString content,
     SQLEncoder content eqScalarType,
     SQLEncoder content [eqScalarType],
     SQLEncoder content likeScalarType,
@@ -142,9 +146,17 @@ filterNamedFieldToMaybeContent ::
   ) =>
   Maybe content ->
   Maybe (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType) ->
-  Maybe content
+  Maybe content)
 filterNamedFieldToMaybeContent a = filterFieldToMaybeContent a actualFieldName
   where actualFieldName = StringUtils.fromString (symbolVal (Proxy :: Proxy (fieldName :: Symbol)))
+
+type FilterConstraint qf a b c = (
+    SQLEncoder qf a,
+    SQLEncoder qf [a],
+    SQLEncoder qf b,
+    SQLEncoder qf c,
+    PostgresRange c
+  )
 
 filterFieldToMaybeContent ::
   ( SQLEncoder content eqScalarType,
@@ -209,19 +221,6 @@ wrappedContent fieldName op (Just a) suffix =
   [ fieldName <> " " <> op <> " " <> sqlEncode a <> suffix
   ]
 
-instance (
-    IsString qf,
-    KnownSymbol a,
-    SQLEncoder qf [b],
-    SQLEncoder qf b,
-    SQLEncoder qf c,
-    SQLEncoder qf d,
-    PostgresRange d
-  ) => SQLEncoder qf (GQLScalarFilter a b c d) where
-  ignoreInGenericInstance = False
-  wrapEncoding = identity
-  sqlEncode val = fromMaybe mempty $ filterNamedFieldToMaybeContent @qf @a Nothing (Just val)
-
 -- int4range — Range of integer
 -- int8range — Range of bigint
 -- numrange — Range of numeric
@@ -255,3 +254,6 @@ instance PostgresRange Day where
   postgresRangeName = "daterange"
 instance PostgresRange Void where
   postgresRangeName = panic "in theory cannot happen, (PostgresRange Void)"
+
+newtype ViewF filterT = ViewF filterT
+newtype ExistF filterT = ExistF filterT

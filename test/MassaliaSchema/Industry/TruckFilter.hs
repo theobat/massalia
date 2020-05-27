@@ -25,7 +25,8 @@ import GHC.Generics (Generic, from)
 import Massalia.Filter
   ( GQLFilterText,
     GQLFilterUUID,
-    GQLScalarFilter (isEq, isIn),
+    GQLScalarFilter,
+    GQLScalarFilterCore(isEq, isIn),
     defaultScalarFilter,
   )
 import qualified Massalia.HasqlDec as Decoders

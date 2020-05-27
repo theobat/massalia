@@ -54,6 +54,7 @@ import Massalia.QueryFormat
     decodeName,
     inParens
   )
+import Massalia.Filter (GQLScalarFilter, FilterConstraint, filterFieldToMaybeContent)
 import Massalia.UtilsGQL (Paginated)
 import Massalia.SQLUtils (insertIntoWrapper, selectWrapper, rowsAssembler)
 import Massalia.GenericUtils (GTypeName(gtypename), GSelectors(selectors))
@@ -281,17 +282,21 @@ instance (GSQLFilter a queryFormat) => GSQLFilter (M1 C c a) queryFormat where
   
 instance (
     IsString queryFormat,
-    SQLEncoder queryFormat filterType
+    SQLFilter queryFormat filterType
   ) => GSQLFilter (K1 i (
     Maybe filterType)
   ) queryFormat where
-  gtoQueryFormatFilter options (K1 val) = result
-    where
-      result
-        | ignoreInGenericInstance @queryFormat @filterType = []
-        | otherwise = case val of
-        Nothing -> []
-        Just a -> [sqlEncode a]
+  gtoQueryFormatFilter options (K1 val) = toQueryFormatFilter options <$> (maybeToList val)
+
+-- Go through generics
+instance (
+    IsString queryFormat,
+    FilterConstraint queryFormat b c d
+  ) => SQLFilter queryFormat (GQLScalarFilter a b c d) where
+  toQueryFormatFilter _ val = fromMaybe mempty (filterFieldToMaybeContent @queryFormat Nothing "_" (Just val))
+instance (IsString queryFormat) => SQLFilter queryFormat (Paginated a) where
+  toQueryFormatFilter _ _ = "true"
+
       
 ----------------------------------------------------------------------------
 ---------------------------- DBContext queries

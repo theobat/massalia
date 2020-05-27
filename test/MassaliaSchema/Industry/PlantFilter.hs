@@ -27,7 +27,7 @@ import Massalia.Filter
   ( GQLFilterText,
     GQLFilterUUID,
     GQLFilterDay,
-    GQLScalarFilter (isBetween),
+    GQLScalarFilterCore (isBetween),
     defaultScalarFilter,
   )
 import MassaliaSchema.Industry.TruckFilter (TruckFilter, testInstance)
