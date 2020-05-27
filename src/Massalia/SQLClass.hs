@@ -15,6 +15,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DataKinds #-}
 
 -- |
 -- Module      : Massalia.SQLClass
@@ -70,11 +71,6 @@ import Massalia.SelectionTree(MassaliaTree)
 import qualified Massalia.SelectionTree as MassaliaTree
 import qualified Hasql.Decoders as Decoders 
 import Protolude hiding (intercalate)
-import Massalia.Filter (
-    GQLScalarFilter,
-    filterFieldToMabeContent,
-    PostgresRange
-  )
 import Massalia.SQLSelectStruct (
     SelectStruct(..),
     QueryAndDecoder(..),
@@ -296,20 +292,7 @@ instance (
         | otherwise = case val of
         Nothing -> []
         Just a -> [sqlEncode a]
-
-instance (
-    IsString queryFormat, KnownSymbol a,
-    SQLEncoder queryFormat [b],
-    SQLEncoder queryFormat b,
-    SQLEncoder queryFormat c,
-    SQLEncoder queryFormat d,
-    PostgresRange d
-  ) => SQLEncoder queryFormat (GQLScalarFilter a b c d) where
-  sqlEncode val = case filterFieldToMabeContent (Nothing @queryFormat) (Just val) of
-    Nothing -> mempty
-    Just a -> a
       
-
 ----------------------------------------------------------------------------
 ---------------------------- DBContext queries
 ----------------------------------------------------------------------------

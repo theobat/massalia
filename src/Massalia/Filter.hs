@@ -15,19 +15,26 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- |
 -- Module      : Massalia.Filter
 -- Description : A module to define an interface for simple scalar values filters.
 module Massalia.Filter
   ( GQLFilterUUID,
+    GQLFilterUUIDCore,
     GQLFilterText,
+    GQLFilterTextCore,
     GQLFilterDay,
+    GQLFilterDayCore,
     GQLFilterInt,
+    GQLFilterIntCore,
     GQLFilterLocalTime,
+    GQLFilterLocalTimeCore,
     GQLScalarFilter (..),
     defaultScalarFilter,
-    filterFieldToMabeContent,
+    filterFieldToMaybeContent,
     PostgresRange(postgresRangeName)
   )
 where
@@ -42,13 +49,21 @@ import Data.Proxy (Proxy (Proxy))
 import Data.String as StringUtils (IsString (fromString))
 import Data.UUID
 import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
-import Massalia.QueryFormat (SQLEncoder(sqlEncode))
+import Massalia.QueryFormat (
+    SQLEncoder(
+        sqlEncode,
+        ignoreInGenericInstance,
+        wrapEncoding
+      )
+  )
 import Massalia.Utils (Day, LocalTime, SimpleRange(..), Inclusivity(..))
 import qualified Massalia.Utils as MassaliaUtils (intercalate, intercalateMap)
 
 import Protolude
 
-data GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType
+type GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType
+  = GQLScalarFilterCore eqScalarType likeScalarType ordScalarType
+data GQLScalarFilterCore eqScalarType likeScalarType ordScalarType
   = GQLScalarFilter
       { isEq :: Maybe eqScalarType,
         isNotEq :: Maybe eqScalarType,
@@ -72,29 +87,30 @@ deriving instance
   (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType, Ord ordScalarType) =>
   ToJSON (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
 
+deriving instance
+  (
+    Typeable eqScalarType, Typeable likeScalarType, Typeable ordScalarType,
+    GQLType eqScalarType, GQLType likeScalarType, GQLType ordScalarType
+  ) =>
+  GQLType (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)
 
 -- eq
-type GQLFilterUUID (fieldName :: Symbol) = GQLScalarFilter (fieldName :: Symbol) UUID Void Void
-
-instance (KnownSymbol (fieldName :: Symbol)) => GQLType (GQLFilterUUID (fieldName :: Symbol)) where
-  description = const $ Just "All the common operation you can think of for UUIDs"
+type GQLFilterUUID (fieldName :: Symbol) = GQLFilterUUIDCore
+type GQLFilterUUIDCore = GQLScalarFilterCore UUID Void Void
 
 -- eq && like
-type GQLFilterText (fieldName :: Symbol) = GQLScalarFilter (fieldName :: Symbol) Text Text Void
-
-instance (KnownSymbol (fieldName :: Symbol)) => GQLType (GQLFilterText (fieldName :: Symbol)) where
-  description = const $ Just "All the common operation you can think of for Text"
+type GQLFilterText (fieldName :: Symbol) = GQLFilterTextCore
+type GQLFilterTextCore = GQLScalarFilterCore Text Text Void
 
 -- eq && ord
-type GQLFilterInt (fieldName :: Symbol) = GQLScalarFilter (fieldName :: Symbol) Int Void Int
-instance (KnownSymbol (fieldName :: Symbol)) => GQLType (GQLFilterInt (fieldName :: Symbol)) where
-  description = const $ Just "All the common operation you can think of for Int"
+type GQLFilterInt (fieldName :: Symbol) = GQLFilterIntCore
+type GQLFilterIntCore = GQLScalarFilterCore Int Void Int
 
-type GQLFilterLocalTime (fieldName :: Symbol) = GQLScalarFilter (fieldName :: Symbol) LocalTime Void LocalTime
-instance (KnownSymbol (fieldName :: Symbol)) => GQLType (GQLFilterLocalTime (fieldName :: Symbol))
+type GQLFilterLocalTime (fieldName :: Symbol) = GQLFilterLocalTimeCore
+type GQLFilterLocalTimeCore = GQLScalarFilterCore LocalTime Void LocalTime
 
-type GQLFilterDay (fieldName :: Symbol) = GQLScalarFilter (fieldName :: Symbol) Day Void Day
-instance (KnownSymbol (fieldName :: Symbol)) => GQLType (GQLFilterDay (fieldName :: Symbol))
+type GQLFilterDay (fieldName :: Symbol) = GQLFilterDayCore
+type GQLFilterDayCore = GQLScalarFilterCore Day Void Day
 
 -- | Filter with no effect
 defaultScalarFilter =
@@ -115,11 +131,10 @@ maybeToQueryFormat :: Monoid content => Maybe content -> content
 maybeToQueryFormat Nothing = mempty
 maybeToQueryFormat (Just content) = content
 
-filterFieldToMabeContent ::
-  forall fieldName.
-  KnownSymbol (fieldName :: Symbol) =>
-  forall eqScalarType likeScalarType ordScalarType content.
-  ( SQLEncoder content eqScalarType,
+filterNamedFieldToMaybeContent ::
+  forall content fieldName eqScalarType likeScalarType ordScalarType.
+  ( IsString content, KnownSymbol fieldName, 
+    SQLEncoder content eqScalarType,
     SQLEncoder content [eqScalarType],
     SQLEncoder content likeScalarType,
     SQLEncoder content ordScalarType,
@@ -128,8 +143,22 @@ filterFieldToMabeContent ::
   Maybe content ->
   Maybe (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType) ->
   Maybe content
-filterFieldToMabeContent _ Nothing = Nothing
-filterFieldToMabeContent maybeNamespace (Just filter) = case filter of
+filterNamedFieldToMaybeContent a = filterFieldToMaybeContent a actualFieldName
+  where actualFieldName = StringUtils.fromString (symbolVal (Proxy :: Proxy (fieldName :: Symbol)))
+
+filterFieldToMaybeContent ::
+  ( SQLEncoder content eqScalarType,
+    SQLEncoder content [eqScalarType],
+    SQLEncoder content likeScalarType,
+    SQLEncoder content ordScalarType,
+    PostgresRange ordScalarType
+  ) =>
+  Maybe content ->
+  content ->
+  Maybe (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) ->
+  Maybe content
+filterFieldToMaybeContent _ _ Nothing = Nothing
+filterFieldToMaybeContent maybeNamespace actualFieldName (Just filterVal) = case filterVal of
   GQLScalarFilter {isEq = (Just eqValue)} -> snippetContent actualFieldName "=" (Just eqValue)
   GQLScalarFilter {isNull = (Just True)} -> Just (prefixedFieldName <> " IS NULL")
   GQLScalarFilter
@@ -155,7 +184,6 @@ filterFieldToMabeContent maybeNamespace (Just filter) = case filter of
   where
     prefixedFieldName = actualPrefix <> actualFieldName
     actualPrefix = maybe "" (<> ".") maybeNamespace
-    actualFieldName = StringUtils.fromString (symbolVal (Proxy :: Proxy (fieldName :: Symbol)))
 
 snippetContent ::
   forall content a. (SQLEncoder content a) =>
@@ -180,6 +208,19 @@ wrappedContent _ _ Nothing _ = []
 wrappedContent fieldName op (Just a) suffix =
   [ fieldName <> " " <> op <> " " <> sqlEncode a <> suffix
   ]
+
+instance (
+    IsString qf,
+    KnownSymbol a,
+    SQLEncoder qf [b],
+    SQLEncoder qf b,
+    SQLEncoder qf c,
+    SQLEncoder qf d,
+    PostgresRange d
+  ) => SQLEncoder qf (GQLScalarFilter a b c d) where
+  ignoreInGenericInstance = False
+  wrapEncoding = identity
+  sqlEncode val = fromMaybe mempty $ filterNamedFieldToMaybeContent @qf @a Nothing (Just val)
 
 -- int4range — Range of integer
 -- int8range — Range of bigint
