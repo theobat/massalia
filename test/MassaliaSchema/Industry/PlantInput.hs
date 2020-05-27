@@ -18,21 +18,12 @@ import Data.Data (Data)
 import Data.Text (Text, pack)
 import Data.UUID (UUID)
 import Data.UUID (nil)
-import Massalia.Utils (LocalTime, Day)
+import Massalia.Utils (Day)
 import GHC.Generics (Generic)
-import qualified Hasql.Encoders as Encoders
-import qualified Massalia.HasqlDec as Decoders
-import Data.String as StringUtils (IsString (fromString))
 import Massalia.QueryFormat
   (
-    SQLEncoder,
     BinaryQuery,
-    commaAssemble,
-    takeMaybeParam,
-    takeParam,
-    (§),
   )
-import Massalia.SQLWith (withXAs)
 import Massalia.SQLClass (
     DBContext(toWithQuery), SQLName, SQLColumns, SQLValues,
     WithQueryOption(PureSelect)

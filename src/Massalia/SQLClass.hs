@@ -28,13 +28,15 @@ module Massalia.SQLClass
     WithQueryOption(..),
     SQLFilter(toQueryFormatFilter),
     SelectConstraint,
+    SubSelectConstraint,
     basicEntityQuery,
     basicQueryAndDecoder,
+    basicDecodeSubquery,
     SQLSelect(toSelectQuery),
     SQLRecord(toColumnListAndDecoder),
     gsqlColumns,
     SQLDefault(getDefault),
-    SQLSelectOptions(..),
+    SQLSelectOption(..),
     SQLRecordConfig(..)
   )
 where
@@ -47,6 +49,8 @@ import Massalia.QueryFormat
     SQLDecoder(sqlDecode),
     DecodeTuple (DecodeTuple),
     BinaryQuery,
+    DecodeOption,
+    decodeName,
     inParens
   )
 import Massalia.UtilsGQL (Paginated)
@@ -71,8 +75,41 @@ import Massalia.Filter (
     filterFieldToMabeContent,
     PostgresRange
   )
-import Massalia.SQLSelectStruct (SelectStruct(..), QueryAndDecoder(..))
+import Massalia.SQLSelectStruct (
+    SelectStruct(..),
+    QueryAndDecoder(..),
+    selectStructToListSubquery,
+    compositeToListDecoderTuple
+  )
 import qualified Massalia.UtilsGQL as Paginated
+
+type SubSelectConstraint qf filterT childrenT = (
+    SelectConstraint qf filterT,
+    SQLSelect qf filterT childrenT,
+    SQLRecord qf filterT childrenT
+  )
+
+basicDecodeSubquery ::
+  forall qf parentFilterT filterT fatherT childrenT treeNode.
+  (
+    SubSelectConstraint qf filterT childrenT,
+    MassaliaTree treeNode
+  ) =>
+  (qf -> SelectStruct qf) ->
+  (parentFilterT -> Maybe (Paginated filterT)) ->
+  Maybe parentFilterT ->
+  DecodeOption ->
+  treeNode ->
+  (Text -> qf, DecodeTuple [childrenT])
+basicDecodeSubquery inputFn filterAccessor filterParent opt selection = (listSubquery, newDecoder)
+  where
+    newDecoder = compositeToListDecoderTuple $ decoder subQueryRaw
+    listSubquery name = selectStructToListSubquery $ query subQueryRaw <> inputFn decodedName
+      where decodedName = fromText $ decodeName opt name
+    selectOption = Just $ SQLSelectOption {selectDecodeOption = opt}
+    subQueryRaw = toSelectQuery @qf @filterT @childrenT @treeNode selectOption selection filterChild
+    filterChild = fromMaybe Paginated.defaultPaginated (join $ filterAccessor <$> filterParent)
+
 
 basicQueryAndDecoder :: (
     SelectConstraint qf filterType,
@@ -82,20 +119,24 @@ basicQueryAndDecoder :: (
   -- | The sql table name (or alias).
   Text ->
   -- | A set of options
-  Maybe SQLSelectOptions ->
+  Maybe SQLSelectOption ->
   -- | The selection set (in the form of a 'Tree' interface)
   selectionType ->
   -- | The node's filter type
   Paginated filterType ->
   -- | A query for this node with all its decoder
   QueryAndDecoder qf nodeType
-basicQueryAndDecoder instanceName _ selection filterValue = QueryAndDecoder {
+basicQueryAndDecoder instanceName maybeOpt selection filterValue = QueryAndDecoder {
         query=queryWithColumnList,
         decoder=decoderVal
       }
     where
       queryWithColumnList = rawQuery <> mempty{_select = colList}
-      (colList, decoderVal) = toColumnListAndDecoder (SQLRecordConfig realInstanceName) selection realFilterValue
+      (colList, decoderVal) = toColumnListAndDecoder recordOpt selection realFilterValue
+      recordOpt = defaultRecordConfig {
+          columnPrefix = realInstanceName,
+          recordDecodeOption=fromMaybe mempty (selectDecodeOption <$> maybeOpt)
+        }
       realFilterValue = Paginated.filtered filterValue
       rawQuery = basicEntityQuery (fromText $ realInstanceName) filterValue
       realInstanceName = instanceName
@@ -107,10 +148,10 @@ basicEntityQuery :: (
     SelectConstraint queryFormat filterT
   ) =>
   queryFormat -> Paginated filterT -> SelectStruct queryFormat
-basicEntityQuery name filter = mempty
+basicEntityQuery name filtValue = mempty
       { _from = Just name,
-        _where = toQueryFormatFilter Nothing <$> (Paginated.filtered filter),
-        _offsetLimit = Just (sqlEncode <$> Paginated.offset filter, sqlEncode $ fromMaybe 10000 $ Paginated.first filter)
+        _where = toQueryFormatFilter Nothing <$> (Paginated.filtered filtValue),
+        _offsetLimit = Just (sqlEncode <$> Paginated.offset filtValue, sqlEncode $ fromMaybe 10000 $ Paginated.first filtValue)
       }
 
 type SelectConstraint qf filterType = (
@@ -397,16 +438,21 @@ columnList = fromString $ toCSVInParens (sqlColumns @a)
 class SQLDefault nodeType where
   getDefault :: nodeType
 
-data SQLSelectOptions = SQLSelectOptions {
-  ok :: Bool
+data SQLSelectOption = SQLSelectOption {
+  selectDecodeOption :: DecodeOption
 }
 data SQLRecordConfig = SQLRecordConfig {
-  columnPrefix :: Text
+  columnPrefix :: Text,
+  recordDecodeOption :: DecodeOption
+}
+defaultRecordConfig = SQLRecordConfig {
+  columnPrefix = mempty,
+  recordDecodeOption = mempty
 }
 
 class SQLSelect queryFormat filterType nodeType | nodeType -> filterType where
   toSelectQuery :: (MassaliaTree selectionType, SQLRecord queryFormat filterType nodeType) =>
-    Maybe SQLSelectOptions ->
+    Maybe SQLSelectOption ->
     -- | The selection set (in the form of a 'Tree' interface)
     selectionType ->
     -- | The node's filter type
@@ -490,7 +536,9 @@ instance (
         decoderWrapper = ((M1 . K1) <$>) . Decoders.field
         columnInstanceWrapper = pure . (columnPrefixVal &)
         decoded = (columnFn, nullability decValue)
-        (columnFn, DecodeTuple decValue nullability) = sqlDecode @queryFormat @filterType @t filterValue childTree
+        (columnFn, DecodeTuple decValue nullability) = decodeRes
+        decodeRes = sqlDecode @queryFormat @filterType @t filterValue decOption childTree
+        decOption = recordDecodeOption opt
         columnPrefixVal = fromText $ columnPrefix opt
     where
       lookupRes = MassaliaTree.lookupChildren key selection

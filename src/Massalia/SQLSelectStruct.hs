@@ -13,6 +13,8 @@ module Massalia.SQLSelectStruct
     QueryAndDecoder (..),
     compositeToListArray,
     selectStructToListSubquery,
+    decoderToListSubdecoder,
+    compositeToListDecoderTuple,
     selectStructToQueryFormat,
     queryAndDecoderToListSubquery,
     queryAndDecoderToSnippetAndResult,
@@ -73,7 +75,15 @@ queryAndDecoderToListSubquery struct = (assembled, DecodeTuple newDecoder Decode
     assembled = selectStructToListSubquery (query struct)
     newDecoder = compositeToListArray $ decoder struct
  
-compositeToListArray = Decoders.listArray . Decoders.nonNullable . Decoders.composite
+compositeToListArray :: Decoders.Composite element -> Decoders.Value [element]
+compositeToListArray = valueToListArray . Decoders.composite
+valueToListArray :: Decoders.Value element -> Decoders.Value [element]
+valueToListArray = Decoders.listArray . Decoders.nonNullable
+compositeToListDecoderTuple :: Decoders.Composite decoder -> DecodeTuple [decoder]
+compositeToListDecoderTuple input = DecodeTuple (compositeToListArray input) Decoders.nonNullable
+decoderToListSubdecoder :: DecodeTuple decoder -> DecodeTuple [decoder]
+decoderToListSubdecoder (DecodeTuple dec _) = DecodeTuple (valueToListArray dec) Decoders.nonNullable
+
 
 selectStructToListSubquery ::
   QueryFormat queryFormat =>

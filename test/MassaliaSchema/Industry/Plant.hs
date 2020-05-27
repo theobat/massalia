@@ -38,7 +38,10 @@ import Massalia.QueryFormat
     FromText(fromText),
     QueryFormat,
     SQLEncoder(sqlEncode),
-    SQLDecoder(sqlDecode)
+    SQLDecoder(sqlDecode),
+    joinEq,
+    simpleEq,
+    (°)
   )
 import Massalia.SQLSelectStruct (
   SelectStruct(..), QueryAndDecoder(..), selectStructToListSubquery,
@@ -52,11 +55,6 @@ import Protolude hiding (first)
 import qualified MassaliaSchema.Industry.PlantFilter as PlantFilter
 import MassaliaSchema.Industry.PlantFilter (PlantFilter, plantFilterTest)
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
-import Massalia.SQLClass (
-    SelectConstraint,
-    basicQueryAndDecoder,
-    SQLFilter(toQueryFormatFilter)
-  )
 import Data.Morpheus.Types (unsafeInternalContext)
 import Massalia.Utils (LocalTime, Day)
 import Massalia.UtilsGQL (Paginated, defaultPaginated)
@@ -65,7 +63,12 @@ import Massalia.SQLClass (
     SQLRecord(toColumnListAndDecoder),
     SQLSelect(toSelectQuery),
     SQLDefault(getDefault),
-    SQLRecordConfig(..)
+    SQLRecordConfig(..),
+    SQLFilter(toQueryFormatFilter),
+    SelectConstraint,
+    SubSelectConstraint,
+    basicDecodeSubquery,
+    basicQueryAndDecoder
   )
 
 data Plant
@@ -86,20 +89,17 @@ instance (
   toSelectQuery = basicQueryAndDecoder "plant"
 
 instance (
-    QueryFormat queryFormat,
-    SQLFilter queryFormat TruckFilter,
-    SQLRecord queryFormat TruckFilter Truck
+    SubSelectConstraint queryFormat TruckFilter Truck
   ) => SQLDecoder queryFormat PlantFilter [Truck] where
-  sqlDecode filterParent selection = (const qer, dec)
+  sqlDecode = basicDecodeSubquery joinFn PlantFilter.truckList
     where
-      (qer, dec) = queryAndDecoderToListSubquery queryUpdated
-      queryUpdated = subQueryRaw{query = query subQueryRaw <> mempty {
-        _join = ["JOIN truck_plant ON truck.id=truck_plant.truck_id"],
-        _where = Just ("truck_plant.plant_id=" <> "plant" <> ".id"),
-        _groupBy = ["plant.id"]
-      }}
-      subQueryRaw = toSelectQuery Nothing selection filterChild
-      filterChild = fromMaybe defaultPaginated (join $ PlantFilter.truckList <$> filterParent)
+      joinFn name = mempty {
+        _join = [joinEq truckPlantName "truck_id" truckName "id"],
+        _where = Just $ simpleEq truckPlantName "plant_id" name "id",
+        _groupBy = [name ° "id"]
+      }
+      truckPlantName = "truck_plant"
+      truckName = "truck"
 
 instance SQLDefault Plant where
   getDefault = defaultPlant

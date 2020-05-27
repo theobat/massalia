@@ -25,6 +25,7 @@ module Massalia.QueryFormat
   ( QueryFormat,
     SQLEncoder (sqlEncode, wrapEncoding, ignoreInGenericInstance),
     SQLDecoder(sqlDecode),
+    DecodeOption(DecodeOption),
     DecodeTuple (DecodeTuple),
     FromText(fromText),
     IsString(fromString),
@@ -33,29 +34,29 @@ module Massalia.QueryFormat
     TextQuery,
     commaAssemble,
     (§),
+    (°),
+    joinEq,
+    simpleEq,
     takeParam,
     takeMaybeParam,
     Snippet.param,
     inSingleQuote,
     inParens,
-    commaSepInParens
+    commaSepInParens,
+    decodeName
   )
 where
-import Data.Coerce (coerce)
-import Data.Foldable (foldr1)
-import Data.Int (Int64)
 import Massalia.SelectionTree (MassaliaTree(getName))
-import Data.Sequence (Seq)
-import Massalia.UtilsGQL (Paginated, filtered)
-import Data.String (String, IsString)
+import qualified Data.Map as Map
+import Massalia.UtilsGQL (Paginated)
+import Data.String (String)
 import qualified Data.String as String (IsString (fromString))
-import Data.Text (Text, pack, replace, unpack)
+import Data.Text (pack, replace, unpack)
 import Data.UUID hiding (fromText, fromString)
 import Data.Vector (Vector)
 import Hasql.DynamicStatements.Snippet (Snippet)
 import qualified Hasql.DynamicStatements.Snippet as Snippet
-import Hasql.Encoders (NullableOrNot, Value)
-import Hasql.Implicits.Encoders (DefaultParamEncoder (defaultParam))
+import Hasql.Implicits.Encoders (DefaultParamEncoder)
 import Massalia.Utils (
     EmailAddress, LocalTime,
     Day, Scientific, UTCTime,
@@ -74,6 +75,21 @@ type TextQuery = Text
 -- It enables the representation of a query alongside it's parametrized values.
 -- It has no instance of show, which explains the presence of its 'TextQuery' counterpart.
 type BinaryQuery = Snippet
+
+-- | The ° operator is taking a table name (or an sql alias) and a field name (or a field alias) and
+-- yields their escaped combination.
+-- 
+-- Examples:
+-- >>> "foo" ° "bar"
+-- \"fooo\".\"bar\"
+(°) :: (Semigroup a, IsString a) => a -> a -> a
+(°) a b = "\"" <> a <> "\".\"" <> b <> "\""
+
+joinEq :: (Semigroup a, IsString a) => a -> a -> a -> a -> a
+joinEq tableA fieldA tableB fieldB = "JOIN \"" <> tableA <> "\" ON " <> joinCondition
+  where joinCondition = simpleEq tableA fieldA tableB fieldB
+simpleEq :: (Semigroup a, IsString a) => a -> a -> a -> a -> a
+simpleEq tableA fieldA tableB fieldB = (tableA ° fieldA) <> " = " <> (tableB ° fieldB)
 
 (§) :: (IsString content, Monoid content) => content -> content -> content
 (§) a b = a <> "," <> b
@@ -122,6 +138,7 @@ class (QueryFormat queryFormat) =>
   wrapEncoding = identity
   sqlEncode :: underlyingType -> queryFormat
 
+voidMessage :: Text
 voidMessage = "cannot happen because Void has no inhabitant and sqlEncode expect Void -> queryFormat"
 instance SQLEncoder Text Void where
   sqlEncode = panic $ "(SQLEncoder Text Void)" <> voidMessage
@@ -201,17 +218,30 @@ collectionTextEncode collection = wrapCollection assembled
 scalar ::
   (QueryFormat queryFormat, MassaliaTree a ) =>
   Decoders.Value decodedT ->
+  DecodeOption ->
   a ->
-  (queryFormat -> queryFormat, DecodeTuple decodedT)
-scalar decoder input = (col, (DecodeTuple decoder Decoders.nonNullable))
-  where col tablename = "\"" <> tablename <> "\".\"" <> (fromText $ getName input) <> "\""
+  (Text -> queryFormat, DecodeTuple decodedT)
+scalar decoder decOption input = (col, (DecodeTuple decoder Decoders.nonNullable))
+  where
+    col rawName = "\"" <> tablename <> "\".\"" <> (fromText $ getName input) <> "\""
+      where tablename = fromText $ decodeName decOption rawName
 
 data DecodeTuple decodedT = DecodeTuple (Decoders.Value decodedT) (Decoders.Value decodedT -> Decoders.NullableOrNot Decoders.Value decodedT)
   
+data DecodeOption = DecodeOption {
+  nameMap :: Map Text Text
+} deriving (Show)
+instance Semigroup DecodeOption where
+  (<>) a b = DecodeOption {nameMap = nameMap a <> nameMap b}
+instance Monoid DecodeOption where
+  mempty = DecodeOption { nameMap = mempty }
+decodeName :: DecodeOption -> Text -> Text
+decodeName decOpt name = fromMaybe name (Map.lookup name $ nameMap decOpt)
+
 -- | A class to decode
 class (QueryFormat qf) => SQLDecoder qf filterType decodedT where
   sqlDecode :: (QueryFormat qf, MassaliaTree treeNode) =>
-    (Maybe filterType) -> treeNode -> (qf -> qf, DecodeTuple decodedT)
+    Maybe filterType -> DecodeOption -> treeNode -> (Text -> qf, DecodeTuple decodedT)
 instance (QueryFormat qf) => SQLDecoder qf filterType UUID where
   sqlDecode _ = scalar Decoders.uuid
 
@@ -238,7 +268,7 @@ instance (
     SQLDecoder qf filterType a,
     QueryFormat qf
   ) => SQLDecoder qf filterType (Maybe a) where
-  sqlDecode maybeFilter tree = fmap action $ sqlDecode maybeFilter tree
+  sqlDecode maybeFilter opt tree = fmap action $ sqlDecode maybeFilter opt tree
     where
       action (DecodeTuple decoder _) = DecodeTuple
         (const Nothing <$> decoder) (const $ Decoders.nullable decoder) 
