@@ -47,7 +47,6 @@ where
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Data (Data)
 import Data.Functor.Contravariant ((>$<))
-import Data.Morpheus.Types (GQLType (description))
 import Data.Proxy (Proxy (Proxy))
 import Data.String as StringUtils (IsString (fromString))
 import Data.UUID
@@ -61,7 +60,8 @@ import Massalia.QueryFormat (
   )
 import Massalia.Utils (Day, LocalTime, SimpleRange(..), Inclusivity(..))
 import qualified Massalia.Utils as MassaliaUtils (intercalate, intercalateMap)
-
+import Data.Morpheus.Types (KIND, GQLType (description))
+import Data.Morpheus.Kind (INPUT)
 import Protolude
 
 type GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType
@@ -90,12 +90,14 @@ deriving instance
   (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType, Ord ordScalarType) =>
   ToJSON (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
 
-deriving instance
+instance
   (
     Typeable eqScalarType, Typeable likeScalarType, Typeable ordScalarType,
     GQLType eqScalarType, GQLType likeScalarType, GQLType ordScalarType
   ) =>
-  GQLType (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)
+  GQLType (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) where
+  type KIND (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) = INPUT
+
 
 -- eq
 type GQLFilterUUID (fieldName :: Symbol) = GQLFilterUUIDCore

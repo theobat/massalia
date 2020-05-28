@@ -64,7 +64,7 @@ instance GQLType JWTEncodedString where
   type KIND JWTEncodedString = SCALAR
 
 instance GQLScalar Void where
-  parseValue _ = panic "Impossible, trying to parse to void"
+  parseValue _ = Left "Impossible, trying to parse to void (that is, this field should be null or undefined)"
   serialize _ = panic "Impossible, trying to serialize void"
 
 instance GQLType Void where
