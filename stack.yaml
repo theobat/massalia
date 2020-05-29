@@ -77,15 +77,12 @@ extra-deps:
   - hasql-implicits-0.1.0.1@sha256:93581bf006dbb2641930c41c647b5a42c87064aa6a4feaa7dee6af8e58ccd7af,1388
   - ptr-0.16.6.1@sha256:8487350b1db776a94c811590b177e113f34b4e1f26782a158932e57bc5f236ab,2961
   - bug-1.0.1@sha256:a516df91c7330d350480a7d338af645f173d1e767450c5f94295020f11c8432c,1395
+  - morpheus-graphql-core-0.12.0@sha256:e7ec1f041cba294ce57a6caee4215b47a291239aef688fb3db71864fdf311539,4959
+  - morpheus-graphql-0.12.0@sha256:01e39bf3bcb9315ede629ea379c3cf6d9946c102ed6cc3c6ca777181209d7d8a,26505
   - git: https://github.com/theobat/hasql-url.git
     commit: e41c9bc3179c36878e8c865685ff2be17a8ecef4
   - git: https://github.com/theobat/hasql-migration.git
     commit: 81b1aaaff38a31cd5a74933380027ab9c6dc2efb
     subdirs:
       - .
-  - git: https://github.com/theobat/morpheus-graphql.git
-    commit: cb7e1a60887b1997bc850b32c621204778f696f0
-    subdirs:
-      - .
-      - morpheus-graphql-core
   

@@ -33,6 +33,20 @@ packages:
   original:
     hackage: bug-1.0.1@sha256:a516df91c7330d350480a7d338af645f173d1e767450c5f94295020f11c8432c,1395
 - completed:
+    hackage: morpheus-graphql-core-0.12.0@sha256:e7ec1f041cba294ce57a6caee4215b47a291239aef688fb3db71864fdf311539,4959
+    pantry-tree:
+      size: 5874
+      sha256: 780807447f4cf1c3eba6fc91e6efb76f374ed5901c5a17166fc69f8e4206db7b
+  original:
+    hackage: morpheus-graphql-core-0.12.0@sha256:e7ec1f041cba294ce57a6caee4215b47a291239aef688fb3db71864fdf311539,4959
+- completed:
+    hackage: morpheus-graphql-0.12.0@sha256:01e39bf3bcb9315ede629ea379c3cf6d9946c102ed6cc3c6ca777181209d7d8a,26505
+    pantry-tree:
+      size: 37705
+      sha256: 1e408ec4673f27ba70db2bf872343ed0456262a07b18ad3728d32b7c6c71d33a
+  original:
+    hackage: morpheus-graphql-0.12.0@sha256:01e39bf3bcb9315ede629ea379c3cf6d9946c102ed6cc3c6ca777181209d7d8a,26505
+- completed:
     name: hasql-url
     version: 0.1.0.0
     git: https://github.com/theobat/hasql-url.git
@@ -56,32 +70,6 @@ packages:
     subdir: .
     git: https://github.com/theobat/hasql-migration.git
     commit: 81b1aaaff38a31cd5a74933380027ab9c6dc2efb
-- completed:
-    subdir: .
-    name: morpheus-graphql
-    version: 0.11.0
-    git: https://github.com/theobat/morpheus-graphql.git
-    pantry-tree:
-      size: 46629
-      sha256: 2bfce5ba5c108e1955eae3bb7aa6169a11eb48d70d773ad5b10d05253b273b14
-    commit: cb7e1a60887b1997bc850b32c621204778f696f0
-  original:
-    subdir: .
-    git: https://github.com/theobat/morpheus-graphql.git
-    commit: cb7e1a60887b1997bc850b32c621204778f696f0
-- completed:
-    subdir: morpheus-graphql-core
-    name: morpheus-graphql-core
-    version: 0.11.0
-    git: https://github.com/theobat/morpheus-graphql.git
-    pantry-tree:
-      size: 5757
-      sha256: f773866771a5d5b63320f3a781a721bf076819e82322d88f384ddc52c511b6a7
-    commit: cb7e1a60887b1997bc850b32c621204778f696f0
-  original:
-    subdir: morpheus-graphql-core
-    git: https://github.com/theobat/morpheus-graphql.git
-    commit: cb7e1a60887b1997bc850b32c621204778f696f0
 snapshots:
 - completed:
     size: 491372

@@ -20,6 +20,7 @@ import Data.Morpheus.Types (
     Resolver, unsafeInternalContext,
   )
 import qualified Data.Map as Map
+import Data.Morpheus.Types.Internal.AST (FieldName(readName))
 import Protolude
 
 -- | A tree structure but with indexed-by-name children
@@ -62,14 +63,16 @@ fromMorpheusContext Context{currentSelection = input} = morpheusNodeToMassaliaNo
 
 morpheusNodeToMassaliaNode :: (SelectionTree a) => a -> MassaliaNode
 morpheusNodeToMassaliaNode input
-  | MorpheusTree.isLeaf input = leaf $ MorpheusTree.getName input
+  | MorpheusTree.isLeaf input = leaf $ textName
   | otherwise = MassaliaNode {
-      name = MorpheusTree.getName input,
+      name = textName,
       children = Map.fromList childrenList 
     }
     where
+      textName = getTextName input
+      getTextName = readName . MorpheusTree.getName
       childrenList = transformer <$> MorpheusTree.getChildrenList input
-      transformer morpheusNode = (MorpheusTree.getName morpheusNode, morpheusNodeToMassaliaNode morpheusNode)
+      transformer morpheusNode = (readName $ MorpheusTree.getName morpheusNode, morpheusNodeToMassaliaNode morpheusNode)
 
 instance MassaliaTree MassaliaNode where
   isLeaf = (Map.null . children)
