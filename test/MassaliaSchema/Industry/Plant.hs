@@ -60,7 +60,7 @@ import Massalia.Utils (LocalTime, Day)
 import Massalia.UtilsGQL (Paginated, defaultPaginated)
 import qualified Massalia.UtilsGQL as Paginated(first, offset, filtered)
 import Massalia.SQLClass (
-    SQLRecord(toColumnListAndDecoder),
+    SQLRecord,
     SQLSelect(toSelectQuery),
     SQLDefault(getDefault),
     SQLRecordConfig(..),

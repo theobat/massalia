@@ -47,12 +47,13 @@ import Massalia.QueryFormat
   (
     QueryFormat,
     FromText(fromText),
-    SQLEncoder(sqlEncode, ignoreInGenericInstance),
+    SQLEncoder(sqlEncode),
     SQLDecoder(sqlDecode),
     DecodeTuple (DecodeTuple),
     BinaryQuery,
     DecodeOption,
     decodeName,
+    defaultDecodeTuple,
     inParens
   )
 import Massalia.Filter (GQLScalarFilter, FilterConstraint, filterFieldToMaybeContent)
@@ -84,10 +85,37 @@ import Massalia.SQLSelectStruct (
 import qualified Massalia.UtilsGQL as Paginated
 
 type SubSelectConstraint qf filterT childrenT = (
+    QueryFormat qf,
     SelectConstraint qf filterT,
     SQLSelect qf filterT childrenT,
     SQLRecord qf filterT childrenT
   )
+
+-- | This is a utility function to facilitate the writing
+-- of SQLDecode for inner records.
+basicDecodeInnerRecord :: 
+  forall qf parentFilterT filterT childrenT treeNode.
+  (
+    QueryFormat qf,
+    SQLRecord qf (Paginated filterT) childrenT,
+    MassaliaTree treeNode
+  ) =>
+  (parentFilterT -> Maybe (Paginated filterT)) ->
+  Maybe parentFilterT ->
+  DecodeOption ->
+  treeNode ->
+  (Text -> qf, DecodeTuple childrenT)
+basicDecodeInnerRecord filterAccessor filterVal opt selection = result
+  where
+    result = (colListQFThunk, defaultDecodeTuple $ Decoders.composite decoderVal)
+    colListQFThunk name = "row(" <> intercalate "," (colListThunk name) <> ")"
+    (colListThunk, decoderVal) = toColumnListAndDecoder @qf recordConfig selection realFilterValue
+    recordConfig = SQLRecordConfig {
+      recordDecodeOption = opt
+    }
+    realFilterValue = join (filterAccessor <$> filterVal)
+
+
 
 -- | A utility function to build a list subquery within an existing query.
 -- It's meant to be used in SQLDecode.
@@ -174,15 +202,16 @@ basicQueryAndDecoder instanceName maybeOpt selection filterValue = QueryAndDecod
         decoder=decoderVal
       }
     where
-      queryWithColumnList = rawQuery <> mempty{_select = colList}
-      (colList, decoderVal) = toColumnListAndDecoder recordOpt selection realFilterValue
+      queryWithColumnList = rawQuery <> mempty{
+          _select = colListThunk instanceName
+        }
+      (colListThunk, decoderVal) = toColumnListAndDecoder recordOpt selection realFilterValue
       recordOpt = defaultRecordConfig {
-          columnPrefix = realInstanceName,
           recordDecodeOption=fromMaybe mempty (selectDecodeOption <$> maybeOpt)
         }
       realFilterValue = Paginated.filtered filterValue
-      rawQuery = basicEntityQuery (fromText $ realInstanceName) filterValue
-      realInstanceName = instanceName
+      rawQuery = basicEntityQuery realInstanceName filterValue
+      realInstanceName = fromText instanceName
       
 
 -- | This yields a query with no selection but integrate filter inlining
@@ -476,11 +505,9 @@ data SQLSelectOption = SQLSelectOption {
   selectDecodeOption :: DecodeOption
 }
 data SQLRecordConfig = SQLRecordConfig {
-  columnPrefix :: Text,
   recordDecodeOption :: DecodeOption
 }
 defaultRecordConfig = SQLRecordConfig {
-  columnPrefix = mempty,
   recordDecodeOption = mempty
 }
 
@@ -504,17 +531,17 @@ class SQLRecord queryFormat filterType domainType where
     -- | The node's filter type.
     Maybe filterType ->
     -- | A queryFormatted list of columns and a Hasql decoder.
-    ([queryFormat], Composite domainType)
+    (Text -> [queryFormat], Composite domainType)
   default toColumnListAndDecoder :: (
       SQLDefault domainType,
       MassaliaTree selectionType,
       GSQLRecord queryFormat filterType (Rep domainType),
       Generic domainType
     ) =>
-    SQLRecordConfig -> selectionType -> Maybe filterType -> ([queryFormat], Composite domainType)
-  toColumnListAndDecoder opt selectionVal filterVal = (selList, to <$> gdeco)
+    SQLRecordConfig -> selectionType -> Maybe filterType -> (Text -> [queryFormat], Composite domainType)
+  toColumnListAndDecoder opt selectionVal filterVal = (colListThunk, to <$> gdeco)
     where
-      (selList, gdeco) = gtoColumnListAndDecoder @queryFormat opt selectionVal filterVal defaultVal
+      (colListThunk, gdeco) = gtoColumnListAndDecoder @queryFormat opt selectionVal filterVal defaultVal
       defaultVal = from $ getDefault @domainType
 
 class GSQLRecord queryFormat filterType (rep :: * -> *) where
@@ -527,12 +554,8 @@ class GSQLRecord queryFormat filterType (rep :: * -> *) where
     Maybe filterType ->
     -- | The node's default value
     (rep domainType) ->
-    -- | A queryFormatted list of columns and a Hasql decoder.
-    ([queryFormat], Composite (rep domainType))
-
--- | A priori this instance should not exist
--- instance GSQLSelect queryFormat filterType U1 where
---   gtoSelectQuery _ _ _ U1 = panic "whaat ?"
+    -- | A queryFormatted list of columns (parametrized by tablename) and a Hasql decoder.
+    (Text -> [queryFormat], Composite (rep domainType))
 
 -- | Use the Monad instance of the composite hasql type
 -- It's where the magic happens
@@ -540,7 +563,8 @@ instance (GSQLRecord queryFormat filterType a, GSQLRecord queryFormat filterType
   GSQLRecord queryFormat filterType (a :*: b) where
   gtoColumnListAndDecoder opt selectionVal filterVal (a :*: b) = result
     where
-      result = (structA <> structB, compoCombined)
+      result = (combineCols, compoCombined)
+      combineCols input = structA input <> structB input
       (structA, compoA) = gtoColumnListAndDecoder opt selectionVal filterVal a
       (structB, compoB) = gtoColumnListAndDecoder opt selectionVal filterVal b
       compoCombined = do
@@ -563,17 +587,16 @@ instance (
   ) =>
   GSQLRecord queryFormat filterType (M1 S s (K1 R t)) where
   gtoColumnListAndDecoder opt selection filterValue defaultValue = case lookupRes of
-    Nothing -> (mempty, pure defaultValue)
+    Nothing -> (const mempty, pure defaultValue)
     Just childTree -> result
       where
-        result = bimap columnInstanceWrapper decoderWrapper decoded
+        result = bimap fnWrapper decoderWrapper decoded
+        fnWrapper fn qfName = [fn qfName]
         decoderWrapper = ((M1 . K1) <$>) . Decoders.field
-        columnInstanceWrapper = pure . (columnPrefixVal &)
         decoded = (columnFn, nullability decValue)
         (columnFn, DecodeTuple decValue nullability) = decodeRes
         decodeRes = sqlDecode @queryFormat @filterType filterValue decOption childTree
         decOption = recordDecodeOption opt
-        columnPrefixVal = fromText $ columnPrefix opt
     where
       lookupRes = MassaliaTree.lookupChildren key selection
       key = (fromString $ selName (undefined :: M1 S s (K1 R t) ()))

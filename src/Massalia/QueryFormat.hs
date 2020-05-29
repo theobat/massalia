@@ -29,6 +29,7 @@ module Massalia.QueryFormat
     SQLDecoder(sqlDecode),
     DecodeOption(DecodeOption),
     DecodeTuple (DecodeTuple),
+    defaultDecodeTuple,
     FromText(fromText),
     IsString(fromString),
     DefaultParamEncoder,
@@ -233,6 +234,12 @@ data DecodeTuple decodedT = DecodeTuple {
   decValue :: Decoders.Value decodedT,
   decNValue :: Decoders.Value decodedT -> Decoders.NullableOrNot Decoders.Value decodedT
 }
+defaultDecodeTuple :: Decoders.Value decodedT -> DecodeTuple decodedT
+defaultDecodeTuple value = DecodeTuple {
+  decValue = value,
+  decNValue = Decoders.nonNullable
+}
+
 instance Functor DecodeTuple where
   fmap typeChanger (DecodeTuple decoder nDecoder) = DecodeTuple (typeChanger <$> decoder) Decoders.nonNullable
 
