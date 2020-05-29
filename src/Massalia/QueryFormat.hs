@@ -272,8 +272,9 @@ instance (QueryFormat qf) => SQLDecoder qf filterType EmailAddress where
   sqlDecode _ = scalar (Decoders.custom $ const emailValidateText)
 instance (QueryFormat qf) => SQLDecoder qf filterType Int64 where
   sqlDecode _ = scalar Decoders.int8
--- instance (QueryFormat qf) => SQLDecoder qf filterType Int where
---   sqlDecode _ a b = ((fromIntegral <$>) . snd) $ scalar Decoders.int8
+instance (QueryFormat qf) => SQLDecoder qf filterType Int where
+  sqlDecode _ = scalar (fromIntegral <$> Decoders.int8)
+ 
 instance (QueryFormat qf) => SQLDecoder qf filterType LocalTime where
   sqlDecode _ = scalar Decoders.timestamp
 instance (QueryFormat qf) => SQLDecoder qf filterType Day where
