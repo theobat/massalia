@@ -46,7 +46,6 @@ module Massalia.QueryFormat
     inParens,
     commaSepInParens,
     decodeName,
-    UUIDWrapper
   )
 where
 import Massalia.SelectionTree (MassaliaTree(getName))
