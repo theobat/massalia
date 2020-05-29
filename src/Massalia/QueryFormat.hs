@@ -30,6 +30,7 @@ module Massalia.QueryFormat
     DecodeOption(DecodeOption),
     DecodeTuple (DecodeTuple),
     defaultDecodeTuple,
+    refineDecoder,
     FromText(fromText),
     IsString(fromString),
     DefaultParamEncoder,
@@ -239,9 +240,12 @@ defaultDecodeTuple value = DecodeTuple {
   decValue = value,
   decNValue = Decoders.nonNullable
 }
+refineDecoder :: (a -> Either Text b) -> DecodeTuple a -> DecodeTuple b
+refineDecoder refiner (DecodeTuple decoder _) = result
+  where result = DecodeTuple (Decoders.refine refiner decoder) Decoders.nonNullable
 
 instance Functor DecodeTuple where
-  fmap typeChanger (DecodeTuple decoder nDecoder) = DecodeTuple (typeChanger <$> decoder) Decoders.nonNullable
+  fmap typeChanger (DecodeTuple decoder _) = DecodeTuple (typeChanger <$> decoder) Decoders.nonNullable
 
 data DecodeOption = DecodeOption {
   nameMap :: Map Text Text
