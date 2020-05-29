@@ -124,8 +124,8 @@ emailDefault = [email|default@default.com|]
 
 --------------- Time/Day/Timestamp
 
-localTimeDefault = LocalTime (ModifiedJulianDay 0) midnight  
-
+localTimeDefault = LocalTime dayDefault midnight  
+dayDefault = (ModifiedJulianDay 0)  
 
 -- | A very simple snake_case converter. It's using 'Text' and
 -- folds over the characters to lower them and add an @"_"@ prefix

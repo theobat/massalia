@@ -16,12 +16,14 @@ where
 import Massalia.Utils (
     uuidNil,  
     emailDefault,
-    localTimeDefault
+    localTimeDefault,
+    dayDefault,
   )
 
 uuid = uuidNil
 email = emailDefault
 timestamptz = localTimeDefault
+date = dayDefault
 int = 0
 
 monoid :: (Monoid a) => a
