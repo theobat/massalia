@@ -67,7 +67,7 @@ import Massalia.SQLClass (
     SQLFilter(toQueryFormatFilter),
     SelectConstraint,
     SubSelectConstraint,
-    basicDecodeSubquery,
+    basicDecodeListSubquery,
     basicQueryAndDecoder
   )
 
@@ -91,7 +91,7 @@ instance (
 instance (
     SubSelectConstraint queryFormat TruckFilter Truck
   ) => SQLDecoder queryFormat PlantFilter [Truck] where
-  sqlDecode = basicDecodeSubquery joinFn PlantFilter.truckList
+  sqlDecode = basicDecodeListSubquery joinFn PlantFilter.truckList
     where
       joinFn name = mempty {
         _join = [joinEq truckPlantName "truck_id" truckName "id"],

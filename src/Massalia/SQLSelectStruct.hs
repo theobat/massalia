@@ -15,6 +15,8 @@ module Massalia.SQLSelectStruct
     selectStructToListSubquery,
     decoderToListSubdecoder,
     compositeToListDecoderTuple,
+    selectStructToRecordSubquery,
+    compositeToDecoderTuple,
     selectStructToQueryFormat,
     queryAndDecoderToListSubquery,
     queryAndDecoderToSnippetAndResult,
@@ -33,13 +35,10 @@ import Massalia.HasqlExec
   )
 import Massalia.QueryFormat
   ( BinaryQuery,
-    SQLEncoder (sqlEncode),
-    FromText(fromText),
     QueryFormat,
     DecodeTuple(DecodeTuple),
-    commaSepInParens
   )
-import Massalia.Utils (toUnderscore, intercalate, inParens)
+import Massalia.Utils (intercalate, inParens)
 import Protolude hiding (intercalate)
 
 data QueryAndDecoder queryFormat decoder
@@ -81,6 +80,8 @@ valueToListArray :: Decoders.Value element -> Decoders.Value [element]
 valueToListArray = Decoders.listArray . Decoders.nonNullable
 compositeToListDecoderTuple :: Decoders.Composite decoder -> DecodeTuple [decoder]
 compositeToListDecoderTuple input = DecodeTuple (compositeToListArray input) Decoders.nonNullable
+compositeToDecoderTuple :: Decoders.Composite decoder -> DecodeTuple decoder
+compositeToDecoderTuple input = DecodeTuple (Decoders.composite input) Decoders.nonNullable
 decoderToListSubdecoder :: DecodeTuple decoder -> DecodeTuple [decoder]
 decoderToListSubdecoder (DecodeTuple dec _) = DecodeTuple (valueToListArray dec) Decoders.nonNullable
 
@@ -89,10 +90,10 @@ selectStructToListSubquery ::
   QueryFormat queryFormat =>
   SelectStruct queryFormat -> queryFormat
 selectStructToListSubquery = inParens . (assembleSelectStruct [CoalesceArr, ArrayAgg, Row])
-
--- selectStructToSubquery ::
---   Maybe (Decoders.NullableOrNot Decoders.Value element -> Value (collection element)) ->
---   SelectStruct decoder queryFormat -> (queryFormat, Decoders.Value collection decoder)
+selectStructToRecordSubquery ::
+  QueryFormat queryFormat =>
+  SelectStruct queryFormat -> queryFormat
+selectStructToRecordSubquery = inParens . (assembleSelectStruct [Row])
 
 selectStructToQueryFormat :: (QueryFormat queryFormat) =>
   SelectStruct queryFormat ->

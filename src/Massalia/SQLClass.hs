@@ -32,7 +32,7 @@ module Massalia.SQLClass
     SubSelectConstraint,
     basicEntityQuery,
     basicQueryAndDecoder,
-    basicDecodeSubquery,
+    basicDecodeListSubquery,
     SQLSelect(toSelectQuery),
     SQLRecord(toColumnListAndDecoder),
     gsqlColumns,
@@ -75,8 +75,10 @@ import Protolude hiding (intercalate)
 import Massalia.SQLSelectStruct (
     SelectStruct(..),
     QueryAndDecoder(..),
+    selectStructToRecordSubquery,
     selectStructToListSubquery,
-    compositeToListDecoderTuple
+    compositeToListDecoderTuple,
+    compositeToDecoderTuple,
   )
 import qualified Massalia.UtilsGQL as Paginated
 
@@ -86,8 +88,31 @@ type SubSelectConstraint qf filterT childrenT = (
     SQLRecord qf filterT childrenT
   )
 
-basicDecodeSubquery ::
-  forall qf parentFilterT filterT fatherT childrenT treeNode.
+-- | A utility function to build a list subquery within an existing query.
+-- It's meant to be used in SQLDecode.
+basicDecodeRecordSubquery :: 
+  forall qf parentFilterT filterT childrenT treeNode.
+  (
+    SubSelectConstraint qf filterT childrenT,
+    MassaliaTree treeNode
+  ) =>
+  (qf -> SelectStruct qf) ->
+  (parentFilterT -> Maybe (Paginated filterT)) ->
+  Maybe parentFilterT ->
+  DecodeOption ->
+  treeNode ->
+  (Text -> qf, DecodeTuple childrenT)
+basicDecodeRecordSubquery inputFn filterAccessor filterParent opt selection = (listSubquery, newDecoder)
+  where
+    newDecoder = compositeToDecoderTuple $ decoder subQueryRaw
+    listSubquery name = selectStructToRecordSubquery $ query subQueryRaw <> inputFn decodedName
+      where decodedName = fromText $ decodeName opt name
+    subQueryRaw = basicDecodeSubquery filterAccessor filterParent opt selection
+
+-- | A utility function to build a list subquery within an existing query.
+-- It's meant to be used in SQLDecode.
+basicDecodeListSubquery ::
+  forall qf parentFilterT filterT childrenT treeNode.
   (
     SubSelectConstraint qf filterT childrenT,
     MassaliaTree treeNode
@@ -98,16 +123,36 @@ basicDecodeSubquery ::
   DecodeOption ->
   treeNode ->
   (Text -> qf, DecodeTuple [childrenT])
-basicDecodeSubquery inputFn filterAccessor filterParent opt selection = (listSubquery, newDecoder)
+basicDecodeListSubquery inputFn filterAccessor filterParent opt selection = (listSubquery, newDecoder)
   where
     newDecoder = compositeToListDecoderTuple $ decoder subQueryRaw
     listSubquery name = selectStructToListSubquery $ query subQueryRaw <> inputFn decodedName
       where decodedName = fromText $ decodeName opt name
-    selectOption = Just $ SQLSelectOption {selectDecodeOption = opt}
+    subQueryRaw = basicDecodeSubquery filterAccessor filterParent opt selection
+
+basicDecodeSubquery ::
+  forall qf parentFilterT filterT childrenT treeNode.
+  (
+    SubSelectConstraint qf filterT childrenT,
+    MassaliaTree treeNode
+  ) =>
+  (parentFilterT -> Maybe (Paginated filterT)) ->
+  Maybe parentFilterT ->
+  DecodeOption ->
+  treeNode ->
+  QueryAndDecoder qf childrenT
+basicDecodeSubquery filterAccessor filterParent opt selection = subQueryRaw
+  where
     subQueryRaw = toSelectQuery @qf @filterT @childrenT @treeNode selectOption selection filterChild
+    selectOption = Just $ SQLSelectOption {selectDecodeOption = opt}
     filterChild = fromMaybe Paginated.defaultPaginated (join $ filterAccessor <$> filterParent)
 
-
+-- | A simple building block for the 'toSelectQuery' function in the SQLSelect instance.
+-- It provides the equivalent of 
+-- @
+--  SELECT /*... the list of values extracted from the seleciton tree*/
+--  FROM /* the given table name */
+-- @
 basicQueryAndDecoder :: (
     SelectConstraint qf filterType,
     MassaliaTree selectionType,
