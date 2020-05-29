@@ -146,7 +146,7 @@ basicEntityQuery :: (
   ) =>
   queryFormat -> Paginated filterT -> SelectStruct queryFormat
 basicEntityQuery name filtValue = mempty
-      { _from = Just name,
+      { _from = Just ("\"" <> name <> "\""),
         _where = toQueryFormatFilter Nothing <$> (Paginated.filtered filtValue),
         _offsetLimit = Just (sqlEncode <$> Paginated.offset filtValue, sqlEncode $ fromMaybe 10000 $ Paginated.first filtValue)
       }

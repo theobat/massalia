@@ -45,7 +45,8 @@ module Massalia.QueryFormat
     inSingleQuote,
     inParens,
     commaSepInParens,
-    decodeName
+    decodeName,
+    UUIDWrapper
   )
 where
 import Massalia.SelectionTree (MassaliaTree(getName))
@@ -233,6 +234,7 @@ data DecodeTuple decodedT = DecodeTuple {
   decValue :: Decoders.Value decodedT,
   decNValue :: Decoders.Value decodedT -> Decoders.NullableOrNot Decoders.Value decodedT
 }
+instance Coercible 
 instance Functor DecodeTuple where
   fmap typeChanger (DecodeTuple decoder nDecoder) = DecodeTuple (typeChanger <$> decoder) Decoders.nonNullable
 
@@ -255,7 +257,6 @@ instance (QueryFormat qf) => SQLDecoder qf filterType UUID where
   sqlDecode _ = scalar Decoders.uuid
 instance (QueryFormat qf) => SQLDecoder qf filterType Text where
   sqlDecode _ = scalar Decoders.text
-
 instance (QueryFormat qf) => SQLDecoder qf filterType Bool where
   sqlDecode _ = scalar Decoders.bool
 instance (QueryFormat qf) => SQLDecoder qf filterType EmailAddress where
