@@ -234,7 +234,6 @@ data DecodeTuple decodedT = DecodeTuple {
   decValue :: Decoders.Value decodedT,
   decNValue :: Decoders.Value decodedT -> Decoders.NullableOrNot Decoders.Value decodedT
 }
-instance Coercible 
 instance Functor DecodeTuple where
   fmap typeChanger (DecodeTuple decoder nDecoder) = DecodeTuple (typeChanger <$> decoder) Decoders.nonNullable
 
