@@ -101,22 +101,20 @@ basicDecodeInnerRecord ::
     SQLRecord qf (Paginated filterT) childrenT,
     MassaliaTree treeNode
   ) =>
-  (parentFilterT -> Maybe (Paginated filterT)) ->
   Maybe parentFilterT ->
   DecodeOption ->
   treeNode ->
   (Text -> qf, DecodeTuple childrenT)
-basicDecodeInnerRecord filterAccessor filterVal opt selection = result
+basicDecodeInnerRecord filterVal opt selection = result
   where
     result = (colListQFThunk, defaultDecodeTuple $ Decoders.composite decoderVal)
     colListQFThunk name = "row(" <> intercalate "," (colListThunk name) <> ")"
-    (colListThunk, decoderVal) = toColumnListAndDecoder @qf recordConfig selection realFilterValue
+    (colListThunk, decoderVal) = toColumnListAndDecoder @qf recordConfig selection filterVal
     recordConfig = SQLRecordConfig {
       recordDecodeOption = opt
     }
-    realFilterValue = join (filterAccessor <$> filterVal)
-
-
+    filterVal :: Maybe (Paginated filterT)
+    filterVal = Nothing
 
 -- | A utility function to build a list subquery within an existing query.
 -- It's meant to be used in SQLDecode.
