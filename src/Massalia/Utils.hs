@@ -41,6 +41,7 @@ module Massalia.Utils
     TimeZone,
     UTCTime,
     localTimeDefault,
+    dayDefault,
     -- postgres numbers
     Scientific,
     -- PrettyPrint
