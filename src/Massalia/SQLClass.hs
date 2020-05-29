@@ -34,6 +34,7 @@ module Massalia.SQLClass
     basicQueryAndDecoder,
     basicDecodeRecordSubquery,
     basicDecodeListSubquery,
+    basicDecodeInnerRecord,
     SQLSelect(toSelectQuery),
     SQLRecord(toColumnListAndDecoder),
     gsqlColumns,
