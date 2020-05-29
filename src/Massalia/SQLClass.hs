@@ -95,17 +95,17 @@ type SubSelectConstraint qf filterT childrenT = (
 -- | This is a utility function to facilitate the writing
 -- of SQLDecode for inner records.
 basicDecodeInnerRecord :: 
-  forall qf parentFilterT filterT childrenT treeNode.
+  forall qf parentFilterT childrenT treeNode.
   (
     QueryFormat qf,
-    SQLRecord qf (Paginated filterT) childrenT,
+    forall a. SQLRecord qf a childrenT,
     MassaliaTree treeNode
   ) =>
   Maybe parentFilterT ->
   DecodeOption ->
   treeNode ->
   (Text -> qf, DecodeTuple childrenT)
-basicDecodeInnerRecord filterVal opt selection = result
+basicDecodeInnerRecord _ opt selection = result
   where
     result = (colListQFThunk, defaultDecodeTuple $ Decoders.composite decoderVal)
     colListQFThunk name = "row(" <> intercalate "," (colListThunk name) <> ")"
@@ -113,7 +113,7 @@ basicDecodeInnerRecord filterVal opt selection = result
     recordConfig = SQLRecordConfig {
       recordDecodeOption = opt
     }
-    filterVal = Nothing @(Paginated filterT)
+    filterVal = Nothing
 
 -- | A utility function to build a list subquery within an existing query.
 -- It's meant to be used in SQLDecode.
