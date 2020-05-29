@@ -113,8 +113,7 @@ basicDecodeInnerRecord filterVal opt selection = result
     recordConfig = SQLRecordConfig {
       recordDecodeOption = opt
     }
-    filterVal :: Maybe (Paginated filterT)
-    filterVal = Nothing
+    filterVal = Nothing @(Paginated filterT)
 
 -- | A utility function to build a list subquery within an existing query.
 -- It's meant to be used in SQLDecode.
