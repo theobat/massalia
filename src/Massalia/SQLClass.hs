@@ -52,13 +52,15 @@ import Massalia.QueryFormat
     SQLDecoder(sqlDecode),
     DecodeTuple (DecodeTuple),
     BinaryQuery,
-    DecodeOption,
+    DecodeOption(fieldPrefixType),
+    DecodeFieldPrefixType(CompositeField),
     decodeName,
     defaultDecodeTuple,
     inParens
   )
 import Massalia.Filter (GQLScalarFilter, FilterConstraint, filterFieldToMaybeContent)
 import Massalia.UtilsGQL (Paginated)
+import Massalia.Utils (unsafeSnakeCaseT)
 import Massalia.SQLUtils (insertIntoWrapper, selectWrapper, rowsAssembler)
 import Massalia.GenericUtils (GTypeName(gtypename), GSelectors(selectors))
 import Data.String (IsString(fromString))
@@ -71,7 +73,7 @@ import GHC.Generics (
     R
   )
 import Massalia.Utils (simpleSnakeCase, intercalate, toCSVInParens)
-import Massalia.SelectionTree(MassaliaTree)
+import Massalia.SelectionTree(MassaliaTree, getName)
 import qualified Massalia.SelectionTree as MassaliaTree
 import qualified Hasql.Decoders as Decoders 
 import Protolude hiding (intercalate)
@@ -108,10 +110,11 @@ basicDecodeInnerRecord ::
 basicDecodeInnerRecord _ opt selection = result
   where
     result = (colListQFThunk, defaultDecodeTuple $ Decoders.composite decoderVal)
-    colListQFThunk name = "row(" <> intercalate "," (colListThunk name) <> ")"
+    colListQFThunk name = "row(" <> intercalate "," (colListThunk compositeName) <> ")"
+      where compositeName = unsafeSnakeCaseT (name <> "." <> (getName selection))
     (colListThunk, decoderVal) = toColumnListAndDecoder @qf recordConfig selection filterVal
     recordConfig = SQLRecordConfig {
-      recordDecodeOption = opt
+      recordDecodeOption = opt{fieldPrefixType=CompositeField}
     }
     filterVal = Nothing
 

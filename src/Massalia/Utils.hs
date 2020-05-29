@@ -48,6 +48,7 @@ module Massalia.Utils
     pPrint,
     -- String
     simpleSnakeCase,
+    unsafeSnakeCaseT,
     inParens
   )
 where
@@ -128,11 +129,11 @@ emailDefault = [email|default@default.com|]
 localTimeDefault = LocalTime dayDefault midnight  
 dayDefault = (ModifiedJulianDay 0)  
 
--- | A very simple snake_case converter. It's using 'Text' and
--- folds over the characters to lower them and add an @"_"@ prefix
--- if the char is Upper case.
-naiveSnake :: Text -> Text
-naiveSnake = undefined -- TODO
+
+unsafeSnakeCaseT :: Text -> Text
+unsafeSnakeCaseT t = case toUnderscore t of
+  Left err -> t
+  Right r -> r
 
 -- | A very simple snake_case converter. It's using 'String' so
 -- unless you're doing type level programming it's not what you want.

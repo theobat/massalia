@@ -27,7 +27,8 @@ module Massalia.QueryFormat
   ( QueryFormat,
     SQLEncoder (sqlEncode, wrapEncoding, ignoreInGenericInstance),
     SQLDecoder(sqlDecode),
-    DecodeOption(DecodeOption),
+    DecodeOption(..),
+    DecodeFieldPrefixType(..),
     DecodeTuple (DecodeTuple),
     defaultDecodeTuple,
     refineDecoder,
@@ -66,7 +67,8 @@ import Massalia.Utils (
     EmailAddress, LocalTime,
     Day, Scientific, UTCTime,
     intercalate, intercalateMap, emailToText,
-    emailValidateText
+    emailValidateText,
+    unsafeSnakeCaseT
   )
 import qualified Hasql.Decoders as Decoders
 import Protolude hiding (intercalate, replace)
@@ -89,6 +91,7 @@ type BinaryQuery = Snippet
 -- \"fooo\".\"bar\"
 (°) :: (Semigroup a, IsString a) => a -> a -> a
 (°) a b = "\"" <> a <> "\".\"" <> b <> "\""
+
 
 joinEq :: (Semigroup a, IsString a) => a -> a -> a -> a -> a
 joinEq tableA fieldA tableB fieldB = "JOIN \"" <> tableA <> "\" ON " <> joinCondition
@@ -226,10 +229,14 @@ scalar ::
   DecodeOption ->
   a ->
   (Text -> queryFormat, DecodeTuple decodedT)
-scalar decoder decOption input = (col, (DecodeTuple decoder Decoders.nonNullable))
+scalar decoder decOption input = case fieldPrefixType decOption of
+  CompositeField -> (compo, (DecodeTuple decoder Decoders.nonNullable))
+  TableName -> (col, (DecodeTuple decoder Decoders.nonNullable))
   where
-    col rawName = "\"" <> tablename <> "\".\"" <> (fromText $ getName input) <> "\""
-      where tablename = fromText $ decodeName decOption rawName
+    compo rawName = "(" <> tablename rawName <> ").\"" <> colName <> "\""
+    col rawName = "\"" <> tablename rawName <> "\".\"" <> colName <> "\""
+    tablename rawName = fromText $ decodeName decOption rawName
+    colName = fromText $ unsafeSnakeCaseT $ getName input
 
 data DecodeTuple decodedT = DecodeTuple {
   decValue :: Decoders.Value decodedT,
@@ -247,15 +254,27 @@ refineDecoder refiner (DecodeTuple decoder _) = result
 instance Functor DecodeTuple where
   fmap typeChanger (DecodeTuple decoder _) = DecodeTuple (typeChanger <$> decoder) Decoders.nonNullable
 
+data DecodeFieldPrefixType = TableName | CompositeField deriving (Show)
 data DecodeOption = DecodeOption {
-  nameMap :: Map Text Text
+  nameMap :: Map Text Text,
+  fieldPrefixType :: DecodeFieldPrefixType
 } deriving (Show)
 instance Semigroup DecodeOption where
-  (<>) a b = DecodeOption {nameMap = nameMap a <> nameMap b}
+  (<>) a b = DecodeOption {
+      nameMap = nameMap a <> nameMap b,
+      fieldPrefixType = fieldPrefixType a
+    }
 instance Monoid DecodeOption where
-  mempty = DecodeOption { nameMap = mempty }
+  mempty = DecodeOption {
+    nameMap = mempty,
+    fieldPrefixType = TableName
+  }
+
 decodeName :: DecodeOption -> Text -> Text
-decodeName decOpt name = fromMaybe name (Map.lookup name $ nameMap decOpt)
+decodeName decOpt name = case fieldPrefixType decOpt of
+  TableName -> fromMaybe name (Map.lookup name $ nameMap decOpt)
+  _ -> name
+  
 
 -- | A class to decode
 class (QueryFormat qf) => SQLDecoder qf filterType decodedT where
