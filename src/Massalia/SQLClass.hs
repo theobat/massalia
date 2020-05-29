@@ -32,6 +32,7 @@ module Massalia.SQLClass
     SubSelectConstraint,
     basicEntityQuery,
     basicQueryAndDecoder,
+    basicDecodeRecordSubquery,
     basicDecodeListSubquery,
     SQLSelect(toSelectQuery),
     SQLRecord(toColumnListAndDecoder),
