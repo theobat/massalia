@@ -174,7 +174,7 @@ type SelectConstraint qf filterType = (
 -- 
 class SQLName a where
   sqlName :: (IsString queryFormat) => queryFormat
-  sqlTable :: (FromText queryFormat) => queryFormat
+  sqlTable :: (IsString queryFormat, FromText queryFormat) => queryFormat
   -- | The default SQLName is merely a snake case alternative of the 
   default sqlName :: (IsString queryFormat, Generic a, GTypeName (Rep a)) => queryFormat
   sqlName = fromString snakeTypename
