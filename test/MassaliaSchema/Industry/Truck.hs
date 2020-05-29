@@ -5,6 +5,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia #-}
 
 module MassaliaSchema.Industry.Truck
   ( Truck (..),
@@ -14,7 +17,9 @@ where
 import Data.Morpheus.Types (GQLType)
 import Data.UUID (UUID, nil)
 import Massalia.QueryFormat
-  ( BinaryQuery
+  ( BinaryQuery,
+    QueryFormat,
+    SQLDecoder
   )
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
 import Massalia.SQLClass (
@@ -44,3 +49,5 @@ instance SQLDefault Truck where
 defaultTruck :: Truck
 defaultTruck = Truck nil ""
 
+newtype Test = Test UUID deriving (Eq, Show)
+deriving via Test instance (QueryFormat qf) => SQLDecoder qf filterType Test

@@ -525,7 +525,7 @@ instance (
         columnInstanceWrapper = pure . (columnPrefixVal &)
         decoded = (columnFn, nullability decValue)
         (columnFn, DecodeTuple decValue nullability) = decodeRes
-        decodeRes = sqlDecode @queryFormat @filterType @t filterValue decOption childTree
+        decodeRes = sqlDecode @queryFormat @filterType filterValue decOption childTree
         decOption = recordDecodeOption opt
         columnPrefixVal = fromText $ columnPrefix opt
     where

@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstrainedClassMethods #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -13,6 +14,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- |
 -- Module      : Massalia.QueryFormat
@@ -57,6 +59,7 @@ import Data.Vector (Vector)
 import Hasql.DynamicStatements.Snippet (Snippet)
 import qualified Hasql.DynamicStatements.Snippet as Snippet
 import Hasql.Implicits.Encoders (DefaultParamEncoder)
+import Data.Coerce (coerce)
 import Massalia.Utils (
     EmailAddress, LocalTime,
     Day, Scientific, UTCTime,
@@ -226,8 +229,13 @@ scalar decoder decOption input = (col, (DecodeTuple decoder Decoders.nonNullable
     col rawName = "\"" <> tablename <> "\".\"" <> (fromText $ getName input) <> "\""
       where tablename = fromText $ decodeName decOption rawName
 
-data DecodeTuple decodedT = DecodeTuple (Decoders.Value decodedT) (Decoders.Value decodedT -> Decoders.NullableOrNot Decoders.Value decodedT)
-  
+data DecodeTuple decodedT = DecodeTuple {
+  decValue :: Decoders.Value decodedT,
+  decNValue :: Decoders.Value decodedT -> Decoders.NullableOrNot Decoders.Value decodedT
+}
+instance Functor DecodeTuple where
+  fmap typeChanger (DecodeTuple decoder nDecoder) = DecodeTuple (typeChanger <$> decoder) Decoders.nonNullable
+
 data DecodeOption = DecodeOption {
   nameMap :: Map Text Text
 } deriving (Show)
@@ -242,11 +250,12 @@ decodeName decOpt name = fromMaybe name (Map.lookup name $ nameMap decOpt)
 class (QueryFormat qf) => SQLDecoder qf filterType decodedT where
   sqlDecode :: (QueryFormat qf, MassaliaTree treeNode) =>
     Maybe filterType -> DecodeOption -> treeNode -> (Text -> qf, DecodeTuple decodedT)
+
 instance (QueryFormat qf) => SQLDecoder qf filterType UUID where
   sqlDecode _ = scalar Decoders.uuid
-
 instance (QueryFormat qf) => SQLDecoder qf filterType Text where
   sqlDecode _ = scalar Decoders.text
+
 instance (QueryFormat qf) => SQLDecoder qf filterType Bool where
   sqlDecode _ = scalar Decoders.bool
 instance (QueryFormat qf) => SQLDecoder qf filterType EmailAddress where
@@ -270,6 +279,9 @@ instance (
   ) => SQLDecoder qf filterType (Maybe a) where
   sqlDecode maybeFilter opt tree = fmap action $ sqlDecode maybeFilter opt tree
     where
-      action (DecodeTuple decoder _) = DecodeTuple
-        (const Nothing <$> decoder) (const $ Decoders.nullable decoder) 
+      action (DecodeTuple decoder nDecoder) = DecodeTuple
+        (const Nothing <$> decoder) (const $ Decoders.nullable decoder)
 
+sqlDecodeCoerce :: Coercible a b => (Text -> qf, DecodeTuple a) -> (Text -> qf, DecodeTuple b)
+sqlDecodeCoerce = fmap action
+  where action (DecodeTuple decoder nDecoder) = DecodeTuple (coerce <$> decoder) Decoders.nonNullable
