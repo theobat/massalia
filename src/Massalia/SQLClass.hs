@@ -110,7 +110,7 @@ basicDecodeInnerRecord ::
 basicDecodeInnerRecord _ opt selection = result
   where
     result = (colListQFThunk, defaultDecodeTuple $ Decoders.composite decoderVal)
-    colListQFThunk name = "row(" <> intercalate "," (colListThunk compositeName) <> ")"
+    colListQFThunk name = "(CASE WHEN " <> (fromText compositeName) <> " THEN null ELSE row(" <> intercalate "," (colListThunk compositeName) <> ") END)"
       where compositeName = unsafeSnakeCaseT (name <> "." <> (getName selection))
     (colListThunk, decoderVal) = toColumnListAndDecoder @qf recordConfig selection filterVal
     recordConfig = SQLRecordConfig {
