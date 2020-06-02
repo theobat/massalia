@@ -109,7 +109,7 @@ assembleSelectStruct :: (QueryFormat queryFormat) =>
   [SQLWrapper] ->
   SelectStruct queryFormat ->
   queryFormat
-assembleSelectStruct wrapValueList struct = fromMaybe mempty (_rawPrefix struct) <>
+assembleSelectStruct wrapValueList struct = prefixCTERes <>
   selectRes <>
   fromRes <>
   joinRes <>
@@ -120,6 +120,7 @@ assembleSelectStruct wrapValueList struct = fromMaybe mempty (_rawPrefix struct)
   where
     sectionSep = " "
     pref = (sectionSep <>)
+    prefixCTERes = fromMaybe mempty $ (<> sectionSep) <$> _rawPrefix struct
     selectRes = "SELECT " <> (wrapList wrapValueList $ intercalate ", " $ _select struct)
     fromRes = fromMaybe mempty $ (pref "FROM " <>) <$> _from struct
     joinRes = intercalIfExists sectionSep sectionSep $ _join struct
