@@ -53,6 +53,11 @@ listCase =
       "Filters type name",
       (show (fullTopSelection @TextQuery @TruckFilter @Truck "")),
       "MassaliaNode {name = \"\", children = fromList [(\"id\",MassaliaNode {name = \"id\", children = fromList []}),(\"vehicleId\",MassaliaNode {name = \"vehicleId\", children = fromList []})]}"
+    ),
+    (
+      "Filters type name",
+      (show (fullTopSelection @TextQuery @TruckFilter @Truck "")),
+      "MassaliaNode {name = \"\", children = fromList [(\"id\",MassaliaNode {name = \"id\", children = fromList []}),(\"vehicleId\",MassaliaNode {name = \"vehicleId\", children = fromList []})]}"
     )
   ]
 

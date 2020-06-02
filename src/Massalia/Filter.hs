@@ -18,6 +18,7 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE DerivingVia #-}
 
 -- |
 -- Module      : Massalia.Filter
@@ -40,7 +41,7 @@ module Massalia.Filter
     GQLScalarFilter(NamedFilter),
     filterFieldToMaybeContent,
     filterNamedFieldToMaybeContent,
-    PostgresRange(postgresRangeName)
+    PostgresRange(postgresRangeName),
   )
 where
 
@@ -58,7 +59,7 @@ import Massalia.QueryFormat (
 import Massalia.Utils (Day, LocalTime, SimpleRange(..), Inclusivity(..))
 import qualified Massalia.Utils as MassaliaUtils (intercalate)
 import Data.Morpheus.Types (KIND, GQLType)
-import Data.Morpheus.Kind (INPUT)
+import Data.Morpheus.Kind (INPUT, WRAPPER)
 import Protolude
 
 newtype GQLScalarFilter (fieldName :: Symbol) filterType
@@ -112,12 +113,14 @@ instance
   GQLType (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) where
   type KIND (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) = INPUT
 
-deriving newtype instance
+deriving via (Maybe (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)) instance
     (
       KnownSymbol fieldName,
       Typeable eqScalarType, Typeable likeScalarType, Typeable ordScalarType,
       GQLType eqScalarType, GQLType likeScalarType, GQLType ordScalarType
   ) => GQLType (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))
+  -- type KIND (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)) = WRAPPER
+  -- type CUSTOM (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)) = 'False
 
 -- eq
 type GQLFilterUUID (fieldName :: Symbol) = GQLScalarFilter fieldName GQLFilterUUIDCore
