@@ -47,22 +47,17 @@ where
 -- import Hasql.Encoders
 
 import Data.Aeson (FromJSON, ToJSON)
-import Data.Data (Data)
-import Data.Functor.Contravariant ((>$<))
-import Data.Proxy (Proxy (Proxy))
 import Data.String as StringUtils (IsString (fromString))
 import Data.UUID
-import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import Massalia.QueryFormat (
+    (°),
     SQLEncoder(
-        sqlEncode,
-        ignoreInGenericInstance,
-        wrapEncoding
+        sqlEncode
       )
   )
 import Massalia.Utils (Day, LocalTime, SimpleRange(..), Inclusivity(..))
-import qualified Massalia.Utils as MassaliaUtils (intercalate, intercalateMap)
-import Data.Morpheus.Types (KIND, GQLType (description))
+import qualified Massalia.Utils as MassaliaUtils (intercalate)
+import Data.Morpheus.Types (KIND, GQLType)
 import Data.Morpheus.Kind (INPUT)
 import Protolude
 
@@ -194,7 +189,7 @@ filterFieldToMaybeContent ::
   Maybe qf
 filterFieldToMaybeContent _ _ Nothing = Nothing
 filterFieldToMaybeContent maybeNamespace actualFieldName (Just filterVal) = case filterVal of
-  GQLScalarFilter {isEq = (Just eqValue)} -> snippetContent actualFieldName "=" (Just eqValue)
+  GQLScalarFilter {isEq = (Just eqValue)} -> snippetContent prefixedFieldName "=" (Just eqValue)
   GQLScalarFilter {isNull = (Just True)} -> Just (prefixedFieldName <> " IS NULL")
   GQLScalarFilter
     { isIn = isInValue,
@@ -217,8 +212,9 @@ filterFieldToMaybeContent maybeNamespace actualFieldName (Just filterVal) = case
       [] -> Nothing
       filtList -> Just (MassaliaUtils.intercalate " AND " filtList)
   where
-    prefixedFieldName = actualPrefix <> actualFieldName
-    actualPrefix = maybe "" (<> ".") maybeNamespace
+    prefixedFieldName = case maybeNamespace of
+      Nothing -> "\"" <> actualFieldName <> "\""
+      Just pref -> pref ° actualFieldName
 
 snippetContent ::
   forall content a. (SQLEncoder content a) =>

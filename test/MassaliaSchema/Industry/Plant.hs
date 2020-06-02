@@ -64,7 +64,7 @@ import Massalia.SQLClass (
     SQLSelect(toSelectQuery),
     SQLDefault(getDefault),
     SQLRecordConfig(..),
-    SQLFilter(toQueryFormatFilter),
+    SQLFilter,
     SelectConstraint,
     SubSelectConstraint,
     basicDecodeListSubquery,
