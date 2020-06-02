@@ -17,6 +17,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE InstanceSigs #-}
 
 -- |
 -- Module      : Massalia.Filter
@@ -68,6 +69,13 @@ import Protolude
 newtype GQLScalarFilter (fieldName :: Symbol) filterType
   = NamedFilter {filterContent :: filterType}
   deriving (Show, Generic)
+
+instance Functor (GQLScalarFilter (fieldName :: Symbol)) where
+  fmap fn (NamedFilter f1) = NamedFilter (fn f1)
+instance Applicative (GQLScalarFilter (fieldName :: Symbol)) where
+  pure a = NamedFilter a
+  (<*>) (NamedFilter fn) (NamedFilter arg) = NamedFilter (fn arg)
+
 data GQLScalarFilterCore eqScalarType likeScalarType ordScalarType
   = GQLScalarFilter
       { isEq :: Maybe eqScalarType,
@@ -243,7 +251,11 @@ wrappedContent fieldName op (Just a) suffix =
 -- tstzrange — Range of timestamp with time zone
 -- daterange — Range of date
 
-instance (PostgresRange a, SQLEncoder content a) => SQLEncoder content (SimpleRange a) where
+instance (
+    IsString content,
+    PostgresRange a,
+    SQLEncoder content a
+  ) => SQLEncoder content (SimpleRange a) where
   -- | test
   -- >>> (sqlEncode $ SimpleRange (Just 1::Int) Nothing Nothing) :: Text
   -- 

@@ -36,7 +36,7 @@ data Truck
       { id :: UUID,
         vehicleId :: Text
       }
-  deriving (Show, Generic, GQLType,
+  deriving (Show, Generic, Eq, GQLType,
     SQLRecord Text TruckFilter, SQLRecord BinaryQuery TruckFilter)
 
 instance (

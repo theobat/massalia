@@ -35,12 +35,17 @@ testTruckList = toSelectQuery (defaultOpt "plant") truckQuery defaultPaginated
 listCase =
   [ ( "test simple Truck query",
       selectStructToQueryFormat (query testTruckList),
-      "SELECT \"truck\".\"id\" FROM truck LIMIT 10000"
+      "SELECT \"truck\".\"id\" FROM \"truck\" LIMIT 10000"
     ),
     ( "test simple Plant->Truck query",
       selectStructToQueryFormat (query testPlantQuery),
       "SELECT \"plant\".\"id\", (SELECT coalesce(array_agg(row(\"truck\".\"id\")), '{}') FROM truck JOIN \"truck_plant\" ON \"truck_plant\".\"truck_id\" = \"truck\".\"id\" WHERE \"truck_plant\".\"plant_id\" = \"plant\".\"id\" GROUP BY \"plant\".\"id\" LIMIT 10000) FROM plant LIMIT 10000"
     )
+    -- (
+    --   "Filters type name",
+    --   __typeName @TruckFilter,
+    --   ""
+    -- )
   ]
 
 unitTests =
