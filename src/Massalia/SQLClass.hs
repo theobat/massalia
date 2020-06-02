@@ -40,7 +40,8 @@ module Massalia.SQLClass
     gsqlColumns,
     SQLDefault(getDefault),
     SQLSelectOption(..),
-    SQLRecordConfig(..)
+    SQLRecordConfig(..),
+    QueryAndDecoder(..)
   )
 where
 
