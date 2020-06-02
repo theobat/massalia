@@ -62,8 +62,9 @@ import Data.Morpheus.Kind (INPUT)
 import Protolude
 
 newtype GQLScalarFilter (fieldName :: Symbol) filterType
-  = NamedFilter {filterContent :: filterType}
+  = NamedFilter filterType
   deriving (Eq, Show, Generic)
+filterContent (NamedFilter filterType) = filterType
 
 instance Functor (GQLScalarFilter (fieldName :: Symbol)) where
   fmap fn (NamedFilter f1) = NamedFilter (fn f1)
@@ -103,19 +104,21 @@ deriving newtype instance
   (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType, Ord ordScalarType) =>
   ToJSON (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))
 
-instance
+deriving newtype instance
   (
     Typeable eqScalarType, Typeable likeScalarType, Typeable ordScalarType,
     GQLType eqScalarType, GQLType likeScalarType, GQLType ordScalarType
   ) =>
-  GQLType (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) where
-  type KIND (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) = INPUT
+  GQLType (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)
 
-deriving newtype instance
+instance
     (
-    Typeable eqScalarType, Typeable likeScalarType, Typeable ordScalarType,
-    GQLType eqScalarType, GQLType likeScalarType, GQLType ordScalarType
-  ) => GQLType (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))
+      KnownSymbol fieldName,
+      Typeable eqScalarType, Typeable likeScalarType, Typeable ordScalarType,
+      GQLType eqScalarType, GQLType likeScalarType, GQLType ordScalarType
+  ) => GQLType (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)) where
+  type KIND (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)) = INPUT
+
 
 -- eq
 type GQLFilterUUID (fieldName :: Symbol) = GQLScalarFilter fieldName GQLFilterUUIDCore

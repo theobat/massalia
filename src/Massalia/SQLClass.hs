@@ -229,7 +229,7 @@ basicEntityQuery :: (
   Text -> Paginated filterT -> SelectStruct queryFormat
 basicEntityQuery name filtValue = mempty
       { _from = Just ("\"" <> (fromText name) <> "\""),
-        _where = toQueryFormatFilter (Just (TableName name)) <$> (Paginated.filtered filtValue),
+        _where = toQueryFormatFilter (Just (TableName name)) =<< Paginated.filtered filtValue,
         _offsetLimit = Just (sqlEncode <$> Paginated.offset filtValue, sqlEncode $ fromMaybe 10000 $ Paginated.first filtValue)
       }
 
@@ -334,13 +334,15 @@ instance (SQLEncoder BinaryQuery a, GValues (K1 i a) BinaryQuery) =>
 data SQLFilterOption = TableName Text
 
 class SQLFilter queryFormat record where
-  toQueryFormatFilter :: Maybe SQLFilterOption -> record -> queryFormat
+  toQueryFormatFilter :: Maybe SQLFilterOption -> record -> Maybe queryFormat
   default toQueryFormatFilter :: (
       IsString queryFormat, Monoid queryFormat, Generic record,
       GSQLFilter (Rep record) queryFormat
     ) =>
-    Maybe SQLFilterOption -> record -> queryFormat
-  toQueryFormatFilter options value = intercalate " AND " filterGroupList
+    Maybe SQLFilterOption -> record -> Maybe queryFormat
+  toQueryFormatFilter options value = case filterGroupList of
+    [] -> Nothing
+    nonEmptyList -> Just (intercalate " AND " filterGroupList)
     where filterGroupList = gtoQueryFormatFilter options (from value)
 
 class GSQLFilter f queryFormat where
@@ -368,7 +370,7 @@ instance (
   ) => GSQLFilter (K1 i (
     Maybe filterType)
   ) queryFormat where
-  gtoQueryFormatFilter options (K1 val) = toQueryFormatFilter options <$> (maybeToList val)
+  gtoQueryFormatFilter options (K1 val) = maybeToList (toQueryFormatFilter options =<< val)
 
 -- Go through generics
 instance (
@@ -376,11 +378,11 @@ instance (
     KnownSymbol a,
     FilterConstraint queryFormat b c d
   ) => SQLFilter queryFormat (GQLScalarFilter a (GQLScalarFilterCore b c d)) where
-  toQueryFormatFilter options val = fromMaybe mempty (filterNamedFieldToMaybeContent prefix (Just val))
+  toQueryFormatFilter options val = filterNamedFieldToMaybeContent prefix (Just val)
     where prefix = ((\(TableName t) -> fromText t) <$> options)
 
 instance (IsString queryFormat) => SQLFilter queryFormat (Paginated a) where
-  toQueryFormatFilter _ _ = "true"
+  toQueryFormatFilter _ _ = Nothing
 
       
 ----------------------------------------------------------------------------
