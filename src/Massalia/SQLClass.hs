@@ -520,7 +520,7 @@ class SQLRecord queryFormat filterType domainType where
       GSQLRecord queryFormat filterType (Rep domainType),
       Generic domainType
     ) => Text -> MassaliaNode
-  fullTopSelection name = fst $ (gfullTopSelection @queryFormat @filterType @(Rep domainType) name)
+  fullTopSelection name = gfullTopSelection @queryFormat @filterType @(Rep domainType) name
   toColumnListAndDecoder ::
     (MassaliaTree selectionType) =>
     SQLRecordConfig ->
@@ -543,7 +543,7 @@ class SQLRecord queryFormat filterType domainType where
       defaultVal = from $ getDefault @domainType
 
 class GSQLRecord queryFormat filterType (rep :: * -> *) where
-  gfullTopSelection :: Text -> (MassaliaNode, Proxy (queryFormat, filterType, Proxy rep))
+  gfullTopSelection :: Text -> MassaliaNode
   gtoColumnListAndDecoder ::
     (MassaliaTree selectionType) =>
     SQLRecordConfig ->
@@ -560,11 +560,11 @@ class GSQLRecord queryFormat filterType (rep :: * -> *) where
 -- It's where the magic happens
 instance (GSQLRecord queryFormat filterType a, GSQLRecord queryFormat filterType b) =>
   GSQLRecord queryFormat filterType (a :*: b) where
-  gfullTopSelection name = (resParent, Proxy @(queryFormat, filterType, Proxy (a :*: b)))
+  gfullTopSelection name = resParent
     where
-      resParent = (leaf name) `over` (fst resA <> fst resB)
-      resA = gfullTopSelection name :: (MassaliaNode, Proxy (queryFormat, filterType, Proxy a))
-      resB = gfullTopSelection name :: (MassaliaNode, Proxy (queryFormat, filterType, Proxy b))
+      resParent = (resA <> resB)
+      resA = gfullTopSelection @queryFormat @filterType @a name :: MassaliaNode
+      resB = gfullTopSelection @queryFormat @filterType @b name :: MassaliaNode
   gtoColumnListAndDecoder opt selectionVal filterVal (a :*: b) = result
     where
       result = (combineCols, compoCombined)
@@ -577,11 +577,11 @@ instance (GSQLRecord queryFormat filterType a, GSQLRecord queryFormat filterType
         pure (ca :*: cb)
 
 instance (GSQLRecord queryFormat filterType a) => GSQLRecord queryFormat filterType (M1 D c a) where
-  gfullTopSelection name = gfullTopSelection name
+  gfullTopSelection name = gfullTopSelection @queryFormat @filterType @a name
   gtoColumnListAndDecoder opt selectionVal filterVal (M1 x) = second (M1 <$>) res
     where res = gtoColumnListAndDecoder opt selectionVal filterVal x
 instance (GSQLRecord queryFormat filterType a) => GSQLRecord queryFormat filterType (M1 C c a) where
-  gfullTopSelection name = gfullTopSelection name
+  gfullTopSelection name = gfullTopSelection @queryFormat @filterType @a name
   gtoColumnListAndDecoder opt selectionVal filterVal (M1 x) = second (M1 <$>) res
     where res = gtoColumnListAndDecoder opt selectionVal filterVal x
 
@@ -592,7 +592,7 @@ instance (
     SQLDecoder queryFormat filterType t
   ) =>
   GSQLRecord queryFormat filterType (M1 S s (K1 R t)) where
-  gfullTopSelection _ = (leaf key, Proxy)
+  gfullTopSelection name = leaf name `over` leaf key
     where
       key = (fromString $ selName (undefined :: M1 S s (K1 R t) ()))
   gtoColumnListAndDecoder opt selection filterValue defaultValue = case lookupRes of
