@@ -342,7 +342,7 @@ class SQLFilter queryFormat record where
     Maybe SQLFilterOption -> record -> Maybe queryFormat
   toQueryFormatFilter options value = case filterGroupList of
     [] -> Nothing
-    nonEmptyList -> Just (intercalate " AND " filterGroupList)
+    nonEmptyList -> Just (intercalate " AND " nonEmptyList)
     where filterGroupList = gtoQueryFormatFilter options (from value)
 
 class GSQLFilter f queryFormat where
@@ -441,8 +441,8 @@ instance (
         | val == mempty = []
         | otherwise = pure $ sqlName @a <> " AS " <> (inParens selectInstance)
       selectInstance = case options of
-        _ -> insertValuesQuery () val
         Just PureSelect -> selectValuesQuery Nothing val
+        _ -> insertValuesQuery () val
 
 
 insertValuesQuery :: 

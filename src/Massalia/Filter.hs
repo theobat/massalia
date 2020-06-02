@@ -104,21 +104,20 @@ deriving newtype instance
   (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType, Ord ordScalarType) =>
   ToJSON (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))
 
-deriving newtype instance
+instance
   (
     Typeable eqScalarType, Typeable likeScalarType, Typeable ordScalarType,
     GQLType eqScalarType, GQLType likeScalarType, GQLType ordScalarType
   ) =>
-  GQLType (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)
+  GQLType (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) where
+  type KIND (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) = INPUT
 
-instance
+deriving newtype instance
     (
       KnownSymbol fieldName,
       Typeable eqScalarType, Typeable likeScalarType, Typeable ordScalarType,
       GQLType eqScalarType, GQLType likeScalarType, GQLType ordScalarType
-  ) => GQLType (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)) where
-  type KIND (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)) = INPUT
-
+  ) => GQLType (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))
 
 -- eq
 type GQLFilterUUID (fieldName :: Symbol) = GQLScalarFilter fieldName GQLFilterUUIDCore
@@ -258,16 +257,17 @@ instance (
   -- | test
   -- >>> (sqlEncode $ SimpleRange (Just 1::Int) Nothing Nothing) :: Text
   -- 
-  sqlEncode value = postgresRangeName @a <> "(" <> startValue <> "," <> endValue <> ")"
+  sqlEncode value = postgresRangeName @a <> "(" <> startValue <> "," <> endValue <> bounds <> ")"
     where
       startValue = getBoundary start
       endValue = getBoundary end
-      bounds = case inclusivity value of
-        Nothing -> ""
-        Just II -> ", []"
-        Just IE -> ", [)"
-        Just EI -> ", (]"
-        Just EE -> ", ()"
+      bounds = (case inclusivity value of
+          Nothing -> ""
+          Just II -> ", []"
+          Just IE -> ", [)"
+          Just EI -> ", (]"
+          Just EE -> ", ()"
+        ) :: content
       getBoundary accessor = fromMaybe "null" $ (sqlEncode <$> accessor value)
 
 class PostgresRange a where
