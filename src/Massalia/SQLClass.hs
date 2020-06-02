@@ -36,7 +36,7 @@ module Massalia.SQLClass
     basicDecodeListSubquery,
     basicDecodeInnerRecord,
     SQLSelect(toSelectQuery),
-    SQLRecord(toColumnListAndDecoder),
+    SQLRecord(toColumnListAndDecoder, fullTopSelection),
     gsqlColumns,
     SQLDefault(getDefault),
     SQLSelectOption(..),
@@ -74,7 +74,7 @@ import GHC.Generics (
     R
   )
 import Massalia.Utils (simpleSnakeCase, intercalate, toCSVInParens)
-import Massalia.SelectionTree(MassaliaTree, getName)
+import Massalia.SelectionTree(MassaliaNode, MassaliaTree, getName, leaf, over)
 import qualified Massalia.SelectionTree as MassaliaTree
 import qualified Hasql.Decoders as Decoders 
 import Protolude hiding (intercalate)
@@ -434,11 +434,6 @@ instance (
         _ -> insertValuesQuery () val
         Just PureSelect -> selectValuesQuery Nothing val
 
-    -- where values = 
--- instance (SQLEncoder BinaryQuery a, GValues (K1 i a) BinaryQuery) =>
---   GValues (K1 i a) BinaryQuery where
---   goToValues (K1 val) = [(sqlEncode val)]
-
 
 insertValuesQuery :: 
   forall collection recordType queryFormat. (
@@ -481,21 +476,6 @@ selectValuesQuery (maybeCols) recordCollection = result
 columnList :: forall a queryFormat. (IsString queryFormat, SQLColumns a) => queryFormat
 columnList = fromString $ toCSVInParens (sqlColumns @a)
 
---------------------- FilterTree
-
--- ???????????????
--- class SQLTranslation queryFormat a b where
---   translate :: a -> (b queryFormat)
--- data Ok = Ok [(_, [], [[]])]
-
-
-
-
-
-
-
-
-
 
 ---------------------- SQLSelect test
 
@@ -509,6 +489,7 @@ data SQLSelectOption = SQLSelectOption {
 data SQLRecordConfig = SQLRecordConfig {
   recordDecodeOption :: DecodeOption
 }
+defaultRecordConfig :: SQLRecordConfig
 defaultRecordConfig = SQLRecordConfig {
   recordDecodeOption = mempty
 }
@@ -525,6 +506,13 @@ class SQLSelect queryFormat filterType nodeType | nodeType -> filterType where
 
 -- | This is the way to get a select query out of a select tree and a filter
 class SQLRecord queryFormat filterType domainType where
+  -- | Given a top name, selects every leaf selector in this type.
+  fullTopSelection :: Text -> MassaliaNode
+  default fullTopSelection :: (
+      GSQLRecord queryFormat filterType (Rep domainType),
+      Generic domainType
+    ) => Text -> MassaliaNode
+  fullTopSelection name = fst $ (gfullTopSelection @queryFormat @filterType @(Rep domainType) name)
   toColumnListAndDecoder ::
     (MassaliaTree selectionType) =>
     SQLRecordConfig ->
@@ -547,6 +535,7 @@ class SQLRecord queryFormat filterType domainType where
       defaultVal = from $ getDefault @domainType
 
 class GSQLRecord queryFormat filterType (rep :: * -> *) where
+  gfullTopSelection :: Text -> (MassaliaNode, Proxy (queryFormat, filterType, Proxy rep))
   gtoColumnListAndDecoder ::
     (MassaliaTree selectionType) =>
     SQLRecordConfig ->
@@ -563,6 +552,11 @@ class GSQLRecord queryFormat filterType (rep :: * -> *) where
 -- It's where the magic happens
 instance (GSQLRecord queryFormat filterType a, GSQLRecord queryFormat filterType b) =>
   GSQLRecord queryFormat filterType (a :*: b) where
+  gfullTopSelection name = (resParent, Proxy @(queryFormat, filterType, Proxy (a :*: b)))
+    where
+      resParent = (leaf name) `over` (fst resA <> fst resB)
+      resA = gfullTopSelection name :: (MassaliaNode, Proxy (queryFormat, filterType, Proxy a))
+      resB = gfullTopSelection name :: (MassaliaNode, Proxy (queryFormat, filterType, Proxy b))
   gtoColumnListAndDecoder opt selectionVal filterVal (a :*: b) = result
     where
       result = (combineCols, compoCombined)
@@ -575,9 +569,11 @@ instance (GSQLRecord queryFormat filterType a, GSQLRecord queryFormat filterType
         pure (ca :*: cb)
 
 instance (GSQLRecord queryFormat filterType a) => GSQLRecord queryFormat filterType (M1 D c a) where
+  gfullTopSelection name = gfullTopSelection name
   gtoColumnListAndDecoder opt selectionVal filterVal (M1 x) = second (M1 <$>) res
     where res = gtoColumnListAndDecoder opt selectionVal filterVal x
 instance (GSQLRecord queryFormat filterType a) => GSQLRecord queryFormat filterType (M1 C c a) where
+  gfullTopSelection name = gfullTopSelection name
   gtoColumnListAndDecoder opt selectionVal filterVal (M1 x) = second (M1 <$>) res
     where res = gtoColumnListAndDecoder opt selectionVal filterVal x
 
@@ -588,6 +584,9 @@ instance (
     SQLDecoder queryFormat filterType t
   ) =>
   GSQLRecord queryFormat filterType (M1 S s (K1 R t)) where
+  gfullTopSelection _ = (leaf key, Proxy)
+    where
+      key = (fromString $ selName (undefined :: M1 S s (K1 R t) ()))
   gtoColumnListAndDecoder opt selection filterValue defaultValue = case lookupRes of
     Nothing -> (const mempty, pure defaultValue)
     Just childTree -> result
