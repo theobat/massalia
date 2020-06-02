@@ -109,7 +109,8 @@ assembleSelectStruct :: (QueryFormat queryFormat) =>
   [SQLWrapper] ->
   SelectStruct queryFormat ->
   queryFormat
-assembleSelectStruct wrapValueList struct = selectRes <>
+assembleSelectStruct wrapValueList struct = fromMaybe mempty (_rawPrefix struct) <>
+  selectRes <>
   fromRes <>
   joinRes <>
   whereRes <>
@@ -147,6 +148,7 @@ data SQLWrapper = CoalesceArr | Row | ArrayAgg
 -- | This is a very simple struct object meant to
 -- simplify query building (it's not meant to bring safety).
 data SelectStruct queryFormat = SelectStruct {
+  _rawPrefix  :: Maybe queryFormat,
   _select  :: [queryFormat],
   _from  :: Maybe queryFormat,
   _join  :: [queryFormat],
@@ -159,6 +161,7 @@ data SelectStruct queryFormat = SelectStruct {
 
 instance (Semigroup queryFormat) => Semigroup (SelectStruct queryFormat) where
   (<>) a b = SelectStruct {
+    _rawPrefix = _rawPrefix a <> _rawPrefix b,
     _select = _select a <> _select b,
     _from = _from a <> _from b,
     _join = _join a <> _join b,
@@ -171,6 +174,7 @@ instance (Semigroup queryFormat) => Semigroup (SelectStruct queryFormat) where
 
 instance (Semigroup queryFormat) => Monoid (SelectStruct queryFormat) where
   mempty = SelectStruct {
+    _rawPrefix = Nothing,
     _select = mempty,
     _from = Nothing,
     _join = mempty,
