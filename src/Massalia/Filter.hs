@@ -68,7 +68,7 @@ import Protolude
 
 newtype GQLScalarFilter (fieldName :: Symbol) filterType
   = NamedFilter {filterContent :: filterType}
-  deriving (Show, Generic)
+  deriving (Eq, Show, Generic)
 
 instance Functor (GQLScalarFilter (fieldName :: Symbol)) where
   fmap fn (NamedFilter f1) = NamedFilter (fn f1)
