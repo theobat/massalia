@@ -60,7 +60,11 @@ import Massalia.QueryFormat
     defaultDecodeTuple,
     inParens
   )
-import Massalia.Filter (GQLScalarFilter, FilterConstraint, filterFieldToMaybeContent)
+import Massalia.Filter (
+    GQLScalarFilterCore,
+    GQLScalarFilter, FilterConstraint,
+    filterNamedFieldToMaybeContent
+  )
 import Massalia.UtilsGQL (Paginated)
 import Massalia.Utils (unsafeSnakeCaseT)
 import Massalia.SQLUtils (insertIntoWrapper, selectWrapper, rowsAssembler)
@@ -369,9 +373,11 @@ instance (
 -- Go through generics
 instance (
     IsString queryFormat,
+    KnownSymbol a,
     FilterConstraint queryFormat b c d
-  ) => SQLFilter queryFormat (GQLScalarFilter a b c d) where
-  toQueryFormatFilter _ val = fromMaybe mempty (filterFieldToMaybeContent @queryFormat Nothing "_" (Just val))
+  ) => SQLFilter queryFormat (GQLScalarFilter a (GQLScalarFilterCore b c d)) where
+  toQueryFormatFilter _ val = fromMaybe mempty (filterNamedFieldToMaybeContent Nothing (Just val))
+
 instance (IsString queryFormat) => SQLFilter queryFormat (Paginated a) where
   toQueryFormatFilter _ _ = "true"
 

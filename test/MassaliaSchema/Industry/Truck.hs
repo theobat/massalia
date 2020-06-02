@@ -20,7 +20,6 @@ import Massalia.QueryFormat
   ( BinaryQuery,
     QueryFormat,
     SQLDecoder,
-    UUIDWrapper
   )
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
 import Massalia.SQLClass (
@@ -51,4 +50,4 @@ defaultTruck :: Truck
 defaultTruck = Truck nil ""
 
 newtype Test = Test UUID deriving (Eq, Show)
-deriving via UUIDWrapper instance (QueryFormat qf) => SQLDecoder qf filterType Test
+-- deriving via UUIDWrapper instance (QueryFormat qf) => SQLDecoder qf filterType Test

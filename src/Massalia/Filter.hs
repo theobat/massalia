@@ -36,6 +36,7 @@ module Massalia.Filter
     GQLScalarFilterCore(..),
     FilterConstraint,
     defaultScalarFilter,
+    GQLScalarFilter(NamedFilter),
     filterFieldToMaybeContent,
     filterNamedFieldToMaybeContent,
     PostgresRange(postgresRangeName)
@@ -64,8 +65,9 @@ import Data.Morpheus.Types (KIND, GQLType (description))
 import Data.Morpheus.Kind (INPUT)
 import Protolude
 
-type GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType
-  = GQLScalarFilterCore eqScalarType likeScalarType ordScalarType
+newtype GQLScalarFilter (fieldName :: Symbol) filterType
+  = NamedFilter {filterContent :: filterType}
+  deriving (Show, Generic)
 data GQLScalarFilterCore eqScalarType likeScalarType ordScalarType
   = GQLScalarFilter
       { isEq :: Maybe eqScalarType,
@@ -84,11 +86,19 @@ data GQLScalarFilterCore eqScalarType likeScalarType ordScalarType
 
 deriving instance
   (FromJSON eqScalarType, FromJSON likeScalarType, FromJSON ordScalarType, Ord ordScalarType) =>
-  FromJSON (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
+  FromJSON (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)
+
+deriving newtype instance
+  (FromJSON eqScalarType, FromJSON likeScalarType, FromJSON ordScalarType, Ord ordScalarType) =>
+  FromJSON (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))
 
 deriving instance
   (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType, Ord ordScalarType) =>
-  ToJSON (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType)
+  ToJSON (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)
+
+deriving newtype instance
+  (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType, Ord ordScalarType) =>
+  ToJSON (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))
 
 instance
   (
@@ -98,26 +108,33 @@ instance
   GQLType (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) where
   type KIND (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) = INPUT
 
+deriving newtype instance
+    (
+    Typeable eqScalarType, Typeable likeScalarType, Typeable ordScalarType,
+    GQLType eqScalarType, GQLType likeScalarType, GQLType ordScalarType
+  ) => GQLType (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))
 
 -- eq
-type GQLFilterUUID (fieldName :: Symbol) = GQLFilterUUIDCore
+type GQLFilterUUID (fieldName :: Symbol) = GQLScalarFilter fieldName GQLFilterUUIDCore
 type GQLFilterUUIDCore = GQLScalarFilterCore UUID Void Void
 
 -- eq && like
-type GQLFilterText (fieldName :: Symbol) = GQLFilterTextCore
+type GQLFilterText (fieldName :: Symbol) = GQLScalarFilter fieldName GQLFilterTextCore
 type GQLFilterTextCore = GQLScalarFilterCore Text Text Void
 
 -- eq && ord
-type GQLFilterInt (fieldName :: Symbol) = GQLFilterIntCore
+type GQLFilterInt (fieldName :: Symbol) = GQLScalarFilter fieldName GQLFilterIntCore
 type GQLFilterIntCore = GQLScalarFilterCore Int Void Int
 
-type GQLFilterLocalTime (fieldName :: Symbol) = GQLFilterLocalTimeCore
+type GQLFilterLocalTime (fieldName :: Symbol) = GQLScalarFilter fieldName GQLFilterLocalTimeCore
 type GQLFilterLocalTimeCore = GQLScalarFilterCore LocalTime Void LocalTime
 
-type GQLFilterDay (fieldName :: Symbol) = GQLFilterDayCore
+type GQLFilterDay (fieldName :: Symbol) = GQLScalarFilter fieldName GQLFilterDayCore
 type GQLFilterDayCore = GQLScalarFilterCore Day Void Day
 
 -- | Filter with no effect
+-- defaultScalarFilter :: GQLScalarFilterCore eqScalarType likeScalarType ordScalarType
+defaultScalarFilter :: GQLScalarFilterCore eqScalarType likeScalarType ordScalarType
 defaultScalarFilter =
   GQLScalarFilter
     { isEq = Nothing,
@@ -137,9 +154,10 @@ maybeToQueryFormat Nothing = mempty
 maybeToQueryFormat (Just content) = content
 
 filterNamedFieldToMaybeContent ::
-  forall fieldName. (KnownSymbol fieldName) =>
-  (forall content eqScalarType likeScalarType ordScalarType.
+  -- (forall fieldName. KnownSymbol (fieldName :: Symbol)) =>
+  forall fieldName content eqScalarType likeScalarType ordScalarType.
   ( IsString content,
+    KnownSymbol fieldName,
     SQLEncoder content eqScalarType,
     SQLEncoder content [eqScalarType],
     SQLEncoder content likeScalarType,
@@ -147,10 +165,10 @@ filterNamedFieldToMaybeContent ::
     PostgresRange ordScalarType
   ) =>
   Maybe content ->
-  Maybe (GQLScalarFilter (fieldName :: Symbol) eqScalarType likeScalarType ordScalarType) ->
-  Maybe content)
-filterNamedFieldToMaybeContent a = filterFieldToMaybeContent a actualFieldName
-  where actualFieldName = StringUtils.fromString (symbolVal (Proxy :: Proxy (fieldName :: Symbol)))
+  Maybe (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)) ->
+  Maybe content
+filterNamedFieldToMaybeContent a filt = filterFieldToMaybeContent a actualFieldName (filterContent <$> filt)
+  where actualFieldName = StringUtils.fromString (symbolVal (Proxy @fieldName))
 
 type FilterConstraint qf a b c = (
     SQLEncoder qf a,
@@ -161,16 +179,11 @@ type FilterConstraint qf a b c = (
   )
 
 filterFieldToMaybeContent ::
-  ( SQLEncoder content eqScalarType,
-    SQLEncoder content [eqScalarType],
-    SQLEncoder content likeScalarType,
-    SQLEncoder content ordScalarType,
-    PostgresRange ordScalarType
-  ) =>
-  Maybe content ->
-  content ->
+  FilterConstraint qf eqScalarType likeScalarType ordScalarType =>
+  Maybe qf ->
+  qf ->
   Maybe (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) ->
-  Maybe content
+  Maybe qf
 filterFieldToMaybeContent _ _ Nothing = Nothing
 filterFieldToMaybeContent maybeNamespace actualFieldName (Just filterVal) = case filterVal of
   GQLScalarFilter {isEq = (Just eqValue)} -> snippetContent actualFieldName "=" (Just eqValue)
@@ -257,5 +270,5 @@ instance PostgresRange Day where
 instance PostgresRange Void where
   postgresRangeName = panic "in theory cannot happen, (PostgresRange Void)"
 
-newtype ViewF filterT = ViewF filterT
-newtype ExistF filterT = ExistF filterT
+-- newtype ViewF filterT = ViewF filterT
+-- newtype ExistF filterT = ExistF filterT

@@ -10,6 +10,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 
 module MassaliaSchema.Industry.TruckFilter
   ( TruckFilter (..),
@@ -28,11 +30,13 @@ import Massalia.Filter
     GQLScalarFilter,
     GQLScalarFilterCore(isEq, isIn),
     defaultScalarFilter,
+    GQLScalarFilter(NamedFilter)
   )
 import qualified Massalia.HasqlDec as Decoders
 import Massalia.QueryFormat
   ( QueryFormat,
     BinaryQuery,
+    TextQuery,
     FromText,
     SQLEncoder(sqlEncode, ignoreInGenericInstance)
   )
@@ -50,7 +54,11 @@ data TruckFilter
         vehicleId :: Maybe (GQLFilterText "vehicle_id")
       }
   deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON,
-    SQLFilter Text, SQLFilter BinaryQuery)
+     SQLFilter BinaryQuery, SQLFilter TextQuery)
+
+-- deriving instance (
+--     QueryFormat qf
+--   ) =>  SQLFilter qf TruckFilter
 
 instance (QueryFormat a) => SQLEncoder a TruckFilter where
   ignoreInGenericInstance = True
@@ -58,7 +66,7 @@ instance (QueryFormat a) => SQLEncoder a TruckFilter where
 
 testInstance =
   TruckFilter
-    { id = Just $ defaultScalarFilter {isEq = Just nil},
+    { id = Just $ NamedFilter defaultScalarFilter {isEq = Just nil},
       vehicleId = Nothing
     }
 

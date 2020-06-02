@@ -29,6 +29,7 @@ import Massalia.Filter
     GQLFilterDay,
     GQLScalarFilterCore (isBetween),
     defaultScalarFilter,
+    GQLScalarFilter(NamedFilter)
   )
 import MassaliaSchema.Industry.TruckFilter (TruckFilter, testInstance)
 import Massalia.QueryFormat
@@ -66,7 +67,7 @@ plantFilterTest =
   PlantFilter
     { id = Nothing,
       name = Nothing,
-      checkDate = Just filter,
+      checkDate = Just $ NamedFilter filter,
       truckList = Just defaultPaginated{filtered = Just testInstance},
       existsTruck = Just testInstance
     }
