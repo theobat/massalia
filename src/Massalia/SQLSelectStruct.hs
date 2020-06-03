@@ -189,7 +189,7 @@ instance (Semigroup queryFormat) => Monoid (SelectStruct queryFormat) where
 
 filterMerge a b = mempty {
     _rawPrefix = _rawPrefix a <> _rawPrefix b,
-    _join = _select a <> _select b,
+    _join = _join a <> _join b,
     _where = andWhereRes
   }
   where
