@@ -40,6 +40,7 @@ module Massalia.SQLClass
     SQLRecord(toColumnListAndDecoder, fullTopSelection),
     gsqlColumns,
     SQLDefault(getDefault),
+    SQLFilterOption(..),
     SQLSelectOption(..),
     SQLRecordConfig(..),
     QueryAndDecoder(..)
@@ -229,9 +230,9 @@ basicEntityQuery :: (
     SelectConstraint queryFormat filterT
   ) =>
   Text -> Paginated filterT -> SelectStruct queryFormat
-basicEntityQuery name filtValue = withWhere
+basicEntityQuery name filtValue = withFilters
   where
-    withWhere = case (toQueryFormatFilter (Just filterOption) =<< Paginated.filtered filtValue) of
+    withFilters = case (toQueryFormatFilter (Just filterOption) =<< Paginated.filtered filtValue) of
       Nothing -> simplestQuery
       Just a -> simplestQuery <> a
     simplestQuery = mempty
