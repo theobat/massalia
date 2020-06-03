@@ -62,8 +62,8 @@ import Massalia.QueryFormat
   )
 import Massalia.Filter (
     GQLScalarFilterCore,
-    GQLScalarFilter, FilterConstraint,
-    filterNamedFieldToMaybeContent
+    FilterConstraint,
+    filterFieldToMaybeContent
   )
 import Massalia.UtilsGQL (Paginated)
 import Massalia.Utils (unsafeSnakeCaseT)
@@ -229,9 +229,10 @@ basicEntityQuery :: (
   Text -> Paginated filterT -> SelectStruct queryFormat
 basicEntityQuery name filtValue = mempty
       { _from = Just ("\"" <> (fromText name) <> "\""),
-        _where = toQueryFormatFilter (Just (TableName name)) =<< Paginated.filtered filtValue,
+        _where = toQueryFormatFilter (Just filterOption) =<< Paginated.filtered filtValue,
         _offsetLimit = Just (sqlEncode <$> Paginated.offset filtValue, sqlEncode $ fromMaybe 10000 $ Paginated.first filtValue)
       }
+  where filterOption = defaultFilterOption{filterTableName = name}
 
 type SelectConstraint qf filterType = (
     QueryFormat qf,
@@ -331,7 +332,11 @@ instance (SQLEncoder BinaryQuery a, GValues (K1 i a) BinaryQuery) =>
 ---------------------------- SQL Filter
 ----------------------------------------------------------------------------
 
-data SQLFilterOption = TableName Text
+data SQLFilterOption = SQLFilterOption {
+  filterTableName :: Text,
+  filterFieldName :: Text
+}
+defaultFilterOption = SQLFilterOption{filterTableName = "", filterFieldName=""}
 
 class SQLFilter queryFormat record where
   toQueryFormatFilter :: Maybe SQLFilterOption -> record -> Maybe queryFormat
@@ -359,27 +364,32 @@ instance (Monoid queryFormat, GSQLFilter a queryFormat, GSQLFilter b queryFormat
 
 instance (GSQLFilter a queryFormat) => GSQLFilter (M1 D c a) queryFormat where
   gtoQueryFormatFilter options (M1 x) = gtoQueryFormatFilter options x
-instance (GSQLFilter a queryFormat) => GSQLFilter (M1 S c a) queryFormat where
-  gtoQueryFormatFilter options (M1 x) = gtoQueryFormatFilter options x
 instance (GSQLFilter a queryFormat) => GSQLFilter (M1 C c a) queryFormat where
   gtoQueryFormatFilter options (M1 x) = gtoQueryFormatFilter options x
   
-instance (
+instance (
+    Selector s,
     IsString queryFormat,
     SQLFilter queryFormat filterType
-  ) => GSQLFilter (K1 i (
-    Maybe filterType)
-  ) queryFormat where
-  gtoQueryFormatFilter options (K1 val) = maybeToList (toQueryFormatFilter options =<< val)
+  ) => GSQLFilter (M1 S s (K1 R filterType)) queryFormat where
+  gtoQueryFormatFilter options (M1 (K1 val)) = maybeToList (toQueryFormatFilter optionWithSelector val)
+    where
+      optionWithSelector = (\opt -> opt { filterFieldName = selector }) <$> options
+      selector = fromString $ simpleSnakeCase $ selName (undefined :: M1 S s (K1 R t) ())
 
 -- Go through generics
 instance (
     IsString queryFormat,
-    KnownSymbol a,
+    FromText queryFormat,
     FilterConstraint queryFormat b c d
-  ) => SQLFilter queryFormat (GQLScalarFilter a (GQLScalarFilterCore b c d)) where
-  toQueryFormatFilter options val = filterNamedFieldToMaybeContent prefix (Just val)
-    where prefix = ((\(TableName t) -> fromText t) <$> options)
+  ) => SQLFilter queryFormat (GQLScalarFilterCore b c d) where
+  toQueryFormatFilter options val = filterFieldToMaybeContent prefix actualFieldName (Just val)
+    where
+      prefix = (fromText . filterTableName) <$> options
+      actualFieldName = fromText (fromMaybe mempty (filterFieldName <$> options))
+
+instance (SQLFilter queryFormat a) => SQLFilter queryFormat (Maybe a) where
+  toQueryFormatFilter options val = toQueryFormatFilter options =<< val
 
 instance (IsString queryFormat) => SQLFilter queryFormat (Paginated a) where
   toQueryFormatFilter _ _ = Nothing

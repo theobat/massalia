@@ -28,9 +28,12 @@ import MassaliaSchema.Industry.Truck (Truck)
 import Data.Morpheus.Types.Internal.Resolving (Resolver)
 
 api :: Pool -> GQLRequest -> IO GQLResponse
-api dbConnectionPool = interpreter $ rootResolver dbConnectionPool
+api dbConnectionPool = interpreter $ rootResolver (Just dbConnectionPool)
 
-rootResolver :: Pool -> GQLRootResolver IO () Query Undefined Undefined
+apiWithoutDB :: GQLRequest -> IO GQLResponse
+apiWithoutDB = interpreter $ rootResolver Nothing
+
+rootResolver :: Maybe Pool -> GQLRootResolver IO () Query Undefined Undefined
 rootResolver dbConnectionPool =
   GQLRootResolver
     { queryResolver = rootQuery dbConnectionPool,
@@ -50,7 +53,7 @@ data Query m
       }
   deriving (Generic, GQLType)
 
-rootQuery :: Pool -> Query (_ _ () IO)
+rootQuery :: (Maybe Pool) -> Query (_ _ () IO)
 rootQuery dbConnectionPool =
   Query
     { plantListPaginated = plantListQuery dbConnectionPool

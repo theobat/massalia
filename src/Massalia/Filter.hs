@@ -19,28 +19,21 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 
 -- |
 -- Module      : Massalia.Filter
 -- Description : A module to define an interface for simple scalar values filters.
 module Massalia.Filter
   ( GQLFilterUUID,
-    GQLFilterUUIDCore,
     GQLFilterText,
-    GQLFilterTextCore,
     GQLFilterDay,
-    GQLFilterDayCore,
     GQLFilterInt,
-    GQLFilterIntCore,
     GQLFilterLocalTime,
-    GQLFilterLocalTimeCore,
-    GQLScalarFilter,
     GQLScalarFilterCore(..),
     FilterConstraint,
     defaultScalarFilter,
-    GQLScalarFilter(NamedFilter),
     filterFieldToMaybeContent,
-    filterNamedFieldToMaybeContent,
     PostgresRange(postgresRangeName),
   )
 where
@@ -62,16 +55,12 @@ import Data.Morpheus.Types (KIND, GQLType)
 import Data.Morpheus.Kind (INPUT, WRAPPER)
 import Protolude
 
-newtype GQLScalarFilter (fieldName :: Symbol) filterType
-  = NamedFilter filterType
-  deriving (Eq, Show, Generic)
-filterContent (NamedFilter filterType) = filterType
-
-instance Functor (GQLScalarFilter (fieldName :: Symbol)) where
-  fmap fn (NamedFilter f1) = NamedFilter (fn f1)
-instance Applicative (GQLScalarFilter (fieldName :: Symbol)) where
-  pure a = NamedFilter a
-  (<*>) (NamedFilter fn) (NamedFilter arg) = NamedFilter (fn arg)
+type GQLScalarFilterEq filterType =
+  (GQLScalarFilterCore filterType Void Void)
+type GQLScalarFilterOrd filterType =
+  (GQLScalarFilterCore filterType Void filterType)
+type GQLScalarFilterText filterType =
+  (GQLScalarFilterCore filterType filterType Void)
 
 data GQLScalarFilterCore eqScalarType likeScalarType ordScalarType
   = GQLScalarFilter
@@ -93,17 +82,17 @@ deriving instance
   (FromJSON eqScalarType, FromJSON likeScalarType, FromJSON ordScalarType, Ord ordScalarType) =>
   FromJSON (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)
 
-deriving newtype instance
-  (FromJSON eqScalarType, FromJSON likeScalarType, FromJSON ordScalarType, Ord ordScalarType) =>
-  FromJSON (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))
+-- deriving newtype instance
+--   (FromJSON eqScalarType, FromJSON likeScalarType, FromJSON ordScalarType, Ord ordScalarType) =>
+--   FromJSON (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))
 
 deriving instance
   (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType, Ord ordScalarType) =>
   ToJSON (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)
 
-deriving newtype instance
-  (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType, Ord ordScalarType) =>
-  ToJSON (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))
+-- deriving newtype instance
+--   (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType, Ord ordScalarType) =>
+--   ToJSON (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))
 
 instance
   (
@@ -113,32 +102,26 @@ instance
   GQLType (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) where
   type KIND (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) = INPUT
 
-deriving via (Maybe (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)) instance
-    (
-      KnownSymbol fieldName,
-      Typeable eqScalarType, Typeable likeScalarType, Typeable ordScalarType,
-      GQLType eqScalarType, GQLType likeScalarType, GQLType ordScalarType
-  ) => GQLType (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))
-  -- type KIND (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)) = WRAPPER
+-- deriving via (NamedFilter (Maybe (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))) instance
+--     (
+--       KnownSymbol fieldName,
+--       Typeable eqScalarType, Typeable likeScalarType, Typeable ordScalarType,
+--       GQLType eqScalarType, GQLType likeScalarType, GQLType ordScalarType
+--   ) => GQLType (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))
   -- type CUSTOM (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)) = 'False
 
 -- eq
-type GQLFilterUUID (fieldName :: Symbol) = GQLScalarFilter fieldName GQLFilterUUIDCore
-type GQLFilterUUIDCore = GQLScalarFilterCore UUID Void Void
+type GQLFilterUUID = GQLScalarFilterEq UUID
 
 -- eq && like
-type GQLFilterText (fieldName :: Symbol) = GQLScalarFilter fieldName GQLFilterTextCore
-type GQLFilterTextCore = GQLScalarFilterCore Text Text Void
+type GQLFilterText = GQLScalarFilterText Text
 
 -- eq && ord
-type GQLFilterInt (fieldName :: Symbol) = GQLScalarFilter fieldName GQLFilterIntCore
-type GQLFilterIntCore = GQLScalarFilterCore Int Void Int
+type GQLFilterInt = GQLScalarFilterOrd Int
 
-type GQLFilterLocalTime (fieldName :: Symbol) = GQLScalarFilter fieldName GQLFilterLocalTimeCore
-type GQLFilterLocalTimeCore = GQLScalarFilterCore LocalTime Void LocalTime
+type GQLFilterLocalTime = GQLScalarFilterOrd LocalTime
 
-type GQLFilterDay (fieldName :: Symbol) = GQLScalarFilter fieldName GQLFilterDayCore
-type GQLFilterDayCore = GQLScalarFilterCore Day Void Day
+type GQLFilterDay = GQLScalarFilterOrd Day
 
 -- | Filter with no effect
 -- defaultScalarFilter :: GQLScalarFilterCore eqScalarType likeScalarType ordScalarType
@@ -160,23 +143,6 @@ defaultScalarFilter =
 maybeToQueryFormat :: Monoid content => Maybe content -> content
 maybeToQueryFormat Nothing = mempty
 maybeToQueryFormat (Just content) = content
-
-filterNamedFieldToMaybeContent ::
-  -- (forall fieldName. KnownSymbol (fieldName :: Symbol)) =>
-  forall fieldName content eqScalarType likeScalarType ordScalarType.
-  ( IsString content,
-    KnownSymbol fieldName,
-    SQLEncoder content eqScalarType,
-    SQLEncoder content [eqScalarType],
-    SQLEncoder content likeScalarType,
-    SQLEncoder content ordScalarType,
-    PostgresRange ordScalarType
-  ) =>
-  Maybe content ->
-  Maybe (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)) ->
-  Maybe content
-filterNamedFieldToMaybeContent a filt = filterFieldToMaybeContent a actualFieldName (filterContent <$> filt)
-  where actualFieldName = StringUtils.fromString (symbolVal (Proxy @fieldName))
 
 type FilterConstraint qf a b c = (
     SQLEncoder qf a,

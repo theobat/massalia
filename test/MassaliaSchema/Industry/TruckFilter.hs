@@ -27,10 +27,8 @@ import GHC.Generics (Generic, from)
 import Massalia.Filter
   ( GQLFilterText,
     GQLFilterUUID,
-    GQLScalarFilter,
     GQLScalarFilterCore(isEq, isIn),
     defaultScalarFilter,
-    GQLScalarFilter(NamedFilter)
   )
 import qualified Massalia.HasqlDec as Decoders
 import Massalia.QueryFormat
@@ -50,12 +48,14 @@ import Protolude
 
 data TruckFilter
   = TruckFilter
-      { id :: Maybe (GQLFilterUUID "id"),
-        vehicleId :: Maybe (GQLFilterText "vehicle_id")
+      { id :: Maybe GQLFilterUUID,
+        vehicleId :: Maybe GQLFilterText
       }
-  deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON,
-     SQLFilter BinaryQuery, SQLFilter TextQuery)
+  deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON
+    )
 
+deriving instance SQLFilter BinaryQuery TruckFilter
+deriving instance SQLFilter TextQuery TruckFilter
 -- deriving instance (
 --     QueryFormat qf
 --   ) =>  SQLFilter qf TruckFilter
@@ -66,7 +66,7 @@ instance (QueryFormat a) => SQLEncoder a TruckFilter where
 
 testInstance =
   TruckFilter
-    { id = Just $ NamedFilter defaultScalarFilter {isEq = Just nil},
+    { id = pure $ defaultScalarFilter {isEq = Just nil},
       vehicleId = Nothing
     }
 

@@ -14,7 +14,7 @@ import Massalia.Migration (
     GlobalMigrationError,
     findAndRunAllMigration, MigrationPattern(..), defaultMigrationPattern
   ) 
-import MassaliaSchema.TestAPI (api)
+import MassaliaSchema.TestAPI (api, apiWithoutDB)
 import Protolude
 import qualified SpecGraphQLSelect
 import qualified SpecStaticSelect
@@ -26,6 +26,13 @@ import Massalia.HasqlConnection (URLError)
 
 main :: IO ()
 main = do
+  let queryStruct = GQLRequest
+        { query = "query plantList_test { plantListPaginated (first: 10, offset: 0, filtered: {id: {isIn: []}}) { id name } }",
+          operationName = Nothing,
+          variables = Nothing
+        }
+  resWihtoutDB <- liftIO $ apiWithoutDB queryStruct
+  pPrint resWihtoutDB
   res <- runExceptT $ executionScheme
   case res of
     Left err -> pPrint err

@@ -105,11 +105,13 @@ instance SQLDefault Plant where
   getDefault = defaultPlant
 defaultPlant = Plant {id = nil, truckList = mempty, name = ""}
 
-plantListQuery pool queryArgs = do
+plantListQuery maybePool queryArgs = do
   massaliaTree <- (pure . fromMorpheusContext) =<< unsafeInternalContext
-  lift (exec massaliaTree)
+  case maybePool of
+    Nothing -> pure []
+    Just pool -> lift (exec pool massaliaTree)
   where
-    exec validSel = do
+    exec pool validSel = do
       let (snippet, result) = queryAndDecoderToSnippetAndResult $ initialSnippet validSel
       let fullSnippet = queryTest <> " " <> snippet
       let session = dynamicallyParameterizedStatement fullSnippet result
