@@ -21,7 +21,8 @@ module Massalia.SQLSelectStruct
     queryAndDecoderToListSubquery,
     queryAndDecoderToSnippetAndResult,
     queryAndDecoderToStatement,
-    queryAndDecoderToSession
+    queryAndDecoderToSession,
+    filterConcat
   )
 where
 
@@ -149,15 +150,15 @@ data SQLWrapper = CoalesceArr | Row | ArrayAgg
 -- | This is a very simple struct object meant to
 -- simplify query building (it's not meant to bring safety).
 data SelectStruct queryFormat = SelectStruct {
-  _rawPrefix  :: Maybe queryFormat,
-  _select  :: [queryFormat],
-  _from  :: Maybe queryFormat,
-  _join  :: [queryFormat],
-  _where  :: Maybe queryFormat,
-  _groupBy  :: [queryFormat],
-  _having  :: Maybe queryFormat,
-  _orderBy  :: [queryFormat],
-  _offsetLimit  :: Maybe (Maybe queryFormat, queryFormat)
+  _rawPrefix  :: !(Maybe queryFormat),
+  _select  :: ![queryFormat],
+  _from  :: !(Maybe queryFormat),
+  _join  :: ![queryFormat],
+  _where  :: !(Maybe queryFormat),
+  _groupBy  :: ![queryFormat],
+  _having  :: !(Maybe queryFormat),
+  _orderBy  :: ![queryFormat],
+  _offsetLimit  :: !(Maybe (Maybe queryFormat, queryFormat))
 } deriving (Eq, Show)
 
 instance (Semigroup queryFormat) => Semigroup (SelectStruct queryFormat) where
@@ -186,3 +187,16 @@ instance (Semigroup queryFormat) => Monoid (SelectStruct queryFormat) where
     _offsetLimit = Nothing
   }
 
+filterMerge a b = mempty {
+    _rawPrefix = _rawPrefix a <> _rawPrefix b,
+    _join = _select a <> _select b,
+    _where = andWhereRes
+  }
+  where
+    andWhereRes = case (_where a, _where b) of
+      (Just a, Just b) -> Just (a <> " AND " <> b)
+      (Just a, Nothing) -> Just a
+      (Nothing, Just b) -> Just b
+      (Nothing, Nothing) -> Nothing
+
+filterConcat init nonEmptyList = foldr filterMerge init nonEmptyList

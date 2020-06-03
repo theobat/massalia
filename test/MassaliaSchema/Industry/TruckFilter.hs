@@ -38,7 +38,10 @@ import Massalia.QueryFormat
     FromText,
     SQLEncoder(sqlEncode, ignoreInGenericInstance)
   )
-import Massalia.SQLClass (SQLFilter)
+import Massalia.SQLClass (
+    SQLFilter,
+    SQLFilterField(filterStruct)
+  )
 import Massalia.SQLPart
   ( AQueryPart,
   )
@@ -56,6 +59,12 @@ data TruckFilter
 
 deriving instance SQLFilter BinaryQuery TruckFilter
 deriving instance SQLFilter TextQuery TruckFilter
+
+instance SQLFilterField queryFormat TruckFilter where
+  filterStruct _ selection value = Nothing -- this should implement 
+-- instance SQLFilterField queryFormat (Paginated TruckFilter) where
+--   filterStruct _ selection value = Nothing -- this should stay nothing
+
 -- deriving instance (
 --     QueryFormat qf
 --   ) =>  SQLFilter qf TruckFilter
