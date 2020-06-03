@@ -172,7 +172,14 @@ instance (Semigroup queryFormat) => Semigroup (SelectStruct queryFormat) where
     _having = _having a <> _having b,
     _orderBy = _orderBy a <> _orderBy b,
     _offsetLimit = _offsetLimit a <> _offsetLimit b
-  }    
+  }
+
+concatMaybeSQL :: Semigroup a => a -> Maybe a -> Maybe a -> Maybe a
+concatMaybeSQL sep a1 b1 = case (a1, b1) of
+  (Just a, Just b) -> Just (a <> sep <> b)
+  (Just a, Nothing) -> Just a
+  (Nothing, Just b) -> Just b
+  (Nothing, Nothing) -> Nothing
 
 instance (Semigroup queryFormat) => Monoid (SelectStruct queryFormat) where
   mempty = SelectStruct {
@@ -187,16 +194,16 @@ instance (Semigroup queryFormat) => Monoid (SelectStruct queryFormat) where
     _offsetLimit = Nothing
   }
 
+filterMerge :: (Semigroup queryFormat, IsString queryFormat) => SelectStruct queryFormat -> SelectStruct queryFormat -> SelectStruct queryFormat
 filterMerge a b = mempty {
     _rawPrefix = _rawPrefix a <> _rawPrefix b,
     _join = _join a <> _join b,
-    _where = andWhereRes
+    _where = concatMaybeSQL " AND " (_where a) (_where b)
   }
-  where
-    andWhereRes = case (_where a, _where b) of
-      (Just a, Just b) -> Just (a <> " AND " <> b)
-      (Just a, Nothing) -> Just a
-      (Nothing, Just b) -> Just b
-      (Nothing, Nothing) -> Nothing
 
+filterConcat ::
+  (Foldable t, Semigroup queryFormat, IsString queryFormat) =>
+  SelectStruct queryFormat ->
+  t (SelectStruct queryFormat) ->
+  SelectStruct queryFormat
 filterConcat init nonEmptyList = foldr filterMerge init nonEmptyList
