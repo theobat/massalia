@@ -27,7 +27,6 @@ module Massalia.SQLSelectStruct
 where
 
 import qualified Massalia.HasqlDec as Decoders
-import qualified Massalia.HasqlEnc as Encoders
 import Massalia.HasqlExec
   ( Session,
     Statement,
@@ -134,16 +133,18 @@ assembleSelectStruct wrapValueList struct = prefixCTERes <>
       Just (Nothing, limitVal) -> (pref "LIMIT ") <> limitVal
       Just (Just offsetVal, limitVal) -> (pref "OFFSET ") <> offsetVal <> " LIMIT " <> limitVal 
 
+wrap :: (Semigroup a, IsString a) => SQLWrapper -> a -> a
 wrap Row q = "row(" <> q <> ")"
 wrap ArrayAgg q = "array_agg(" <> q <> ")"
 wrap CoalesceArr q = "coalesce(" <> q <> ", '{}')"
 
+wrapList :: (Semigroup t, IsString t) => [SQLWrapper] -> t -> t
 wrapList [] q = q 
 wrapList (x:xs) q =  wrap x (wrapList xs $ q)
 
 intercalIfExists :: (QueryFormat queryFormat) => queryFormat -> queryFormat -> [queryFormat] -> queryFormat
 intercalIfExists _ _ [] = mempty
-intercalIfExists prefix sep list = prefix <> intercalate sep list
+intercalIfExists prefix sep givenList = prefix <> intercalate sep givenList
 
 data SQLWrapper = CoalesceArr | Row | ArrayAgg
 

@@ -6,16 +6,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-import Data.Morpheus.Types (GQLRequest (..))
-import qualified Hasql.Connection as Connection
-import Hasql.DynamicStatements.Session (dynamicallyParameterizedStatement)
-import qualified Hasql.Session as Session
 import Protolude
 import qualified SpecGraphQLSelect
 import qualified SpecStaticInsert
 import qualified SpecStaticSelect
 import Test.Tasty
-import Test.Tasty.HUnit
 
 main :: IO ()
 main = defaultMain tests

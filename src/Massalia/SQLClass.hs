@@ -70,7 +70,7 @@ import Massalia.Filter (
 import Massalia.UtilsGQL (Paginated)
 import Massalia.Utils (unsafeSnakeCaseT)
 import Massalia.SQLUtils (insertIntoWrapper, selectWrapper, rowsAssembler)
-import Massalia.GenericUtils (GTypeName(gtypename), GSelectors(selectors))
+import Massalia.GenericUtils (proxySelName, GTypeName(gtypename), GSelectors(selectors))
 import Data.String (IsString(fromString))
 import Hasql.Decoders (Composite)
 import qualified Data.Text as Text
@@ -343,6 +343,7 @@ data SQLFilterOption = SQLFilterOption {
   filterTableName :: Text,
   filterFieldName :: Text
 }
+defaultFilterOption :: SQLFilterOption
 defaultFilterOption = SQLFilterOption{filterTableName = "", filterFieldName=""}
 
 class SQLFilter queryFormat record where
@@ -383,7 +384,7 @@ instance (
     where
       result = filterStruct options selector val 
       -- optionWithSelector = (\opt -> opt { filterFieldName = selector }) <$> options
-      selector = fromString $ simpleSnakeCase $ selName (undefined :: M1 S s (K1 R t) ())
+      selector = fromString $ simpleSnakeCase $ selName (proxySelName :: M1 S s (K1 R t) ())
 
 class SQLFilterField queryFormat fieldType where
   filterStruct ::
@@ -418,8 +419,7 @@ instance (
     QueryFormat queryFormat,
     SQLFilterField queryFormat a
   ) => SQLFilterField queryFormat (Maybe a) where
-  filterStruct options selectorName Nothing = mempty
-  filterStruct options selectorName (Just val) = filterStruct options selectorName val
+  filterStruct options selectorName val = (filterStruct options selectorName) =<< val
 
 -- | Paginated filters are for top queries => always
 -- (and handled through the SQLRecord machinery)
@@ -637,7 +637,7 @@ instance (
   GSQLRecord queryFormat filterType (M1 S s (K1 R t)) where
   gfullTopSelection name = leaf name `over` leaf key
     where
-      key = (fromString $ selName (undefined :: M1 S s (K1 R t) ()))
+      key = (fromString $ selName (proxySelName :: M1 S s (K1 R t) ()))
   gtoColumnListAndDecoder opt selection filterValue defaultValue = case lookupRes of
     Nothing -> (const mempty, pure defaultValue)
     Just childTree -> result
@@ -651,4 +651,4 @@ instance (
         decOption = recordDecodeOption opt
     where
       lookupRes = MassaliaTree.lookupChildren key selection
-      key = (fromString $ selName (undefined :: M1 S s (K1 R t) ()))
+      key = (fromString $ selName (proxySelName :: M1 S s (K1 R t) ()))

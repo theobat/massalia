@@ -62,7 +62,6 @@ import Data.Vector (Vector)
 import Hasql.DynamicStatements.Snippet (Snippet)
 import qualified Hasql.DynamicStatements.Snippet as Snippet
 import Hasql.Implicits.Encoders (DefaultParamEncoder)
-import Data.Coerce (coerce)
 import Massalia.Utils (
     EmailAddress, LocalTime,
     Day, Scientific, UTCTime,
@@ -207,8 +206,11 @@ instance SQLEncoder Text EmailAddress where
 instance SQLEncoder Snippet EmailAddress where
   sqlEncode = Snippet.param . emailToText 
 
+inSingleQuote :: (Semigroup a, IsString a) => a -> a
 inSingleQuote a = "'" <> a <> "'"
+inParens :: (Semigroup a, IsString a) => a -> a
 inParens a = "(" <> a <> ")"
+commaSepInParens :: [[Char]] -> [Char]
 commaSepInParens = inParens . (intercalate ",")
 
 collectionTextEncode :: (Foldable collection, SQLEncoder Text underlyingType) =>
@@ -309,9 +311,5 @@ instance (
   ) => SQLDecoder qf filterType (Maybe a) where
   sqlDecode maybeFilter opt tree = fmap action $ sqlDecode maybeFilter opt tree
     where
-      action (DecodeTuple decoder nDecoder) = DecodeTuple
+      action (DecodeTuple decoder _) = DecodeTuple
         (const Nothing <$> decoder) (const $ Decoders.nullable decoder)
-
-sqlDecodeCoerce :: Coercible a b => (Text -> qf, DecodeTuple a) -> (Text -> qf, DecodeTuple b)
-sqlDecodeCoerce = fmap action
-  where action (DecodeTuple decoder nDecoder) = DecodeTuple (coerce <$> decoder) Decoders.nonNullable

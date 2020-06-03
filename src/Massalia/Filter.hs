@@ -41,7 +41,6 @@ where
 -- import Hasql.Encoders
 
 import Data.Aeson (FromJSON, ToJSON)
-import Data.String as StringUtils (IsString (fromString))
 import Data.UUID
 import Massalia.QueryFormat (
     (°),
@@ -52,7 +51,7 @@ import Massalia.QueryFormat (
 import Massalia.Utils (Day, LocalTime, SimpleRange(..), Inclusivity(..))
 import qualified Massalia.Utils as MassaliaUtils (intercalate)
 import Data.Morpheus.Types (KIND, GQLType)
-import Data.Morpheus.Kind (INPUT, WRAPPER)
+import Data.Morpheus.Kind (INPUT)
 import Protolude
 
 type GQLScalarFilterEq filterType =
@@ -139,10 +138,6 @@ defaultScalarFilter =
       isLT = Nothing,
       isBetween = Nothing
     }
-
-maybeToQueryFormat :: Monoid content => Maybe content -> content
-maybeToQueryFormat Nothing = mempty
-maybeToQueryFormat (Just content) = content
 
 type FilterConstraint qf a b c = (
     SQLEncoder qf a,

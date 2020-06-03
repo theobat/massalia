@@ -13,14 +13,11 @@
 
 module Massalia.GenericUtils
   ( GTypeName(..),
-    GSelectors(..)
+    GSelectors(..),
+    proxySelName
   ) where
 
-import           Data.ByteString (ByteString)
-import qualified Data.ByteString.Char8 as BS8
-import           Data.Proxy
 import           GHC.Generics
-import           Text.Read (readMaybe)
 import           Type.Reflection
 
 -- | Generic equivalent to `TypeName`.
@@ -55,10 +52,14 @@ instance GSelectors f => GSelectors (M1 C x f) where
 
 instance (Selector s, Typeable t) => GSelectors (M1 S s (K1 R t)) where
   selectors =
-    [(selName (undefined :: M1 S s (K1 R t) ()) , SomeTypeRep (typeRep @t))]
+    [(selName (proxySelName :: M1 S s (K1 R t) ()) , SomeTypeRep (typeRep @t))]
 
 instance (GSelectors a, GSelectors b) => GSelectors (a :*: b) where
   selectors = selectors @a ++ selectors @b
 
 instance GSelectors U1 where
   selectors = []
+
+-- | Should use Proxy
+proxySelName :: a
+proxySelName = undefined

@@ -10,14 +10,10 @@
 module Massalia.SelectionTree
 where
 
-import Massalia.GenericUtils (GTypeName(gtypename))
-import Data.String (String, IsString(fromString))
-import Massalia.Utils (simpleSnakeCase)
 import Data.Morpheus.Core (SelectionTree)
 import qualified Data.Morpheus.Core as MorpheusTree (SelectionTree(..))
 import Data.Morpheus.Types (
     Context (Context, currentSelection),
-    Resolver, unsafeInternalContext,
   )
 import qualified Data.Map as Map
 import Data.Morpheus.Types.Internal.AST (FieldName(readName))

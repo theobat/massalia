@@ -10,7 +10,6 @@
 
 module Massalia.SQLUtils where
 
-import Massalia.QueryFormat (inParens)
 import Protolude
 
 rowsAssembler ::
@@ -20,7 +19,7 @@ rowsAssembler sep input = assembledRows
   where
     rowSeparator a (0, previousRows) = rowSeparatorGeneric sep a (0, previousRows)
     rowSeparator a (index, previousRows) = rowSeparatorGeneric ("," <> sep) a (index, previousRows)
-    rowSeparatorGeneric sep a (index, previousRows) = (index + 1, previousRows <> sep <> a)
+    rowSeparatorGeneric isep a (index, previousRows) = (index + 1, previousRows <> isep <> a)
     (_, assembledRows) = foldr rowSeparator (0, "") input
 
 insertIntoWrapper ::
