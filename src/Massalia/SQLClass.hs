@@ -232,7 +232,7 @@ basicEntityQuery :: (
   Text -> Paginated filterT -> SelectStruct queryFormat
 basicEntityQuery name filtValue = withFilters
   where
-    withFilters = case (toQueryFormatFilter (Just filterOption) =<< Paginated.filtered filtValue) of
+    withFilters = case (toQueryFormatFilter (Just filterOption) =<< (Paginated.filtered filtValue)) of
       Nothing -> simplestQuery
       Just a -> simplestQuery <> a
     simplestQuery = mempty

@@ -200,6 +200,10 @@ instance SQLEncoder Text Day where
   sqlEncode = inSingleQuote . pack . show
 instance SQLEncoder Snippet Day where
   sqlEncode = Snippet.param
+instance SQLEncoder Text LocalTime where
+  sqlEncode = inSingleQuote . pack . show
+instance SQLEncoder Snippet LocalTime where
+  sqlEncode = Snippet.param
 
 instance SQLEncoder Text EmailAddress where
   sqlEncode = inSingleQuote . emailToText
