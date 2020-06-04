@@ -20,7 +20,8 @@
 -- |
 -- Module      : Massalia.SQLClass
 -- Description : A module to define SQL-related typeclasses
--- with generic deriving capabilities
+-- with generic deriving capabilities. Along with QueryFormat,
+-- it's the main module of massalia.
 module Massalia.SQLClass
   ( SQLName(..),
     SQLColumns(..),
@@ -43,10 +44,13 @@ module Massalia.SQLClass
     SQLFilterOption(..),
     SQLSelectOption(..),
     SQLRecordConfig(..),
-    QueryAndDecoder(..)
+    QueryAndDecoder(..),
+    selectConfigFromMapping,
+    defaultSelectConfig
   )
 where
 
+import qualified Data.Map as Map
 import Massalia.QueryFormat
   (
     QueryFormat,
@@ -56,7 +60,7 @@ import Massalia.QueryFormat
     SQLDecoder(sqlDecode),
     DecodeTuple (DecodeTuple),
     BinaryQuery,
-    DecodeOption(fieldPrefixType),
+    DecodeOption(nameMap, fieldPrefixType),
     DecodeFieldPrefixType(CompositeField),
     decodeName,
     defaultDecodeTuple,
@@ -539,6 +543,14 @@ data SQLSelectOption = SQLSelectOption {
 }
 data SQLRecordConfig = SQLRecordConfig {
   recordDecodeOption :: DecodeOption
+}
+selectConfigFromMapping :: [(Text, Text)] -> SQLSelectOption
+selectConfigFromMapping input = defaultSelectConfig {
+    selectDecodeOption = mempty{nameMap = Map.fromList input}
+  }
+defaultSelectConfig :: SQLSelectOption
+defaultSelectConfig = SQLSelectOption {
+  selectDecodeOption = mempty
 }
 defaultRecordConfig :: SQLRecordConfig
 defaultRecordConfig = SQLRecordConfig {
