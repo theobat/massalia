@@ -344,11 +344,17 @@ instance (SQLEncoder BinaryQuery a, GValues (K1 i a) BinaryQuery) =>
 ----------------------------------------------------------------------------
 
 data SQLFilterOption = SQLFilterOption {
+  -- | The table name unescaped, just like everywhere in the lib.
   filterTableName :: Text,
-  filterFieldName :: Text
+  -- | The mapping should use the snake case versions
+  filterFieldMap :: Map Text Text
 }
+getFilterFieldName :: Text -> Maybe SQLFilterOption -> Text
+getFilterFieldName scFieldName opt = fromMaybe scFieldName $ join look
+  where look = (Map.lookup scFieldName . filterFieldMap) <$> opt
+
 defaultFilterOption :: SQLFilterOption
-defaultFilterOption = SQLFilterOption{filterTableName = "", filterFieldName=""}
+defaultFilterOption = SQLFilterOption{filterTableName = "", filterFieldMap=mempty}
 
 class SQLFilter queryFormat record where
   toQueryFormatFilter :: Maybe SQLFilterOption -> record -> Maybe (SelectStruct queryFormat)
@@ -387,15 +393,13 @@ instance (
   gtoQueryFormatFilter options (M1 (K1 val)) = maybeToList result
     where
       result = filterStruct options selector val 
-      -- optionWithSelector = (\opt -> opt { filterFieldName = selector }) <$> options
       selector = fromString $ simpleSnakeCase $ selName (proxySelName :: M1 S s (K1 R t) ())
 
 class SQLFilterField queryFormat fieldType where
   filterStruct ::
     -- | A potential dictionary for rewriting names
-    -- TODO: take it into account
     Maybe SQLFilterOption ->
-    -- | selector name 
+    -- | selector __snakecase__ name 
     Text ->
     -- | field value
     fieldType ->
@@ -415,7 +419,7 @@ instance (
         }
       filterBitResult = filterFieldToMaybeContent prefix actualFieldName (Just val)
       prefix = (fromText . filterTableName) <$> options
-      actualFieldName = fromText (unsafeSnakeCaseT selectorName)
+      actualFieldName = fromText $ getFilterFieldName selectorName options
 
 instance (SQLFilter queryFormat a) => SQLFilter queryFormat (Maybe a) where
   toQueryFormatFilter options val = toQueryFormatFilter options =<< val

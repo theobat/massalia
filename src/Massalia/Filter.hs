@@ -124,7 +124,8 @@ type GQLFilterDay = GQLScalarFilterOrd Day
 
 -- | Filter with no effect
 -- defaultScalarFilter :: GQLScalarFilterCore eqScalarType likeScalarType ordScalarType
-defaultScalarFilter :: GQLScalarFilterCore eqScalarType likeScalarType ordScalarType
+defaultScalarFilter :: GQLScalarFilterCore
+  eqScalarType likeScalarType ordScalarType
 defaultScalarFilter =
   GQLScalarFilter
     { isEq = Nothing,
