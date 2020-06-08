@@ -14,38 +14,22 @@ module MassaliaSchema.Industry.Plant
   )
 where
 
-import Control.Monad.Trans (lift)
-import Data.Text (Text)
 import Data.UUID (UUID, nil)
-import qualified Data.Vector as Vector
-import GHC.Generics (Generic)
-import qualified Hasql.Connection as Connection
-import qualified Hasql.Encoders as Encoders
-import qualified Hasql.Session as Session
-import qualified Hasql.Statement as Statement
-import qualified Massalia.HasqlDec as Decoders
 import Massalia.HasqlExec (dynamicallyParameterizedStatement)
-import Massalia.SelectionTree (MassaliaTree (getName, foldrChildren), fromMorpheusContext)
+import Massalia.SelectionTree (fromMorpheusContext)
 import Massalia.MorpheusTypes
   (
-    GQLRootResolver (..),
     GQLType,
   )
 import Massalia.QueryFormat
   ( BinaryQuery,
-    SQLEncoder,
-    DefaultParamEncoder,
-    FromText(fromText),
-    QueryFormat,
-    SQLEncoder(sqlEncode),
     SQLDecoder(sqlDecode),
     joinEq,
     simpleEq,
     (°)
   )
 import Massalia.SQLSelectStruct (
-  SelectStruct(..), QueryAndDecoder(..), selectStructToListSubquery,
-  queryAndDecoderToListSubquery,
+  SelectStruct(..),
   queryAndDecoderToSnippetAndResult
   )
 import Massalia.HasqlExec (use)
@@ -68,7 +52,8 @@ import Massalia.SQLClass (
     SelectConstraint,
     SubSelectConstraint,
     basicDecodeListSubquery,
-    basicQueryAndDecoder
+    basicQueryAndDecoder,
+    basicEntityQuery
   )
 
 data Plant
@@ -86,13 +71,14 @@ data Plant
 instance (
     SelectConstraint queryFormat PlantFilter
   ) => SQLSelect queryFormat PlantFilter Plant where
-  toSelectQuery = basicQueryAndDecoder "plant"
+  toSelectQuery = basicQueryAndDecoder (\_ -> basicEntityQuery "plant")
 
 instance (
     SubSelectConstraint queryFormat TruckFilter Truck
   ) => SQLDecoder queryFormat PlantFilter [Truck] where
-  sqlDecode = basicDecodeListSubquery joinFn PlantFilter.truckList
+  sqlDecode = basicDecodeListSubquery contextSwitch joinFn
     where
+      contextSwitch = const defaultPaginated -- PlantFilter.truckList . Paginated.filtered
       joinFn name = mempty {
         _join = [joinEq truckPlantName "truck_id" truckName "id"],
         _where = Just $ simpleEq truckPlantName "plant_id" name "id",
@@ -120,6 +106,6 @@ plantListQuery maybePool queryArgs = do
         Left e -> (panic $ show e)
         Right listRes -> pure listRes
     -- statement validSel = queryAndDecoderToSession $ initialSnippet validSel
-    initialSnippet selSet = toSelectQuery Nothing selSet arg
+    initialSnippet selSet = toSelectQuery selSet arg
     arg = defaultPaginated{Paginated.filtered = Just plantFilterTest}
 

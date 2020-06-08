@@ -36,7 +36,8 @@ import Massalia.QueryFormat
     BinaryQuery,
     TextQuery,
     FromText,
-    SQLEncoder(sqlEncode, ignoreInGenericInstance)
+    SQLEncoder(sqlEncode, ignoreInGenericInstance),
+    MassaliaContext(..)
   )
 import Massalia.SQLClass (
     SQLFilter,
@@ -69,10 +70,6 @@ instance SQLFilterField queryFormat TruckFilter where
 --     QueryFormat qf
 --   ) =>  SQLFilter qf TruckFilter
 
-instance (QueryFormat a) => SQLEncoder a TruckFilter where
-  ignoreInGenericInstance = True
-  sqlEncode = const ""
-
 testInstance =
   TruckFilter
     { id = pure $ defaultScalarFilter {isEq = Just nil},
@@ -82,3 +79,7 @@ testInstance =
 instance GQLType TruckFilter where
   type KIND TruckFilter = INPUT
   description = const $ Just ("A set of filters for the Truck type" :: Text)
+
+instance MassaliaContext TruckFilter where
+  getDecodeOption = const mempty
+  setDecodeOption = const identity

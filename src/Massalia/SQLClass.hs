@@ -10,12 +10,11 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE QuantifiedConstraints #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- |
 -- Module      : Massalia.SQLClass
@@ -37,6 +36,7 @@ module Massalia.SQLClass
     basicDecodeRecordSubquery,
     basicDecodeListSubquery,
     basicDecodeInnerRecord,
+    paginatedFilterToSelectStruct,
     SQLSelect(toSelectQuery),
     SQLRecord(toColumnListAndDecoder, fullTopSelection),
     gsqlColumns,
@@ -60,6 +60,7 @@ import Massalia.QueryFormat
     SQLDecoder(sqlDecode),
     DecodeTuple (DecodeTuple),
     BinaryQuery,
+    MassaliaContext(getDecodeOption, setDecodeOption),
     DecodeOption(nameMap, fieldPrefixType),
     DecodeFieldPrefixType(CompositeField),
     decodeName,
@@ -100,118 +101,131 @@ import Massalia.SQLSelectStruct (
   )
 import qualified Massalia.UtilsGQL as Paginated
 
-type SubSelectConstraint qf filterT childrenT = (
+type SubSelectConstraint qf contextT subNodeT = (
     QueryFormat qf,
-    SelectConstraint qf filterT,
-    SQLSelect qf filterT childrenT,
-    SQLRecord qf filterT childrenT
+    SelectConstraint qf contextT,
+    SQLSelect qf contextT subNodeT,
+    SQLRecord qf contextT subNodeT
   )
 
 -- | This is a utility function to facilitate the writing
 -- of SQLDecode for inner records.
 basicDecodeInnerRecord :: 
-  forall qf parentFilterT childrenT treeNode.
+  forall qf contextT nodeT treeNode.
   (
     QueryFormat qf,
-    forall a. SQLRecord qf a childrenT,
-    MassaliaTree treeNode
+    SQLRecord qf contextT nodeT,
+    MassaliaTree treeNode,
+    MassaliaContext contextT,
+    SQLRecord qf contextT nodeT
   ) =>
-  Maybe parentFilterT ->
-  DecodeOption ->
+  contextT ->
   treeNode ->
-  (Text -> qf, DecodeTuple childrenT)
-basicDecodeInnerRecord _ opt selection = result
+  (Text -> qf, DecodeTuple nodeT)
+basicDecodeInnerRecord context selection = result
   where
     result = (colListQFThunk, defaultDecodeTuple $ Decoders.composite decoderVal)
-    colListQFThunk name = "(CASE WHEN " <> (fromText compositeName) <> "IS NULL THEN null ELSE row(" <> intercalate "," (colListThunk compositeName) <> ") END)"
+    colListQFThunk name = "(CASE WHEN "
+      <> (fromText compositeName)
+      <> "IS NULL THEN null ELSE row("
+      <> intercalate "," (colListThunk compositeName)
+      <> ") END)"
       where compositeName = unsafeSnakeCaseT (name ° (getName selection))
-    (colListThunk, decoderVal) = toColumnListAndDecoder @qf recordConfig selection filterVal
-    recordConfig = SQLRecordConfig {
-      recordDecodeOption = opt{fieldPrefixType=CompositeField}
-    }
-    filterVal = Nothing
+    (colListThunk, decoderVal) = toColumnListAndDecoder @qf selection (updatedContext context)
+    updatedContext = setDecodeOption @contextT (currentDecodeOpt{fieldPrefixType=CompositeField})
+    currentDecodeOpt = fromMaybe mempty $ getDecodeOption context
 
 -- | A utility function to build a list subquery within an existing query.
 -- It's meant to be used in SQLDecode.
 basicDecodeRecordSubquery :: 
-  forall qf parentFilterT filterT childrenT treeNode.
+  forall qf parentContextT childrenContextT childrenT treeNode.
   (
-    SubSelectConstraint qf filterT childrenT,
-    MassaliaTree treeNode
+    SQLSelect qf childrenContextT childrenT,
+    MassaliaTree treeNode,
+    SQLRecord qf childrenContextT childrenT,
+    QueryFormat qf, MassaliaContext parentContextT
   ) =>
+  -- | The context switch between parent and child.
+  (parentContextT -> childrenContextT) ->
+  -- | The function which performs the join between parents and child.
   (qf -> SelectStruct qf) ->
-  (parentFilterT -> Maybe (Paginated filterT)) ->
-  Maybe parentFilterT ->
-  DecodeOption ->
+  -- | The given parent context.
+  parentContextT ->
+  -- | The selection tree.
   treeNode ->
   (Text -> qf, DecodeTuple childrenT)
-basicDecodeRecordSubquery inputFn filterAccessor filterParent opt selection = (listSubquery, newDecoder)
+basicDecodeRecordSubquery contextSwitch joinFn parentContext selection = (recordSubquery, newDecoder)
   where
     newDecoder = compositeToDecoderTuple $ decoder subQueryRaw
-    listSubquery name = selectStructToRecordSubquery $ query subQueryRaw <> inputFn decodedName
-      where decodedName = fromText $ decodeName opt name
-    subQueryRaw = basicDecodeSubquery filterAccessor filterParent opt selection
+    recordSubquery name = selectStructToRecordSubquery $ query subQueryRaw <> joinFn decodedName
+      where
+        decodedName = fromText $ decodeName decodeOpt name
+        decodeOpt = fromMaybe mempty $ getDecodeOption parentContext
+    subQueryRaw = basicDecodeSubquery contextSwitch selection parentContext
 
 -- | A utility function to build a list subquery within an existing query.
 -- It's meant to be used in SQLDecode.
 basicDecodeListSubquery ::
-  forall qf parentFilterT filterT childrenT treeNode.
+  forall qf parentContextT childrenContextT childrenT treeNode.
   (
-    SubSelectConstraint qf filterT childrenT,
-    MassaliaTree treeNode
+    SQLSelect qf childrenContextT childrenT,
+    MassaliaTree treeNode, SQLRecord qf childrenContextT childrenT,
+    QueryFormat qf, MassaliaContext parentContextT
   ) =>
+  -- | The context switch between parent and child.
+  (parentContextT -> childrenContextT) ->
+  -- | The function which performs the join between parents and child.
   (qf -> SelectStruct qf) ->
-  (parentFilterT -> Maybe (Paginated filterT)) ->
-  Maybe parentFilterT ->
-  DecodeOption ->
+  -- | The given parent context.
+  parentContextT ->
+  -- | The selection tree.
   treeNode ->
   (Text -> qf, DecodeTuple [childrenT])
-basicDecodeListSubquery inputFn filterAccessor filterParent opt selection = (listSubquery, newDecoder)
+basicDecodeListSubquery contextSwitch joinFn parentContext selection = (listSubquery, newDecoder)
   where
     newDecoder = compositeToListDecoderTuple $ decoder subQueryRaw
-    listSubquery name = selectStructToListSubquery $ query subQueryRaw <> inputFn decodedName
-      where decodedName = fromText $ decodeName opt name
-    subQueryRaw = basicDecodeSubquery filterAccessor filterParent opt selection
+    listSubquery name = selectStructToListSubquery $ query subQueryRaw <> joinFn decodedName
+      where
+        decodedName = fromText $ decodeName decodeOpt name
+        decodeOpt = fromMaybe mempty $ getDecodeOption parentContext
+    subQueryRaw = basicDecodeSubquery contextSwitch selection parentContext
 
 basicDecodeSubquery ::
-  forall qf parentFilterT filterT childrenT treeNode.
+  forall qf parentContextT childrenContextT childNodeT treeNode.
   (
-    SubSelectConstraint qf filterT childrenT,
-    MassaliaTree treeNode
+    SQLSelect qf childrenContextT childNodeT,
+    MassaliaTree treeNode,
+    SQLRecord qf childrenContextT childNodeT
   ) =>
-  (parentFilterT -> Maybe (Paginated filterT)) ->
-  Maybe parentFilterT ->
-  DecodeOption ->
+  (parentContextT -> childrenContextT) ->
   treeNode ->
-  QueryAndDecoder qf childrenT
-basicDecodeSubquery filterAccessor filterParent opt selection = subQueryRaw
+  parentContextT ->
+  QueryAndDecoder qf childNodeT
+basicDecodeSubquery contextSwitcher selection parentContextT = subQueryRaw
   where
-    subQueryRaw = toSelectQuery @qf @filterT @childrenT @treeNode selectOption selection filterChild
-    selectOption = Just $ SQLSelectOption {selectDecodeOption = opt}
-    filterChild = fromMaybe Paginated.defaultPaginated (join $ filterAccessor <$> filterParent)
+    subQueryRaw = toSelectQuery selection childrenContext
+    childrenContext = contextSwitcher parentContextT
 
 -- | A simple building block for the 'toSelectQuery' function in the SQLSelect instance.
 -- It provides the equivalent of 
 -- @
---  SELECT /*... the list of values extracted from the seleciton tree*/
+--  SELECT /*... the list of values extracted from the selection tree*/
 --  FROM /* the given table name */
 -- @
 basicQueryAndDecoder :: (
-    SelectConstraint qf filterType,
     MassaliaTree selectionType,
-    SQLRecord qf filterType nodeType
+    SQLRecord qf contextT nodeType,
+    SQLEncoder qf Int
   ) =>
-  -- | The sql table name (or alias).
-  Text ->
-  -- | A set of options
-  Maybe SQLSelectOption ->
+  -- | The sql table name and pagination filter mapping from the context.
+  (contextT -> (Text, SelectStruct qf)) ->
   -- | The selection set (in the form of a 'Tree' interface)
   selectionType ->
-  -- | The node's filter type
-  Paginated filterType ->
+  -- | The node's context type
+  contextT ->
   -- | A query for this node with all its decoder
   QueryAndDecoder qf nodeType
-basicQueryAndDecoder instanceName maybeOpt selection filterValue = QueryAndDecoder {
+basicQueryAndDecoder contextTransformer selection context = QueryAndDecoder {
         query=queryWithColumnList,
         decoder=decoderVal
       }
@@ -219,31 +233,35 @@ basicQueryAndDecoder instanceName maybeOpt selection filterValue = QueryAndDecod
       queryWithColumnList = rawQuery <> mempty{
           _select = colListThunk instanceName
         }
-      (colListThunk, decoderVal) = toColumnListAndDecoder recordOpt selection realFilterValue
-      recordOpt = defaultRecordConfig {
-          recordDecodeOption=fromMaybe mempty (selectDecodeOption <$> maybeOpt)
-        }
-      realFilterValue = Paginated.filtered filterValue
-      rawQuery = basicEntityQuery realInstanceName filterValue
-      realInstanceName = fromText instanceName
-      
+      (colListThunk, decoderVal) = toColumnListAndDecoder selection context
+      (instanceName, rawQuery) = contextTransformer context
 
--- | This yields a query with no selection but integrate filter inlining
--- and pagination arguments.
-basicEntityQuery :: (
-    SelectConstraint queryFormat filterT
+-- | This is a simple FROM "tablename" query bit
+basicEntityQuery :: (QueryFormat qf) =>
+  Text ->
+  (Text, SelectStruct qf)
+basicEntityQuery tablename = (tablename, mempty {
+        _from = Just ("\"" <> fromText tablename <> "\"")
+      })
+
+-- | Transforms a paginated filter into a SelectStruct
+-- (which you can add to your existing one through (<>)).
+paginatedFilterToSelectStruct :: (
+    QueryFormat qf,
+    SQLFilter qf filterT,
+    SQLEncoder qf Int
   ) =>
-  Text -> Paginated filterT -> SelectStruct queryFormat
-basicEntityQuery name filtValue = withFilters
+  Text -> Paginated filterT -> SelectStruct qf
+paginatedFilterToSelectStruct prefixName filterValue = res
   where
-    withFilters = case (toQueryFormatFilter (Just filterOption) =<< (Paginated.filtered filtValue)) of
-      Nothing -> simplestQuery
-      Just a -> simplestQuery <> a
-    simplestQuery = mempty
-      { _from = Just ("\"" <> (fromText name) <> "\""),
-        _offsetLimit = Just (sqlEncode <$> Paginated.offset filtValue, sqlEncode $ fromMaybe 10000 $ Paginated.first filtValue)
+    res = case (toQueryFormatFilter (Just filterOption) =<< (Paginated.filtered filterValue)) of
+      Nothing -> offsetLimitQy
+      Just a -> offsetLimitQy <> a
+    offsetLimitQy = mempty {
+        _offsetLimit = Just $ offsetLimitFn
       }
-    filterOption = defaultFilterOption{filterTableName = name}
+    filterOption = defaultFilterOption{filterTableName = prefixName}
+    offsetLimitFn = (sqlEncode <$> Paginated.offset filterValue, sqlEncode $ fromMaybe 10000 $ Paginated.first filterValue)
 
 type SelectConstraint qf filterType = (
     QueryFormat qf,
@@ -561,100 +579,107 @@ defaultRecordConfig = SQLRecordConfig {
   recordDecodeOption = mempty
 }
 
-class SQLSelect queryFormat filterType nodeType | nodeType -> filterType where
-  toSelectQuery :: (MassaliaTree selectionType, SQLRecord queryFormat filterType nodeType) =>
-    Maybe SQLSelectOption ->
+-- | This is the class to get an SQL select query out of a selection set ('MassaliaTree'),
+-- and a paginated filter.
+class SQLSelect queryFormat contextT nodeType where
+  -- | Takes a selection set of GQL fields along and a context type.
+  -- Gives an SQL query with a Hasql decoder ('QueryAndDecoder').
+  toSelectQuery :: (MassaliaTree selectionType, SQLRecord queryFormat contextT nodeType) =>
     -- | The selection set (in the form of a 'Tree' interface)
     selectionType ->
-    -- | The node's filter type
-    Paginated filterType ->
+    -- | The node's context. It Has to respect the MassaliaContext interface/class.
+    contextT ->
     -- | A query for this node with all its decoder
     QueryAndDecoder queryFormat nodeType
 
--- | This is the way to get a select query out of a select tree and a filter
-class SQLRecord queryFormat filterType domainType where
+-- | This class is the way to get the list of selection along with the way to decode them in haskell
+--  for a given type and its filter.
+-- It also provides a way to access all the selectors of a type (fullTopSelection).
+-- 
+class SQLRecord queryFormat contextT nodeT where
   -- | Given a top name, selects every leaf selector in this type.
   fullTopSelection :: Text -> MassaliaNode
   default fullTopSelection :: (
-      GSQLRecord queryFormat filterType (Rep domainType),
-      Generic domainType
+      GSQLRecord queryFormat contextT (Rep nodeT),
+      Generic nodeT
     ) => Text -> MassaliaNode
-  fullTopSelection name = gfullTopSelection @queryFormat @filterType @(Rep domainType) name
+  fullTopSelection name = gfullTopSelection @queryFormat @contextT @(Rep nodeT) name
   toColumnListAndDecoder ::
     (MassaliaTree selectionType) =>
-    SQLRecordConfig ->
     -- | The selection set (in the form of a 'Tree' interface).
     selectionType ->
-    -- | The node's filter type.
-    Maybe filterType ->
+    -- | The node's context. It Has to respect the MassaliaContext interface/class.
+    contextT ->
     -- | A queryFormatted list of columns and a Hasql decoder.
-    (Text -> [queryFormat], Composite domainType)
-  default toColumnListAndDecoder :: (
-      SQLDefault domainType,
+    (Text -> [queryFormat], Composite nodeT)
+  default toColumnListAndDecoder ::
+    (
+      SQLDefault nodeT,
       MassaliaTree selectionType,
-      GSQLRecord queryFormat filterType (Rep domainType),
-      Generic domainType
+      GSQLRecord queryFormat contextT (Rep nodeT),
+      Generic nodeT
     ) =>
-    SQLRecordConfig -> selectionType -> Maybe filterType -> (Text -> [queryFormat], Composite domainType)
-  toColumnListAndDecoder opt selectionVal filterVal = (colListThunk, to <$> gdeco)
+    selectionType ->
+    contextT ->
+    (Text -> [queryFormat], Composite nodeT)
+  toColumnListAndDecoder selectionVal context = (colListThunk, to <$> gdeco)
     where
-      (colListThunk, gdeco) = gtoColumnListAndDecoder @queryFormat opt selectionVal filterVal defaultVal
-      defaultVal = from $ getDefault @domainType
+      (colListThunk, gdeco) = gtoColumnListAndDecoder @queryFormat selectionVal context defaultVal
+      defaultVal = from $ getDefault @nodeT
 
-class GSQLRecord queryFormat filterType (rep :: * -> *) where
+class GSQLRecord queryFormat contextT (rep :: * -> *) where
   gfullTopSelection :: Text -> MassaliaNode
   gtoColumnListAndDecoder ::
     (MassaliaTree selectionType) =>
-    SQLRecordConfig ->
     -- | The selection set (in the form of a 'Tree' interface)
     selectionType ->
-    -- | The node's filter type
-    Maybe filterType ->
+    -- | The node's context type
+    contextT ->
     -- | The node's default value
-    (rep domainType) ->
+    (rep nodeT) ->
     -- | A queryFormatted list of columns (parametrized by tablename) and a Hasql decoder.
-    (Text -> [queryFormat], Composite (rep domainType))
+    (Text -> [queryFormat], Composite (rep nodeT))
 
 -- | Use the Monad instance of the composite hasql type
 -- It's where the magic happens
-instance (GSQLRecord queryFormat filterType a, GSQLRecord queryFormat filterType b) =>
-  GSQLRecord queryFormat filterType (a :*: b) where
+instance (GSQLRecord queryFormat contextT a, GSQLRecord queryFormat contextT b) =>
+  GSQLRecord queryFormat contextT (a :*: b) where
   gfullTopSelection name = resParent
     where
       resParent = (resA <> resB)
-      resA = gfullTopSelection @queryFormat @filterType @a name :: MassaliaNode
-      resB = gfullTopSelection @queryFormat @filterType @b name :: MassaliaNode
-  gtoColumnListAndDecoder opt selectionVal filterVal (a :*: b) = result
+      resA = gfullTopSelection @queryFormat @contextT @a name :: MassaliaNode
+      resB = gfullTopSelection @queryFormat @contextT @b name :: MassaliaNode
+  gtoColumnListAndDecoder selectionVal context (a :*: b) = result
     where
       result = (combineCols, compoCombined)
       combineCols input = structA input <> structB input
-      (structA, compoA) = gtoColumnListAndDecoder opt selectionVal filterVal a
-      (structB, compoB) = gtoColumnListAndDecoder opt selectionVal filterVal b
+      (structA, compoA) = gtoColumnListAndDecoder selectionVal context a
+      (structB, compoB) = gtoColumnListAndDecoder selectionVal context b
       compoCombined = do
         ca <- compoA
         cb <- compoB
         pure (ca :*: cb)
 
-instance (GSQLRecord queryFormat filterType a) => GSQLRecord queryFormat filterType (M1 D c a) where
-  gfullTopSelection name = gfullTopSelection @queryFormat @filterType @a name
-  gtoColumnListAndDecoder opt selectionVal filterVal (M1 x) = second (M1 <$>) res
-    where res = gtoColumnListAndDecoder opt selectionVal filterVal x
-instance (GSQLRecord queryFormat filterType a) => GSQLRecord queryFormat filterType (M1 C c a) where
-  gfullTopSelection name = gfullTopSelection @queryFormat @filterType @a name
-  gtoColumnListAndDecoder opt selectionVal filterVal (M1 x) = second (M1 <$>) res
-    where res = gtoColumnListAndDecoder opt selectionVal filterVal x
+instance (GSQLRecord queryFormat contextT a) => GSQLRecord queryFormat contextT (M1 D c a) where
+  gfullTopSelection name = gfullTopSelection @queryFormat @contextT @a name
+  gtoColumnListAndDecoder selectionVal context (M1 x) = second (M1 <$>) res
+    where res = gtoColumnListAndDecoder selectionVal context x
+instance (GSQLRecord queryFormat contextT a) => GSQLRecord queryFormat contextT (M1 C c a) where
+  gfullTopSelection name = gfullTopSelection @queryFormat @contextT @a name
+  gtoColumnListAndDecoder selectionVal context (M1 x) = second (M1 <$>) res
+    where res = gtoColumnListAndDecoder selectionVal context x
 
 -- | This is where we encouter a leaf, if the leaf is in the tree (asked) we query it
 -- otherwise we simply return the default provided value.
 instance (
     FromText queryFormat, IsString queryFormat, Selector s,
-    SQLDecoder queryFormat filterType t
+    SQLDecoder queryFormat contextT t
   ) =>
-  GSQLRecord queryFormat filterType (M1 S s (K1 R t)) where
+  GSQLRecord queryFormat contextT (M1 S s (K1 R t)) where
   gfullTopSelection name = leaf name `over` leaf key
     where
       key = (fromString $ selName (proxySelName :: M1 S s (K1 R t) ()))
-  gtoColumnListAndDecoder opt selection filterValue defaultValue = case lookupRes of
+  gtoColumnListAndDecoder selection contextT defaultValue = case lookupRes of
     Nothing -> (const mempty, pure defaultValue)
     Just childTree -> result
       where
@@ -663,8 +688,8 @@ instance (
         decoderWrapper = ((M1 . K1) <$>) . Decoders.field
         decoded = (columnFn, nullability decValue)
         (columnFn, DecodeTuple decValue nullability) = decodeRes
-        decodeRes = sqlDecode @queryFormat @filterType filterValue decOption childTree
-        decOption = recordDecodeOption opt
+        decodeRes = sqlDecode @queryFormat @contextT contextT childTree
     where
       lookupRes = MassaliaTree.lookupChildren key selection
       key = (fromString $ selName (proxySelName :: M1 S s (K1 R t) ()))
+

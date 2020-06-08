@@ -34,7 +34,8 @@ import MassaliaSchema.Industry.TruckFilter (TruckFilter, testInstance)
 import Massalia.QueryFormat
   ( BinaryQuery,
     SQLEncoder(..),
-    QueryFormat
+    QueryFormat,
+    MassaliaContext(..)
   )
 import Massalia.SQLClass (SQLFilter)
 import Protolude
@@ -76,3 +77,8 @@ plantFilterTest =
                       Right a -> Just a
                   }
                 }
+
+instance MassaliaContext PlantFilter where
+  getDecodeOption = const mempty
+  setDecodeOption = const identity
+-- (getDecodeOption, setDecodeOption)

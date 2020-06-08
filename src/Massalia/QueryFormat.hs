@@ -15,6 +15,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 -- |
 -- Module      : Massalia.QueryFormat
@@ -30,6 +31,7 @@ module Massalia.QueryFormat
     DecodeOption(..),
     DecodeFieldPrefixType(..),
     DecodeTuple (DecodeTuple),
+    MassaliaContext(getDecodeOption, setDecodeOption),
     defaultDecodeTuple,
     refineDecoder,
     FromText(fromText),
@@ -230,12 +232,15 @@ collectionTextEncode collection = wrapCollection assembled
     
 ------------------------- Decoder stuff
 scalar ::
-  (QueryFormat queryFormat, MassaliaTree a ) =>
+  (
+    QueryFormat queryFormat, MassaliaTree a,
+    MassaliaContext contextT
+  ) =>
   Decoders.Value decodedT ->
-  DecodeOption ->
+  contextT ->
   a ->
   (Text -> queryFormat, DecodeTuple decodedT)
-scalar decoder decOption input = case fieldPrefixType decOption of
+scalar decoder context input = case fieldPrefixType decOption of
   CompositeField -> (compo, (DecodeTuple decoder Decoders.nonNullable))
   TableName -> (col, (DecodeTuple decoder Decoders.nonNullable))
   where
@@ -243,6 +248,7 @@ scalar decoder decOption input = case fieldPrefixType decOption of
     col rawName = "\"" <> tablename rawName <> "\".\"" <> colName <> "\""
     tablename rawName = fromText $ decodeName decOption rawName
     colName = fromText $ unsafeSnakeCaseT $ getName input
+    decOption = fromMaybe mempty (getDecodeOption context)
 
 data DecodeTuple decodedT = DecodeTuple {
   decValue :: Decoders.Value decodedT,
@@ -283,37 +289,50 @@ decodeName decOpt name = case fieldPrefixType decOpt of
   
 
 -- | A class to decode
-class (QueryFormat qf) => SQLDecoder qf filterType decodedT where
-  sqlDecode :: (QueryFormat qf, MassaliaTree treeNode) =>
-    Maybe filterType -> DecodeOption -> treeNode -> (Text -> qf, DecodeTuple decodedT)
+class (QueryFormat qf, MassaliaContext contextT) => SQLDecoder qf contextT decodedT where
+  sqlDecode :: (
+    QueryFormat qf,
+    MassaliaTree treeNode,
+    MassaliaContext contextT
+    ) =>
+    contextT -> treeNode -> (Text -> qf, DecodeTuple decodedT)
+type DecodeConstraint qf contextT = (QueryFormat qf, MassaliaContext contextT)
 
-instance (QueryFormat qf) => SQLDecoder qf filterType UUID where
-  sqlDecode _ = scalar Decoders.uuid
-instance (QueryFormat qf) => SQLDecoder qf filterType Text where
-  sqlDecode _ = scalar Decoders.text
-instance (QueryFormat qf) => SQLDecoder qf filterType Bool where
-  sqlDecode _ = scalar Decoders.bool
-instance (QueryFormat qf) => SQLDecoder qf filterType EmailAddress where
-  sqlDecode _ = scalar (Decoders.custom $ const emailValidateText)
-instance (QueryFormat qf) => SQLDecoder qf filterType Int64 where
-  sqlDecode _ = scalar Decoders.int8
-instance (QueryFormat qf) => SQLDecoder qf filterType Int where
-  sqlDecode _ = scalar (fromIntegral <$> Decoders.int8)
+instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT UUID where
+  sqlDecode = scalar Decoders.uuid
+instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT Text where
+  sqlDecode = scalar Decoders.text
+instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT Bool where
+  sqlDecode = scalar Decoders.bool
+instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT EmailAddress where
+  sqlDecode = scalar (Decoders.custom $ const emailValidateText)
+instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT Int64 where
+  sqlDecode = scalar Decoders.int8
+instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT Int where
+  sqlDecode = scalar (fromIntegral <$> Decoders.int8)
  
-instance (QueryFormat qf) => SQLDecoder qf filterType LocalTime where
-  sqlDecode _ = scalar Decoders.timestamp
-instance (QueryFormat qf) => SQLDecoder qf filterType Day where
-  sqlDecode _ = scalar Decoders.date
-instance (QueryFormat qf) => SQLDecoder qf filterType Scientific where
-  sqlDecode _ = scalar Decoders.numeric
-instance (QueryFormat qf) => SQLDecoder qf filterType UTCTime where
-  sqlDecode _ = scalar Decoders.timestamptz
+instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT LocalTime where
+  sqlDecode = scalar Decoders.timestamp
+instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT Day where
+  sqlDecode = scalar Decoders.date
+instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT Scientific where
+  sqlDecode = scalar Decoders.numeric
+instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT UTCTime where
+  sqlDecode = scalar Decoders.timestamptz
 
 instance (
-    SQLDecoder qf filterType a,
+    SQLDecoder qf contextT a,
     QueryFormat qf
-  ) => SQLDecoder qf filterType (Maybe a) where
-  sqlDecode maybeFilter opt tree = fmap action $ sqlDecode maybeFilter opt tree
+  ) => SQLDecoder qf contextT (Maybe a) where
+  sqlDecode tree context = fmap action $ sqlDecode tree context
     where
       action (DecodeTuple decoder _) = DecodeTuple
         (const Nothing <$> decoder) (const $ Decoders.nullable decoder)
+
+-- | This is the building bloc for the SQLSelect class, it creates the
+-- FROM .. WHERE .. etc part of a SELECT SQL query based on a « context » object.
+-- It enables the ability to pass, for instance, user roles, user data,
+-- authentication information.
+class MassaliaContext contextT where
+  getDecodeOption :: contextT -> Maybe DecodeOption
+  setDecodeOption :: DecodeOption -> contextT -> contextT

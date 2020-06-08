@@ -27,7 +27,8 @@ import Massalia.SQLClass (
     SQLRecord,
     SQLSelect(toSelectQuery),
     SQLDefault(getDefault),
-    basicQueryAndDecoder
+    basicQueryAndDecoder,
+    basicEntityQuery
   )
 import Protolude
 
@@ -39,10 +40,11 @@ data Truck
   deriving (Show, Generic, Eq, GQLType,
     SQLRecord Text TruckFilter, SQLRecord BinaryQuery TruckFilter)
 
+-- | TODO: add actual truckFilter application
 instance (
     SelectConstraint queryFormat TruckFilter
   ) => SQLSelect queryFormat TruckFilter Truck where
-  toSelectQuery = basicQueryAndDecoder "truck"
+  toSelectQuery = basicQueryAndDecoder (\_ -> basicEntityQuery "truck")
 
 instance SQLDefault Truck where
   getDefault = defaultTruck
