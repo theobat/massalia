@@ -266,8 +266,7 @@ paginatedFilterToSelectStruct prefixName filterValue = res
 
 type SelectConstraint qf filterType = (
     QueryFormat qf,
-    SQLEncoder qf Int,
-    SQLFilter qf filterType
+    SQLEncoder qf Int
   )
 
 -- | This class represents all the haskell types with a corresponding SQL
@@ -585,7 +584,7 @@ defaultRecordConfig = SQLRecordConfig {
 class SQLSelect queryFormat contextT nodeType where
   -- | Takes a selection set of GQL fields along and a context type.
   -- Gives an SQL query with a Hasql decoder ('QueryAndDecoder').
-  toSelectQuery :: (MassaliaTree selectionType, SQLRecord queryFormat contextT nodeType) =>
+  toSelectQuery :: (MassaliaTree selectionType) =>
     -- | The selection set (in the form of a 'Tree' interface)
     selectionType ->
     -- | The node's context. It Has to respect the MassaliaContext interface/class.

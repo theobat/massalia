@@ -7,6 +7,8 @@
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module MassaliaSchema.Industry.Plant
   ( Plant (..),
@@ -23,7 +25,9 @@ import Massalia.MorpheusTypes
   )
 import Massalia.QueryFormat
   ( BinaryQuery,
+    QueryFormat,
     SQLDecoder(sqlDecode),
+    SQLEncoder,
     joinEq,
     simpleEq,
     (°)
@@ -65,20 +69,26 @@ data Plant
         description :: Maybe Text,
         truckList :: [Truck]
       }
-  deriving (Show, Generic, GQLType,
-    SQLRecord Text PlantFilter, SQLRecord BinaryQuery PlantFilter)
+  deriving (Show, Generic, GQLType)
 
+deriving instance (
+    QueryFormat qf,
+    SQLEncoder qf Int
+  ) => SQLRecord qf (Paginated PlantFilter) Plant
+  
 instance (
-    SelectConstraint queryFormat PlantFilter
-  ) => SQLSelect queryFormat PlantFilter Plant where
+    SelectConstraint qf (Paginated PlantFilter)
+  ) => SQLSelect qf (Paginated PlantFilter) Plant where
   toSelectQuery = basicQueryAndDecoder (\_ -> basicEntityQuery "plant")
 
 instance (
-    SubSelectConstraint queryFormat TruckFilter Truck
-  ) => SQLDecoder queryFormat PlantFilter [Truck] where
+  QueryFormat qf,
+  SQLSelect qf (Paginated TruckFilter) Truck,
+  SQLEncoder qf Int
+  ) => SQLDecoder qf (Paginated PlantFilter) [Truck] where
   sqlDecode = basicDecodeListSubquery contextSwitch joinFn
     where
-      contextSwitch = const defaultPaginated -- PlantFilter.truckList . Paginated.filtered
+      contextSwitch input = undefined :: (Paginated TruckFilter)  -- fromMaybe defaultPaginated (PlantFilter.truckList <$> (Paginated.filtered input))
       joinFn name = mempty {
         _join = [joinEq truckPlantName "truck_id" truckName "id"],
         _where = Just $ simpleEq truckPlantName "plant_id" name "id",

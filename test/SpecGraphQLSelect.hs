@@ -22,10 +22,11 @@ import Massalia.QueryFormat (
     TextQuery,
   )
 import Massalia.SQLSelectStruct (QueryAndDecoder (query), selectStructToQueryFormat)
-import Massalia.UtilsGQL (defaultPaginated)
+import Massalia.UtilsGQL (Paginated, defaultPaginated)
 import MassaliaSchema.Industry.Plant (Plant)
 import MassaliaSchema.Industry.Truck (Truck)
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
+import MassaliaSchema.Industry.PlantFilter (PlantFilter)
 import Test.Tasty
 import Test.Tasty.HUnit
 import Protolude
@@ -34,10 +35,10 @@ import Data.Text (pack)
 defaultOpt _ = Nothing
 
 testPlantQuery :: QueryAndDecoder Text Plant
-testPlantQuery = toSelectQuery (defaultOpt "truck") plantQuery defaultPaginated
+testPlantQuery = toSelectQuery plantQuery (defaultPaginated @PlantFilter)
 
 testTruckList :: QueryAndDecoder Text Truck
-testTruckList = toSelectQuery (defaultOpt "plant") truckQuery defaultPaginated
+testTruckList = toSelectQuery truckQuery (defaultPaginated @TruckFilter)
 
 -- List of (result, expected)
 listCase =
@@ -51,12 +52,12 @@ listCase =
     ),
     (
       "Filters type name",
-      (show (fullTopSelection @TextQuery @TruckFilter @Truck "")),
+      (show (fullTopSelection @TextQuery @(Paginated TruckFilter) @Truck "")),
       "MassaliaNode {name = \"\", children = fromList [(\"id\",MassaliaNode {name = \"id\", children = fromList []}),(\"vehicleId\",MassaliaNode {name = \"vehicleId\", children = fromList []})]}"
     ),
     (
       "Filters type name",
-      (show (fullTopSelection @TextQuery @TruckFilter @Truck "")),
+      (show (fullTopSelection @TextQuery @(Paginated TruckFilter) @Truck "")),
       "MassaliaNode {name = \"\", children = fromList [(\"id\",MassaliaNode {name = \"id\", children = fromList []}),(\"vehicleId\",MassaliaNode {name = \"vehicleId\", children = fromList []})]}"
     )
   ]
