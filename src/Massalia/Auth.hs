@@ -42,6 +42,7 @@ data JWTError
   | -- | The given JWT has no nbf value.
     -- This error is optional, the default is it's not required (see CheckOptions).
     NoNBFProvided
+  deriving (Show, Eq)
 
 data CheckOptions = CheckOptions
   { failOnMissingExp :: Bool,
