@@ -213,6 +213,7 @@ basicDecodeSubquery contextSwitcher selection parentContextT = subQueryRaw
 --  FROM /* the given table name */
 -- @
 basicQueryAndDecoder :: (
+    MassaliaContext contextT,
     MassaliaTree selectionType,
     SQLRecord qf contextT nodeType,
     SQLEncoder qf Int
@@ -605,7 +606,7 @@ class SQLRecord queryFormat contextT nodeT where
     ) => Text -> MassaliaNode
   fullTopSelection name = gfullTopSelection @queryFormat @contextT @(Rep nodeT) name
   toColumnListAndDecoder ::
-    (MassaliaTree selectionType) =>
+    (MassaliaTree selectionType, MassaliaContext contextT) =>
     -- | The selection set (in the form of a 'Tree' interface).
     selectionType ->
     -- | The node's context. It Has to respect the MassaliaContext interface/class.
