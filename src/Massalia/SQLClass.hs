@@ -605,7 +605,7 @@ class SQLRecord queryFormat contextT nodeT where
     ) => Text -> MassaliaNode
   fullTopSelection name = gfullTopSelection @queryFormat @contextT @(Rep nodeT) name
   toColumnListAndDecoder ::
-    (MassaliaTree selectionType, MassaliaContext contextT) =>
+    (MassaliaTree selectionType) =>
     -- | The selection set (in the form of a 'Tree' interface).
     selectionType ->
     -- | The node's context. It Has to respect the MassaliaContext interface/class.
