@@ -55,8 +55,6 @@ dependencies:
 - time
 - morpheus-graphql >=0.11.0
 - morpheus-graphql-core >= 0.11.0
-- doctest
-- QuickCheck
 
 library:
   source-dirs: src
@@ -73,16 +71,6 @@ library:
 #     - massalia
 
 tests:
-  massalia-doctest:
-    main: doctest/Main.hs
-    source-dirs: .
-    dependencies:
-      - massalia
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-
   massalia-unit-test:
     main:                unit/Spec.hs
     source-dirs:

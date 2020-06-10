@@ -366,7 +366,6 @@ instance (SQLEncoder BinaryQuery a, GValues (K1 i a) BinaryQuery) =>
   GValues (K1 i a) BinaryQuery where
   goToValues (K1 val) = [(sqlEncode val)]
 
-
 ----------------------------------------------------------------------------
 ---------------------------- SQL Filter
 ----------------------------------------------------------------------------

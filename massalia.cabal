@@ -1,0 +1,200 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.33.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 40b1756c92538c798bdd6227e1e95237717b338b9f779b0ec0e458acdd586c7f
+
+name:           massalia
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/theobat/massalia#readme>
+homepage:       https://github.com/theobat/massalia#readme
+bug-reports:    https://github.com/theobat/massalia/issues
+author:         theophile batoz
+maintainer:     example@example.com
+copyright:      2018 theophile batoz
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.rst
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/theobat/massalia
+
+library
+  exposed-modules:
+      Massalia.Auth
+      Massalia.Default
+      Massalia.Filter
+      Massalia.GenericUtils
+      Massalia.HasqlConnection
+      Massalia.HasqlDec
+      Massalia.HasqlEnc
+      Massalia.HasqlExec
+      Massalia.MainError
+      Massalia.Migration
+      Massalia.Morpheus
+      Massalia.MorpheusServer
+      Massalia.MorpheusTypes
+      Massalia.MRange
+      Massalia.QueryFormat
+      Massalia.SelectionTree
+      Massalia.SQLClass
+      Massalia.SQLInsert
+      Massalia.SQLPart
+      Massalia.SQLSelectStruct
+      Massalia.SQLUtils
+      Massalia.SQLWith
+      Massalia.Utils
+      Massalia.UtilsGQL
+  other-modules:
+      Paths_massalia
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -fno-warn-redundant-constraints -j4 +RTS -A128m -n2m -qg -RTS
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , email-validate
+    , filepath
+    , filepattern
+    , hasql
+    , hasql-dynamic-statements
+    , hasql-implicits
+    , hasql-migration
+    , hasql-pool
+    , hasql-transaction
+    , hasql-url
+    , inflections
+    , jwt
+    , morpheus-graphql >=0.11.0
+    , morpheus-graphql-core >=0.11.0
+    , mtl
+    , postgresql-binary
+    , pretty-simple
+    , protolude
+    , range
+    , tasty
+    , tasty-hunit
+    , text
+    , time
+    , unordered-containers
+    , uuid
+    , vector
+  default-language: Haskell2010
+
+test-suite massalia-integration-test
+  type: exitcode-stdio-1.0
+  main-is: integration/SpecAPI.hs
+  other-modules:
+      GraphQLMorpheusTestData
+      MassaliaSchema.Industry.Organization
+      MassaliaSchema.Industry.Plant
+      MassaliaSchema.Industry.PlantFilter
+      MassaliaSchema.Industry.PlantInput
+      MassaliaSchema.Industry.Truck
+      MassaliaSchema.Industry.TruckFilter
+      MassaliaSchema.Industry.TruckInput
+      MassaliaSchema.TestAPI
+      MassaliaTestSchema
+      SpecGraphQLSelect
+      SpecStaticInsert
+      SpecStaticSelect
+      Paths_massalia
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -fno-warn-redundant-constraints -j4 +RTS -A128m -n2m -qg -RTS -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , email-validate
+    , filepath
+    , filepattern
+    , hasql
+    , hasql-dynamic-statements
+    , hasql-implicits
+    , hasql-migration
+    , hasql-pool
+    , hasql-transaction
+    , hasql-url
+    , inflections
+    , jwt
+    , massalia
+    , morpheus-graphql >=0.11.0
+    , morpheus-graphql-core >=0.11.0
+    , mtl
+    , postgresql-binary
+    , pretty-simple
+    , protolude
+    , range
+    , tasty
+    , tasty-hunit
+    , text
+    , time
+    , unordered-containers
+    , uuid
+    , vector
+  default-language: Haskell2010
+
+test-suite massalia-unit-test
+  type: exitcode-stdio-1.0
+  main-is: unit/Spec.hs
+  other-modules:
+      GraphQLMorpheusTestData
+      MassaliaSchema.Industry.Organization
+      MassaliaSchema.Industry.Plant
+      MassaliaSchema.Industry.PlantFilter
+      MassaliaSchema.Industry.PlantInput
+      MassaliaSchema.Industry.Truck
+      MassaliaSchema.Industry.TruckFilter
+      MassaliaSchema.Industry.TruckInput
+      MassaliaSchema.TestAPI
+      MassaliaTestSchema
+      SpecGraphQLSelect
+      SpecStaticInsert
+      SpecStaticSelect
+      Paths_massalia
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -fno-warn-redundant-constraints -j4 +RTS -A128m -n2m -qg -RTS -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , email-validate
+    , filepath
+    , filepattern
+    , hasql
+    , hasql-dynamic-statements
+    , hasql-implicits
+    , hasql-migration
+    , hasql-pool
+    , hasql-transaction
+    , hasql-url
+    , inflections
+    , jwt
+    , massalia
+    , morpheus-graphql >=0.11.0
+    , morpheus-graphql-core >=0.11.0
+    , mtl
+    , postgresql-binary
+    , pretty-simple
+    , protolude
+    , range
+    , tasty
+    , tasty-hunit
+    , text
+    , time
+    , unordered-containers
+    , uuid
+    , vector
+  default-language: Haskell2010

@@ -1,4 +1,4 @@
 .stack-work/
 .vscode/
-massalia.cabal
 *~
+postgres-data
