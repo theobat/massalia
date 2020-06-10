@@ -172,7 +172,10 @@ instance (Semigroup queryFormat) => Semigroup (SelectStruct queryFormat) where
     _groupBy = _groupBy a <> _groupBy b,
     _having = _having a <> _having b,
     _orderBy = _orderBy a <> _orderBy b,
-    _offsetLimit = _offsetLimit a <> _offsetLimit b
+    _offsetLimit = case (_offsetLimit a, _offsetLimit b) of
+      (Nothing, Just bbo) -> Just bbo
+      (Just aao, _) -> Just aao
+      _ -> Nothing
   }
 
 concatMaybeSQL :: Semigroup a => a -> Maybe a -> Maybe a -> Maybe a
