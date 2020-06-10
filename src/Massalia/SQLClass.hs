@@ -237,13 +237,24 @@ basicQueryAndDecoder contextTransformer selection context = QueryAndDecoder {
       (colListThunk, decoderVal) = toColumnListAndDecoder selection context
       (instanceName, rawQuery) = contextTransformer context
 
--- | This is a simple FROM "tablename" query bit
-basicEntityQuery :: (QueryFormat qf) =>
+-- | This is a simple FROM "tablename" query bit along with
+--  a potential filter
+basicEntityQuery :: (QueryFormat qf, SQLFilter qf b) =>
+  -- | An __unescaped__ SQL tablename/alias.
   Text ->
+  -- | A query context to filter function.
+  (a -> Maybe b) ->
+  -- | A query context
+  a ->
+  -- | The tablename and its filtered/roled/customized select query.
   (Text, SelectStruct qf)
-basicEntityQuery tablename = (tablename, mempty {
-        _from = Just ("\"" <> fromText tablename <> "\"")
-      })
+basicEntityQuery tablename filterAcc context = (tablename, withFilter base)
+  where
+    withFilter a = case (toQueryFormatFilter opt =<< filterAcc context) of
+      Nothing -> a
+      Just b -> a <> b 
+    base = mempty {_from = Just ("\"" <> fromText tablename <> "\"")}
+    opt = Just defaultFilterOption{filterTableName= tablename}
 
 -- | Transforms a paginated filter into a SelectStruct
 -- (which you can add to your existing one through (<>)).
@@ -252,16 +263,15 @@ paginatedFilterToSelectStruct :: (
     SQLFilter qf filterT,
     SQLEncoder qf Int
   ) =>
-  Text -> Paginated filterT -> SelectStruct qf
-paginatedFilterToSelectStruct prefixName filterValue = res
+  Maybe SQLFilterOption -> Paginated filterT -> SelectStruct qf
+paginatedFilterToSelectStruct filterOption filterValue = res
   where
-    res = case (toQueryFormatFilter (Just filterOption) =<< (Paginated.filtered filterValue)) of
+    res = case (toQueryFormatFilter filterOption =<< (Paginated.filtered filterValue)) of
       Nothing -> offsetLimitQy
       Just a -> offsetLimitQy <> a
     offsetLimitQy = mempty {
         _offsetLimit = Just $ offsetLimitFn
       }
-    filterOption = defaultFilterOption{filterTableName = prefixName}
     offsetLimitFn = (sqlEncode <$> Paginated.offset filterValue, sqlEncode $ fromMaybe 10000 $ Paginated.first filterValue)
 
 type SelectConstraint qf filterType = (
@@ -451,6 +461,12 @@ instance (
 -- (and handled through the SQLRecord machinery)
 instance SQLFilterField queryFormat (Paginated a) where
   filterStruct _ _ _ = Nothing
+
+instance (
+  SQLEncoder qf Int,
+  QueryFormat qf,
+  SQLFilter qf a) => SQLFilter qf (Paginated a) where
+  toQueryFormatFilter opt val = Just $ paginatedFilterToSelectStruct opt val
       
 ----------------------------------------------------------------------------
 ---------------------------- DBContext queries
