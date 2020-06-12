@@ -258,11 +258,13 @@ basicEntityQuery tablename filterAcc context = (tablename, withFilter base)
     withFilter a = case (toQueryFormatFilter opt =<< filterAcc context) of
       Nothing -> a
       Just b -> a <> b 
-    base = mempty {_from = Just ("\"" <> fromText tablename <> "\"")}
+    base = mempty {_from = Just ("\"" <> fromText realTableName <> "\"")}
     opt = Just defaultFilterOption{
-        filterTableName=tablename,
+        filterTableName=realTableName,
         filterFieldMap=nameMap $ fromMaybe mempty $ getDecodeOption context
       }
+    realTableName = decodeName (fromMaybe mempty decodeOption) tablename
+    decodeOption = getDecodeOption context
 
 -- | Transforms a paginated filter into a SelectStruct
 -- (which you can add to your existing one through (<>)).
