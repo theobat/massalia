@@ -37,6 +37,7 @@ module Massalia.SQLClass
     basicDecodeListSubquery,
     basicDecodeInnerRecord,
     paginatedFilterToSelectStruct,
+    compositeFieldFilter,
     SQLSelect(toSelectQuery),
     SQLRecord(toColumnListAndDecoder, fullTopSelection),
     gsqlColumns,
@@ -494,7 +495,26 @@ instance (
   QueryFormat qf,
   SQLFilter qf a) => SQLFilter qf (Paginated a) where
   toQueryFormatFilter opt val = Just $ paginatedFilterToSelectStruct opt val
-      
+
+-- | A function to use when implementing SQLFilterField for composite types.
+compositeFieldFilter :: (
+    SQLFilter qf filterT
+  ) =>
+  Maybe SQLFilterOption ->
+  Text ->
+  filterT ->
+  Maybe (SelectStruct qf)
+compositeFieldFilter options selectorName val = result
+    where
+      result = toQueryFormatFilter (transformOptions <$> options) val
+      transformOptions baseOpt = baseOpt{
+        filterTableName=formattedFieldVal,
+        filterFieldType=CompositeField
+        }
+      formattedFieldVal = formattedColName (fromMaybe TableName $ (filterFieldType <$> options)) prefix actualFieldName
+      prefix = (fromText . filterTableName) <$> options
+      actualFieldName = fromText $ getFilterFieldName selectorName options
+
 ----------------------------------------------------------------------------
 ---------------------------- DBContext queries
 ----------------------------------------------------------------------------
