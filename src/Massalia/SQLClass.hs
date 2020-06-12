@@ -127,7 +127,7 @@ basicDecodeInnerRecord context selection = result
     result = (colListQFThunk, defaultDecodeTuple $ Decoders.composite decoderVal)
     colListQFThunk name = "(CASE WHEN "
       <> (fromText compositeName)
-      <> "IS NULL THEN null ELSE row("
+      <> " IS NULL THEN null ELSE row("
       <> intercalate "," (colListThunk compositeName)
       <> ") END)"
       where compositeName = unsafeSnakeCaseT (name ° (getName selection))
@@ -254,7 +254,10 @@ basicEntityQuery tablename filterAcc context = (tablename, withFilter base)
       Nothing -> a
       Just b -> a <> b 
     base = mempty {_from = Just ("\"" <> fromText tablename <> "\"")}
-    opt = Just defaultFilterOption{filterTableName= tablename}
+    opt = Just defaultFilterOption{
+        filterTableName=tablename
+        -- filterFieldMap=getDecodeOption
+      }
 
 -- | Transforms a paginated filter into a SelectStruct
 -- (which you can add to your existing one through (<>)).
@@ -264,11 +267,13 @@ paginatedFilterToSelectStruct :: (
     SQLEncoder qf Int
   ) =>
   Maybe SQLFilterOption -> Paginated filterT -> SelectStruct qf
-paginatedFilterToSelectStruct filterOption filterValue = res
+paginatedFilterToSelectStruct filterOption filterValue = result
   where
-    res = case (toQueryFormatFilter filterOption =<< (Paginated.filtered filterValue)) of
-      Nothing -> offsetLimitQy
-      Just a -> offsetLimitQy <> a
+    result = offsetLimitQy <> filteredAggregate
+    filteredAggregate = mempty{_where= Just "("} <>
+      intercalate mempty{_where= Just ") OR ("} filteredList
+      <> mempty{_where= Just ")"}
+    filteredList = (fromMaybe mempty . toQueryFormatFilter filterOption) <$> Paginated.filtered filterValue
     offsetLimitQy = mempty {
         _offsetLimit = Just $ offsetLimitFn
       }
