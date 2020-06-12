@@ -467,6 +467,17 @@ instance (
 -- (and handled through the SQLRecord machinery)
 instance SQLFilterField queryFormat (Paginated a) where
   filterStruct _ _ _ = Nothing
+instance (QueryFormat qf) => SQLFilterField qf Bool where
+  filterStruct options selectorName val = Just result
+    where
+      result = mempty {
+          _where = Just $ "("<> filterBitResult val <> ")"
+        }
+      filterBitResult True = acc
+      filterBitResult False = ("NOT " <> acc)
+      acc = fromMaybe actualFieldName ((° actualFieldName) <$> prefix)
+      prefix = (fromText . filterTableName) <$> options
+      actualFieldName = fromText $ getFilterFieldName selectorName options
 
 instance (
   SQLEncoder qf Int,
