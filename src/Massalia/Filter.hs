@@ -150,12 +150,11 @@ type FilterConstraint qf a b c = (
 
 filterFieldToMaybeContent ::
   FilterConstraint qf eqScalarType likeScalarType ordScalarType =>
-  Maybe qf ->
   qf ->
   Maybe (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) ->
   Maybe qf
-filterFieldToMaybeContent _ _ Nothing = Nothing
-filterFieldToMaybeContent maybeNamespace actualFieldName (Just filterVal) = case filterVal of
+filterFieldToMaybeContent _ Nothing = Nothing
+filterFieldToMaybeContent prefixedFieldName (Just filterVal) = case filterVal of
   GQLScalarFilter {isEq = (Just eqValue)} -> snippetContent prefixedFieldName "=" (Just eqValue)
   GQLScalarFilter {isNull = (Just True)} -> Just (prefixedFieldName <> " IS NULL")
   GQLScalarFilter
@@ -178,10 +177,6 @@ filterFieldToMaybeContent maybeNamespace actualFieldName (Just filterVal) = case
               ) of
       [] -> Nothing
       filtList -> Just (MassaliaUtils.intercalate " AND " filtList)
-  where
-    prefixedFieldName = case maybeNamespace of
-      Nothing -> "\"" <> actualFieldName <> "\""
-      Just pref -> pref ° actualFieldName
 
 snippetContent ::
   forall content a. (SQLEncoder content a) =>

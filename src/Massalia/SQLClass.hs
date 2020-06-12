@@ -55,6 +55,7 @@ import Massalia.QueryFormat
   (
     QueryFormat,
     (°),
+    formattedColName,
     FromText(fromText),
     SQLEncoder(sqlEncode),
     SQLDecoder(sqlDecode),
@@ -62,7 +63,7 @@ import Massalia.QueryFormat
     BinaryQuery,
     MassaliaContext(getDecodeOption, setDecodeOption),
     DecodeOption(nameMap, fieldPrefixType),
-    DecodeFieldPrefixType(CompositeField),
+    DecodeFieldPrefixType(TableName, CompositeField),
     decodeName,
     defaultDecodeTuple,
     inParens
@@ -239,7 +240,10 @@ basicQueryAndDecoder contextTransformer selection context = QueryAndDecoder {
 
 -- | This is a simple FROM "tablename" query bit along with
 --  a potential filter
-basicEntityQuery :: (QueryFormat qf, SQLFilter qf b) =>
+basicEntityQuery :: (
+    MassaliaContext a,
+    QueryFormat qf, SQLFilter qf b
+  ) =>
   -- | An __unescaped__ SQL tablename/alias.
   Text ->
   -- | A query context to filter function.
@@ -255,8 +259,8 @@ basicEntityQuery tablename filterAcc context = (tablename, withFilter base)
       Just b -> a <> b 
     base = mempty {_from = Just ("\"" <> fromText tablename <> "\"")}
     opt = Just defaultFilterOption{
-        filterTableName=tablename
-        -- filterFieldMap=getDecodeOption
+        filterTableName=tablename,
+        filterFieldMap=nameMap $ fromMaybe mempty $ getDecodeOption context
       }
 
 -- | Transforms a paginated filter into a SelectStruct
@@ -381,14 +385,19 @@ data SQLFilterOption = SQLFilterOption {
   -- | The table name unescaped, just like everywhere in the lib.
   filterTableName :: Text,
   -- | The mapping should use the snake case versions
-  filterFieldMap :: Map Text Text
+  filterFieldMap :: Map Text Text,
+  filterFieldType :: DecodeFieldPrefixType
 }
 getFilterFieldName :: Text -> Maybe SQLFilterOption -> Text
 getFilterFieldName scFieldName opt = fromMaybe scFieldName $ join look
   where look = (Map.lookup scFieldName . filterFieldMap) <$> opt
 
 defaultFilterOption :: SQLFilterOption
-defaultFilterOption = SQLFilterOption{filterTableName = "", filterFieldMap=mempty}
+defaultFilterOption = SQLFilterOption{
+    filterTableName = "",
+    filterFieldMap=mempty,
+    filterFieldType=TableName
+  }
 
 class SQLFilter queryFormat record where
   toQueryFormatFilter :: Maybe SQLFilterOption -> record -> Maybe (SelectStruct queryFormat)
@@ -451,7 +460,8 @@ instance (
       result whClause = mempty {
           _where = Just $ "("<> whClause <> ")"
         }
-      filterBitResult = filterFieldToMaybeContent prefix actualFieldName (Just val)
+      filterBitResult = filterFieldToMaybeContent prefixedField (Just val)
+      prefixedField = formattedColName (fromMaybe TableName $ (filterFieldType <$> options)) prefix actualFieldName
       prefix = (fromText . filterTableName) <$> options
       actualFieldName = fromText $ getFilterFieldName selectorName options
 
@@ -473,9 +483,9 @@ instance (QueryFormat qf) => SQLFilterField qf Bool where
       result = mempty {
           _where = Just $ "("<> filterBitResult val <> ")"
         }
-      filterBitResult True = acc
-      filterBitResult False = ("NOT " <> acc)
-      acc = fromMaybe actualFieldName ((° actualFieldName) <$> prefix)
+      filterBitResult True = formattedField
+      filterBitResult False = ("NOT " <> formattedField)
+      formattedField = formattedColName (fromMaybe TableName $ (filterFieldType <$> options)) prefix actualFieldName
       prefix = (fromText . filterTableName) <$> options
       actualFieldName = fromText $ getFilterFieldName selectorName options
 

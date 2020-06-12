@@ -26,6 +26,7 @@
 --  query formatting.
 module Massalia.QueryFormat
   ( QueryFormat,
+    formattedColName,
     SQLEncoder (sqlEncode, wrapEncoding, ignoreInGenericInstance),
     SQLDecoder(sqlDecode),
     DecodeOption(..),
@@ -229,7 +230,12 @@ collectionTextEncode collection = wrapCollection assembled
     assemblerFun val currentEncoded = currentEncoded <> "," <> rawEncode val
     rawEncode val = replace "'" "" $ sqlEncode val
     wrapCollection a = "'{" <> a <> "}'"
-    
+
+formattedColName :: (QueryFormat qf) => DecodeFieldPrefixType -> Maybe qf -> qf -> qf
+formattedColName _ Nothing colName = "\"" <> colName <> "\""
+formattedColName CompositeField (Just prefixName) colName = "(" <> prefixName <> ").\"" <> colName <> "\""
+formattedColName TableName (Just prefixName) colName = prefixName ° colName
+
 ------------------------- Decoder stuff
 scalar ::
   (
@@ -240,12 +246,9 @@ scalar ::
   contextT ->
   a ->
   (Text -> queryFormat, DecodeTuple decodedT)
-scalar decoder context input = case fieldPrefixType decOption of
-  CompositeField -> (compo, (DecodeTuple decoder Decoders.nonNullable))
-  TableName -> (col, (DecodeTuple decoder Decoders.nonNullable))
+scalar decoder context input = (firstRes, (DecodeTuple decoder Decoders.nonNullable))
   where
-    compo rawName = "(" <> tablename rawName <> ").\"" <> colName <> "\""
-    col rawName = "\"" <> tablename rawName <> "\".\"" <> colName <> "\""
+    firstRes rawName = formattedColName (fieldPrefixType decOption) (Just $ tablename rawName) colName
     tablename rawName = fromText $ decodeName decOption rawName
     colName = fromText $ unsafeSnakeCaseT $ getName input
     decOption = fromMaybe mempty (getDecodeOption context)
