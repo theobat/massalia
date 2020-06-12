@@ -79,7 +79,7 @@ deriving instance (
 instance (
     SelectConstraint qf (Paginated PlantFilter)
   ) => SQLSelect qf (Paginated PlantFilter) Plant where
-  toSelectQuery = basicQueryAndDecoder (\_ -> basicEntityQuery "plant")
+  toSelectQuery = basicQueryAndDecoder (basicEntityQuery "plant" (const @(Paginated PlantFilter) Nothing))
 
 instance (
   QueryFormat qf,

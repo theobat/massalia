@@ -474,7 +474,7 @@ instance (
 -- | A type to specify which type of query should be generated in
 -- 'Default' is an insert query statement with values wrapped in
 --  a 
-data WithQueryOption = Default | PureSelect
+data WithQueryOption = Insert Bool | PureSelect
 
 class DBContext queryFormat record where
   toWithQuery :: Maybe WithQueryOption -> record -> queryFormat
@@ -524,7 +524,8 @@ instance (
         | otherwise = pure $ sqlName @a <> " AS " <> (inParens selectInstance)
       selectInstance = case options of
         Just PureSelect -> selectValuesQuery Nothing val
-        _ -> insertValuesQuery () val
+        Just (Insert withReturning) -> insertValuesQuery withReturning val
+        _ -> insertValuesQuery True val
 
 
 insertValuesQuery :: 
@@ -538,9 +539,11 @@ insertValuesQuery ::
     SQLColumns recordType,
     SQLName recordType
   ) =>
-  () -> collection recordType -> queryFormat
-insertValuesQuery _ recordCollection = insertHeader <> "\n" <> selectBody
+  Bool -> collection recordType -> queryFormat
+insertValuesQuery returning recordCollection =
+  insertHeader <> "\n" <> selectBody <> returningPart
   where
+    returningPart = if returning then "\n RETURNING *" else ""
     insertHeader = insertIntoWrapper (sqlTable @recordType) columnListVal
     selectBody = selectValuesQuery (Just columnListVal) recordCollection
     columnListVal = columnList @recordType
