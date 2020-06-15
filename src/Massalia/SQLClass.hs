@@ -132,9 +132,11 @@ basicDecodeInnerRecord context selection = result
       <> " IS NULL THEN null ELSE row("
       <> intercalate "," (colListThunk compositeName)
       <> ") END)"
-      where compositeName = unsafeSnakeCaseT (name ° (getName selection))
-    (colListThunk, decoderVal) = toColumnListAndDecoder @qf selection (updatedContext context)
-    updatedContext = setDecodeOption @contextT (currentDecodeOpt{fieldPrefixType=CompositeField})
+      where
+        parentName = decodeName currentDecodeOpt name
+        compositeName = unsafeSnakeCaseT (parentName ° (getName selection))
+    (colListThunk, decoderVal) = toColumnListAndDecoder @qf selection updatedContext
+    updatedContext = setDecodeOption @contextT (currentDecodeOpt{fieldPrefixType=CompositeField}) context
     currentDecodeOpt = fromMaybe mempty $ getDecodeOption context
 
 -- | A utility function to build a list subquery within an existing query.

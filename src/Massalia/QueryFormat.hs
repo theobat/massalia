@@ -293,7 +293,7 @@ decodeName decOpt name = fromMaybe name (Map.lookup name $ nameMap decOpt)
 -- | When using an overridable name in a given context 'a'
 -- use this function before using the name.
 decodeNameInContext :: MassaliaContext a => a -> Text -> Text
-decodeNameInContext context name = fromMaybe name (Map.lookup name =<< nameMap <$> (getDecodeOption context))
+decodeNameInContext context name = maybe name (flip decodeName $ name) (getDecodeOption context)
   
 
 -- | A class to decode
