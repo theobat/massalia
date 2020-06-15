@@ -52,6 +52,7 @@ module Massalia.QueryFormat
     inParens,
     commaSepInParens,
     decodeName,
+    decodeNameInContext
   )
 where
 import Massalia.SelectionTree (MassaliaTree(getName))
@@ -286,9 +287,9 @@ instance Monoid DecodeOption where
   }
 
 decodeName :: DecodeOption -> Text -> Text
-decodeName decOpt name = case fieldPrefixType decOpt of
-  TableName -> fromMaybe name (Map.lookup name $ nameMap decOpt)
-  _ -> name
+decodeName decOpt name = fromMaybe name (Map.lookup name $ nameMap decOpt)
+decodeNameInContext :: MassaliaContext a => a -> Text -> Text
+decodeNameInContext context name = fromMaybe name (Map.lookup name =<< nameMap <$> (getDecodeOption context))
   
 
 -- | A class to decode
