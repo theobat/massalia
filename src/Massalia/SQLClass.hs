@@ -311,16 +311,16 @@ type SelectConstraint qf filterType = (
 -- @
 -- 
 class SQLName a where
-  sqlName :: (IsString queryFormat) => queryFormat
-  sqlTable :: (IsString queryFormat, FromText queryFormat) => queryFormat
+  sqlName :: Text
+  sqlTable :: Text
   -- | The default SQLName is merely a snake case alternative of the 
-  default sqlName :: (IsString queryFormat, Generic a, GTypeName (Rep a)) => queryFormat
+  default sqlName :: (Generic a, GTypeName (Rep a)) => Text
   sqlName = fromString snakeTypename
     where
       snakeTypename = simpleSnakeCase typename
       typename = gtypename @(Rep a)
   -- | The default sqlTable is snake case + dropping the "input" word
-  default sqlTable :: (FromText queryFormat, Generic a, GTypeName (Rep a)) => queryFormat
+  default sqlTable :: (Generic a, GTypeName (Rep a)) => Text
   sqlTable = fromText snakeTypename
     where
       snakeTypename = Text.replace "_input" "" typename
@@ -526,7 +526,21 @@ compositeFieldFilter options selectorName val = result
 -- | A type to specify which type of query should be generated in
 -- 'Default' is an insert query statement with values wrapped in
 --  a 
-data WithQueryOption = Insert Bool | PureSelect
+data WithQueryOption = WithQueryOption {
+    -- | The default options in case none is found in withShape map
+    defaultShape :: InsertQueryOption,
+    -- | 'sqlName' indexed options.
+    withShape :: Map Text InsertQueryOption
+  }
+defaultWithQueryOption :: WithQueryOption
+defaultWithQueryOption = WithQueryOption {
+  defaultShape = Insert True False,
+  withShape = mempty
+}
+data InsertQueryOption = PureSelect | Insert {
+    hasReturningStar :: Bool,
+    hasOnConflictId :: Bool
+  } 
 
 class DBContext queryFormat record where
   toWithQuery :: Maybe WithQueryOption -> record -> queryFormat
@@ -562,8 +576,7 @@ instance (
     Eq (collection a),
     Monoid (collection a),
     Monoid queryFormat,
-    FromText queryFormat,
-    IsString queryFormat,
+    QueryFormat queryFormat,
     SQLName a,
     SQLColumns a,
     SQLValues queryFormat a
@@ -573,39 +586,57 @@ instance (
     where
       result
         | val == mempty = []
-        | otherwise = pure $ sqlName @a <> " AS " <> (inParens selectInstance)
-      selectInstance = case options of
-        Just PureSelect -> selectValuesQuery Nothing val
-        Just (Insert withReturning) -> insertValuesQuery withReturning val
-        _ -> insertValuesQuery True val
-
+        | otherwise = pure $ qfSQLName <> " AS " <> (inParens selectInstance)
+      qfSQLName = fromText $ sqlName @a
+      optionVal = fromMaybe defaultWithQueryOption options
+      insertOpt = Map.lookup (sqlName @a) (withShape optionVal)
+      selectInstance = case (fromMaybe (defaultShape optionVal) insertOpt) of
+        PureSelect -> selectValuesQuery Nothing val
+        res@Insert{} -> insertValuesQuery res val
 
 insertValuesQuery :: 
   forall collection recordType queryFormat. (
     Foldable collection,
     Functor collection,
     FromText queryFormat,
-    IsString queryFormat,
-    Monoid queryFormat,
+    QueryFormat queryFormat,
     SQLValues queryFormat recordType,
     SQLColumns recordType,
     SQLName recordType
   ) =>
-  Bool -> collection recordType -> queryFormat
-insertValuesQuery returning recordCollection =
-  insertHeader <> "\n" <> selectBody <> returningPart
+  InsertQueryOption -> collection recordType -> queryFormat
+insertValuesQuery opt recordCollection =
+  insertHeader <> "\n" <> selectBody <> "\n" <> suffix
   where
-    returningPart = if returning then "\n RETURNING *" else ""
-    insertHeader = insertIntoWrapper (sqlTable @recordType) columnListVal
+    suffix = case opt of
+      Insert True True -> onConflictUpdateExcluded @recordType <> "\n RETURNING *"
+      Insert True False -> "RETURNING *"
+      Insert False True -> onConflictUpdateExcluded @recordType
+      _ -> ""
+    qfSQLTable = fromText $ sqlTable @recordType
+    insertHeader = insertIntoWrapper qfSQLTable columnListVal
     selectBody = selectValuesQuery (Just columnListVal) recordCollection
     columnListVal = columnList @recordType
+
+-- | This assumes the entity has an id column in SQL.
+-- The idea is that any dedupe should happen **beforehand** not in the
+--  on conflict resolver (because here we assume the dupe id has been
+-- retrieved and solved).
+onConflictUpdateExcluded ::
+  forall recordT qf. (SQLColumns recordT, QueryFormat qf) =>
+  qf
+onConflictUpdateExcluded = core
+  where
+    core = " ON CONFLICT (id) DO UPDATE SET " <> foldedSet
+    foldedSet = intercalate "," (exclSet <$> colList)
+    exclSet vn = vn <> "= EXCLUDED." <> vn
+    colList = sqlColumns @recordT
 
 selectValuesQuery ::
   forall collection recordType queryFormat. (
     Foldable collection,
     Functor collection,
-    IsString queryFormat,
-    Monoid queryFormat,
+    QueryFormat queryFormat,
     SQLValues queryFormat recordType,
     SQLColumns recordType,
     SQLName recordType
@@ -614,7 +645,7 @@ selectValuesQuery ::
 selectValuesQuery (maybeCols) recordCollection = result
   where
     result = selectWrapper name cols assembledRows
-    name = sqlName @recordType
+    name = fromText $ sqlName @recordType
     assembledRows = ("VALUES " <>) $ rowsAssembler " " listOfRows
     listOfRows = (inParens . intercalate ",") <$> listOfListOfValues
     listOfListOfValues = toSQLValues @queryFormat <$> recordCollection
