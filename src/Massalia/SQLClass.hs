@@ -49,7 +49,8 @@ module Massalia.SQLClass
     selectConfigFromMapping,
     defaultSelectConfig,
     defaultWithQueryOption,
-    InsertQueryOption(..)
+    InsertQueryOption(..),
+    insertValuesQuery
   )
 where
 
