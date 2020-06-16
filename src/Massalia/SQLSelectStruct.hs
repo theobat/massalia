@@ -22,7 +22,8 @@ module Massalia.SQLSelectStruct
     queryAndDecoderToSnippetAndResult,
     queryAndDecoderToStatement,
     queryAndDecoderToSession,
-    filterConcat
+    filterConcat,
+    concatAnd
   )
 where
 
@@ -171,6 +172,24 @@ instance (Semigroup queryFormat) => Semigroup (SelectStruct queryFormat) where
     _where = _where a <> _where b,
     _groupBy = _groupBy a <> _groupBy b,
     _having = _having a <> _having b,
+    _orderBy = _orderBy a <> _orderBy b,
+    _offsetLimit = case (_offsetLimit a, _offsetLimit b) of
+      (Nothing, Just bbo) -> Just bbo
+      (Just aao, _) -> Just aao
+      _ -> Nothing
+  }
+
+-- | An alternative to the Semigroup concat between two queries with AND 
+-- in _where and _having
+concatAnd :: (QueryFormat qf) => SelectStruct qf -> SelectStruct qf -> SelectStruct qf
+concatAnd a b = SelectStruct {
+    _rawPrefix = concatMaybeSQL " " (_rawPrefix a) (_rawPrefix b),
+    _select = _select a <> _select b,
+    _from = _from a <> _from b,
+    _join = _join a <> _join b,
+    _where = concatMaybeSQL " AND " (_where a) (_where b),
+    _groupBy = _groupBy a <> _groupBy b,
+    _having = concatMaybeSQL " AND "  (_having a) (_having b),
     _orderBy = _orderBy a <> _orderBy b,
     _offsetLimit = case (_offsetLimit a, _offsetLimit b) of
       (Nothing, Just bbo) -> Just bbo

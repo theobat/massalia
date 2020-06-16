@@ -287,7 +287,7 @@ paginatedFilterToSelectStruct filterOption filterValue = result
       nonEmptyList -> mempty{_where= Just "("} <>
         intercalate mempty{_where= Just ") OR ("} nonEmptyList
         <> mempty{_where= Just ")"}
-    filteredList = (fromMaybe mempty . toQueryFormatFilter filterOption) <$> Paginated.filtered filterValue
+    filteredList = catMaybes $ (toQueryFormatFilter filterOption) <$> Paginated.filtered filterValue
     offsetLimitQy = mempty {
         _offsetLimit = Just $ offsetLimitFn
       }
