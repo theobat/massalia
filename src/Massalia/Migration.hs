@@ -82,7 +82,14 @@ data MigrationPattern
 -- otherwise you can specify a schema in a migration file directly.
 data DBSchemaOption = DBSchemaOption {
   withinSchema :: ByteString,
-  setSearchPathTo :: [ByteString]
+  setSearchPathTo :: [ByteString],
+  commandBeforeEverything :: Maybe ByteString
+} deriving (Show)
+defaultDBSchemaOption :: DBSchemaOption
+defaultDBSchemaOption = DBSchemaOption {
+  withinSchema = "public",
+  setSearchPathTo = ["public"],
+  commandBeforeEverything = Nothing
 }
 
 defaultMigrationPattern :: MigrationPattern
@@ -138,7 +145,12 @@ executionScheme maybeSchemaOption register dbCo = do
   const dbCo <$> (ExceptT final)
 
 schemaTransactions :: DBSchemaOption -> Tx.Transaction ()
-schemaTransactions DBSchemaOption{withinSchema=schemaName, setSearchPathTo=searchPathList} =
+schemaTransactions DBSchemaOption{
+    withinSchema=schemaName,
+    setSearchPathTo=searchPathList,
+    commandBeforeEverything=commandValue
+  } =
+   Tx.sql (fromMaybe "" commandValue) >>
    Tx.sql ("CREATE SCHEMA IF NOT EXISTS \""<> schemaName <> "\";") >>
    Tx.sql ("SET search_path TO " <> intercalate "," searchPathList <> ";")
 
