@@ -278,7 +278,7 @@ paginatedFilterToSelectStruct :: (
     SQLFilter qf filterT,
     SQLEncoder qf Int
   ) =>
-  Maybe SQLFilterOption -> Paginated filterT -> SelectStruct qf
+  Maybe SQLFilterOption -> Paginated filterT -> (SelectStruct qf)
 paginatedFilterToSelectStruct filterOption filterValue = result
   where
     result = offsetLimitQy <> filteredAggregate
@@ -472,7 +472,10 @@ instance (
       prefixedField = formattedColName (fromMaybe TableName $ (filterFieldType <$> options)) prefix actualFieldName
       prefix = (fromText . filterTableName) <$> options
       actualFieldName = fromText $ getFilterFieldName selectorName options
-
+instance SQLFilter queryFormat () where
+  toQueryFormatFilter _ _ = Nothing
+instance SQLFilterField queryFormat () where
+  filterStruct _ _ _ = Nothing
 instance (SQLFilter queryFormat a) => SQLFilter queryFormat (Maybe a) where
   toQueryFormatFilter options val = toQueryFormatFilter options =<< val
 instance (
