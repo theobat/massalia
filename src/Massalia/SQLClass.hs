@@ -32,6 +32,7 @@ module Massalia.SQLClass
     SelectConstraint,
     SubSelectConstraint,
     basicEntityQuery,
+    basicEntityNoFilter,
     basicQueryAndDecoder,
     basicDecodeRecordSubquery,
     basicDecodeListSubquery,
@@ -243,6 +244,23 @@ basicQueryAndDecoder contextTransformer selection context = QueryAndDecoder {
         }
       (colListThunk, decoderVal) = toColumnListAndDecoder selection context
       (instanceName, rawQuery) = contextTransformer context
+
+-- | This is a simple FROM "tablename" query bit with no filtering at all
+basicEntityNoFilter :: (
+    MassaliaContext a,
+    QueryFormat qf, SQLFilter qf b
+  ) =>
+  -- | An __unescaped__ SQL tablename/alias.
+  Text ->
+  -- | A query context
+  a ->
+  -- | The tablename and its filtered/roled/customized select query.
+  (Text, SelectStruct qf)
+basicEntityNoFilter tablename context = (tablename, base)
+  where
+    base = mempty {_from = Just ("\"" <> fromText realTableName <> "\"")}
+    realTableName = decodeName (fromMaybe mempty decodeOption) tablename
+    decodeOption = getDecodeOption context
 
 -- | This is a simple FROM "tablename" query bit along with
 --  a potential filter
@@ -680,10 +698,6 @@ selectConfigFromMapping input = defaultSelectConfig {
 defaultSelectConfig :: SQLSelectOption
 defaultSelectConfig = SQLSelectOption {
   selectDecodeOption = mempty
-}
-defaultRecordConfig :: SQLRecordConfig
-defaultRecordConfig = SQLRecordConfig {
-  recordDecodeOption = mempty
 }
 
 -- | This is the class to get an SQL select query out of a selection set ('MassaliaTree'),

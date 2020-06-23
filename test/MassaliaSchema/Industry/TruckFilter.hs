@@ -43,9 +43,6 @@ import Massalia.SQLClass (
     SQLFilter,
     SQLFilterField(filterStruct)
   )
-import Massalia.SQLPart
-  ( AQueryPart,
-  )
 import Data.Morpheus.Types (GQLType(description), KIND)
 import Data.Morpheus.Kind (INPUT)
 import Protolude

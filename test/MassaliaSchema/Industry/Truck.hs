@@ -31,7 +31,7 @@ import Massalia.SQLClass (
     SQLSelect(toSelectQuery),
     SQLDefault(getDefault),
     basicQueryAndDecoder,
-    basicEntityQuery
+    basicEntityNoFilter,
   )
 import Protolude
 import Massalia.UtilsGQL (Paginated, defaultPaginated)
@@ -49,7 +49,7 @@ deriving instance (QueryFormat qf) => SQLRecord qf (Paginated TruckFilter) Truck
 instance (
   QueryFormat qf,
   SQLEncoder qf Int ) => SQLSelect qf (Paginated TruckFilter) Truck where
-  toSelectQuery = basicQueryAndDecoder (\_ -> basicEntityQuery "truck")
+  toSelectQuery = basicQueryAndDecoder (bassicEntityNoFilter "truck")
 
 instance SQLDefault Truck where
   getDefault = defaultTruck

@@ -17,10 +17,8 @@ module MassaliaSchema.Industry.PlantFilter
 where
 
 import qualified Data.Aeson as JSON
-import Data.Text (Text)
-import Data.UUID (UUID, nil)
 import Massalia.Utils (
-    LocalTime, UUID, SimpleRange(..),
+    SimpleRange(..),
     defaultSimpleRange
   )
 import Massalia.Filter
@@ -62,12 +60,13 @@ instance GQLType PlantFilter where
   description = const $ Just ("A set of filters for the Plant type" :: Text)
   
 
+plantFilterTest :: PlantFilter
 plantFilterTest = 
   PlantFilter
     { id = Nothing,
       name = Nothing,
       checkDate = pure filter,
-      truckList = Just defaultPaginated{filtered = Just testInstance},
+      truckList = Just defaultPaginated{filtered = pure testInstance},
       existsTruck = Just testInstance
     }
   where filter = defaultScalarFilter {

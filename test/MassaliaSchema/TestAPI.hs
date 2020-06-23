@@ -10,7 +10,7 @@ module MassaliaSchema.TestAPI where
 import GHC.Generics (Generic)
 import Massalia.HasqlExec (Pool)
 import Massalia.Morpheus (interpreter)
-import Massalia.MorpheusTypes
+import Data.Morpheus.Types
   ( GQLRequest,
     GQLResponse,
     RootResolver (..),
