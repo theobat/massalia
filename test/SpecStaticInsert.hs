@@ -5,14 +5,12 @@ module SpecStaticInsert
   )
 where
 
-import Data.String (IsString (fromString))
 import Data.Text (Text)
-import Data.UUID (UUID)
-import qualified Data.UUID as UUID
 import MassaliaSchema.Industry.PlantInput (queryTest)
 import Test.Tasty
 import Test.Tasty.HUnit
 
+unitTests :: TestTree
 unitTests =
   testGroup
     "SQL insert queries (no params)"

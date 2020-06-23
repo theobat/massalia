@@ -30,9 +30,6 @@ import MassaliaSchema.Industry.PlantFilter (PlantFilter)
 import Test.Tasty
 import Test.Tasty.HUnit
 import Protolude
-import Data.Text (pack)
-
-defaultOpt _ = Nothing
 
 testPlantQuery :: QueryAndDecoder Text Plant
 testPlantQuery = toSelectQuery plantQuery (defaultPaginated @PlantFilter)
@@ -41,6 +38,7 @@ testTruckList :: QueryAndDecoder Text Truck
 testTruckList = toSelectQuery truckQuery (defaultPaginated @TruckFilter)
 
 -- List of (result, expected)
+listCase :: [(TestName, Text, Text)]
 listCase =
   [ ( "test simple Truck query",
       selectStructToQueryFormat (query testTruckList),
@@ -62,6 +60,7 @@ listCase =
     )
   ]
 
+unitTests :: TestTree
 unitTests =
   testGroup
     "Test graphql AST to SQL query"

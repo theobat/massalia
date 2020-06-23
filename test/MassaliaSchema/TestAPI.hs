@@ -7,25 +7,19 @@
 
 module MassaliaSchema.TestAPI where
 
-import qualified Data.ByteString.Lazy.Char8 as B
 import GHC.Generics (Generic)
 import Massalia.HasqlExec (Pool)
 import Massalia.Morpheus (interpreter)
 import Massalia.MorpheusTypes
   ( GQLRequest,
     GQLResponse,
-    GQLRootResolver (..),
+    RootResolver (..),
     GQLType,
-    IORes,
-    QUERY,
-    ResolveQ,
     Undefined (..),
   )
 import MassaliaSchema.Industry.Plant (Plant, plantListQuery)
 import MassaliaSchema.Industry.PlantFilter (PlantFilter)
 import Massalia.UtilsGQL (Paginated)
-import MassaliaSchema.Industry.Truck (Truck)
-import Data.Morpheus.Types.Internal.Resolving (Resolver)
 
 api :: Pool -> GQLRequest -> IO GQLResponse
 api dbConnectionPool = interpreter $ rootResolver (Just dbConnectionPool)
@@ -33,9 +27,9 @@ api dbConnectionPool = interpreter $ rootResolver (Just dbConnectionPool)
 apiWithoutDB :: GQLRequest -> IO GQLResponse
 apiWithoutDB = interpreter $ rootResolver Nothing
 
-rootResolver :: Maybe Pool -> GQLRootResolver IO () Query Undefined Undefined
+rootResolver :: Maybe Pool -> RootResolver IO () Query Undefined Undefined
 rootResolver dbConnectionPool =
-  GQLRootResolver
+  RootResolver
     { queryResolver = rootQuery dbConnectionPool,
       mutationResolver = Undefined,
       subscriptionResolver = Undefined

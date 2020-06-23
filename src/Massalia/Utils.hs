@@ -36,6 +36,7 @@ module Massalia.Utils
     uuidV4,
     -- Time/Date
     LocalTime,
+    ZonedTime,
     Day,
     TimeOfDay,
     TimeZone,
@@ -72,6 +73,7 @@ import PostgreSQL.Binary.Data (
     UTCTime,
     Scientific
   )
+import Data.Time (ZonedTime)
 import Data.Time.LocalTime (LocalTime(LocalTime), midnight)
 import Data.Time.Calendar (Day(ModifiedJulianDay))
 import Protolude hiding (intercalate)

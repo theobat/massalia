@@ -43,7 +43,6 @@ where
 import Data.Aeson (FromJSON, ToJSON)
 import Data.UUID
 import Massalia.QueryFormat (
-    (°),
     SQLEncoder(
         sqlEncode
       )

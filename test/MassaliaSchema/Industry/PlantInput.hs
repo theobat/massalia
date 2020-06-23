@@ -14,8 +14,7 @@ module MassaliaSchema.Industry.PlantInput
 where
 
 import qualified Data.Aeson as JSON
-import Data.Data (Data)
-import Data.Text (Text, pack)
+import Data.Text (Text)
 import Data.UUID (UUID)
 import Data.UUID (nil)
 import Massalia.Utils (Day)
@@ -26,7 +25,7 @@ import Massalia.QueryFormat
   )
 import Massalia.SQLClass (
     DBContext(toWithQuery), SQLName, SQLColumns, SQLValues,
-    WithQueryOption(PureSelect)
+    defaultWithQueryOption
   )
 import MassaliaSchema.Industry.TruckInput (TruckInput)
 
@@ -54,7 +53,7 @@ deriving instance DBContext BinaryQuery (PlantListInput [])
 
 queryTest :: (DBContext queryFormat (PlantListInput [])) => queryFormat
 queryTest =
-  toWithQuery (Just PureSelect)
+  toWithQuery (Just defaultWithQueryOption)
     PlantListInput
       { plant = [PlantInput nil (Just "okokok") (JSON.decode "\"1991-08-22\"")],
         truck = []

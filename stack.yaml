@@ -18,7 +18,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-15.5
+resolver: lts-16.2
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -36,8 +36,8 @@ resolver: lts-15.5
 packages:
 - .
 
-extra-deps:
-  - morpheus-graphql
+# extra-deps:
+#   - morpheus-graphql
 
 # Dependency packages to be pulled from upstream that are not in the resolver
 # using the same syntax as the packages field.
@@ -77,8 +77,8 @@ extra-deps:
   - hasql-implicits-0.1.0.1@sha256:93581bf006dbb2641930c41c647b5a42c87064aa6a4feaa7dee6af8e58ccd7af,1388
   - ptr-0.16.6.1@sha256:8487350b1db776a94c811590b177e113f34b4e1f26782a158932e57bc5f236ab,2961
   - bug-1.0.1@sha256:a516df91c7330d350480a7d338af645f173d1e767450c5f94295020f11c8432c,1395
-  - morpheus-graphql-core-0.12.0@sha256:e7ec1f041cba294ce57a6caee4215b47a291239aef688fb3db71864fdf311539,4959
-  - morpheus-graphql-0.12.0@sha256:01e39bf3bcb9315ede629ea379c3cf6d9946c102ed6cc3c6ca777181209d7d8a,26505
+  - morpheus-graphql-core-0.13.0
+  - morpheus-graphql-0.13.0
   - git: https://github.com/theobat/hasql-url.git
     commit: e41c9bc3179c36878e8c865685ff2be17a8ecef4
   - git: https://github.com/theobat/hasql-migration.git

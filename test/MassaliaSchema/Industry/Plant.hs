@@ -118,5 +118,5 @@ plantListQuery maybePool queryArgs = do
         Right listRes -> pure listRes
     -- statement validSel = queryAndDecoderToSession $ initialSnippet validSel
     initialSnippet selSet = toSelectQuery selSet arg
-    arg = defaultPaginated{Paginated.filtered = Just plantFilterTest}
+    arg = defaultPaginated{Paginated.filtered = pure plantFilterTest}
 

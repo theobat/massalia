@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8fe62eea66828cc35e7ae6b77ccb01cf4829eaa83ff046b0a9f35a32460c6db0
+-- hash: 5cc4480c1300ffc676ded7a07745e03fbc887012ef178e1bfb16af2d711de472
 
 name:           massalia
 version:        0.1.0.0
@@ -72,8 +72,8 @@ library
     , hasql-url
     , inflections
     , jwt
-    , morpheus-graphql >=0.11.0
-    , morpheus-graphql-core >=0.11.0
+    , morpheus-graphql ==0.13.0
+    , morpheus-graphql-core ==0.13.0
     , mtl
     , postgresql-binary
     , pretty-simple
@@ -127,8 +127,8 @@ test-suite massalia-integration-test
     , inflections
     , jwt
     , massalia
-    , morpheus-graphql >=0.11.0
-    , morpheus-graphql-core >=0.11.0
+    , morpheus-graphql ==0.13.0
+    , morpheus-graphql-core ==0.13.0
     , mtl
     , postgresql-binary
     , pretty-simple
@@ -182,8 +182,8 @@ test-suite massalia-unit-test
     , inflections
     , jwt
     , massalia
-    , morpheus-graphql >=0.11.0
-    , morpheus-graphql-core >=0.11.0
+    , morpheus-graphql ==0.13.0
+    , morpheus-graphql-core ==0.13.0
     , mtl
     , postgresql-binary
     , pretty-simple
