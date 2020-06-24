@@ -67,12 +67,13 @@ import Hasql.DynamicStatements.Snippet (Snippet)
 import qualified Hasql.DynamicStatements.Snippet as Snippet
 import Hasql.Implicits.Encoders (DefaultParamEncoder)
 import Massalia.Utils (
-    EmailAddress, LocalTime,
+    EmailAddress, LocalTime, ZonedTime,
     Day, Scientific, UTCTime,
     intercalate, intercalateMap, emailToText,
     emailValidateText,
     unsafeSnakeCaseT
   )
+import Data.Time.LocalTime (zonedTimeToUTC)
 import qualified Hasql.Decoders as Decoders
 import Protolude hiding (intercalate, replace)
 
@@ -208,7 +209,10 @@ instance SQLEncoder Text LocalTime where
   sqlEncode = inSingleQuote . pack . show
 instance SQLEncoder Snippet LocalTime where
   sqlEncode = Snippet.param
-
+instance SQLEncoder Text ZonedTime where
+  sqlEncode = inSingleQuote . pack . show
+instance SQLEncoder Snippet ZonedTime where
+  sqlEncode = Snippet.param . zonedTimeToUTC
 instance SQLEncoder Text EmailAddress where
   sqlEncode = inSingleQuote . emailToText
 instance SQLEncoder Snippet EmailAddress where
