@@ -555,10 +555,9 @@ instance (
 
 -- | This is just the asc/desc part of the equation.
 -- But it assumes the ordering yields something to which you can concatenate asc/desc.
-instance (QueryFormat qf, SQLFilterField qf a) =>
-  SQLFilterField qf [OrderingBy a] where
-  filterStruct _ _ [] = Nothing
-  filterStruct maybeOpt selection input = result
+instance (QueryFormat qf, SQLFilterField qf a, Foldable contT) =>
+  SQLFilterField qf (contT (OrderingBy a)) where
+  filterStruct maybeOpt selection input = if null input then Nothing else result
     where
       result = foldl' (\existingSQL y -> combine existingSQL $ fullName y) (Just mempty) input
       combine a Nothing = a
