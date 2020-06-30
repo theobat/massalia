@@ -221,7 +221,10 @@ filterMerge :: (Semigroup queryFormat, IsString queryFormat) => SelectStruct que
 filterMerge a b = mempty {
     _rawPrefix = _rawPrefix a <> _rawPrefix b,
     _join = _join a <> _join b,
-    _where = concatMaybeSQL " AND " (_where a) (_where b)
+    _where = concatMaybeSQL " AND " (_where a) (_where b),
+    _groupBy = _groupBy a <> _groupBy b,
+    _orderBy = _orderBy a <> _orderBy b,
+    _having = concatMaybeSQL " AND " (_having a) (_having b)
   }
 
 filterConcat ::
