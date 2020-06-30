@@ -304,11 +304,11 @@ paginatedFilterToSelectStruct :: (
 paginatedFilterToSelectStruct filterOption filterValue = result
   where
     result = offsetLimitQy <> filteredAggregate
-    filteredAggregate = case filteredList of
-      [] -> mempty
-      nonEmptyList -> mempty{_where= Just "("} <>
-        intercalate mempty{_where= Just ") OR ("} nonEmptyList
-        <> mempty{_where= Just ")"}
+    filteredAggregate = foldr' filterAggregator mempty filteredList
+    filterAggregator filtA existingFilt = case (_where existingFilt, _where filtA) of
+      (_, Nothing) -> existingFilt <> filtA
+      (Just _, Just _) -> existingFilt <> mempty{_where=Just " OR ("} <> mempty{_where= Just ")"}
+      (Nothing, Just _) -> existingFilt <> mempty{_where=Just "("} <> filtA <> mempty{_where= Just ")"}
     filteredList = catMaybes $ (toQueryFormatFilter filterOption) <$> Paginated.filtered filterValue
     offsetLimitQy = mempty {
         _offsetLimit = Just $ offsetLimitFn
