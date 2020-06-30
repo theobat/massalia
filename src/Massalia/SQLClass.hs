@@ -39,6 +39,8 @@ module Massalia.SQLClass
     basicDecodeInnerRecord,
     paginatedFilterToSelectStruct,
     compositeFieldFilter,
+    joinFilterFieldSimple,
+    joinFilterField,
     SQLSelect(toSelectQuery),
     SQLRecord(toColumnListAndDecoder, fullTopSelection),
     gsqlColumns,
@@ -71,7 +73,8 @@ import Massalia.QueryFormat
     DecodeFieldPrefixType(TableName, CompositeField),
     decodeName,
     defaultDecodeTuple,
-    inParens
+    inParens,
+    joinEq
   )
 import Massalia.Filter (
     GQLScalarFilterCore,
@@ -106,6 +109,7 @@ import Massalia.SQLSelectStruct (
     filterConcat,
   )
 import qualified Massalia.UtilsGQL as Paginated
+import Massalia.UtilsGQL (OrderingBy(..), OrderByWay(..))
 
 type SubSelectConstraint qf contextT subNodeT = (
     QueryFormat qf,
@@ -310,6 +314,31 @@ paginatedFilterToSelectStruct filterOption filterValue = result
         _offsetLimit = Just $ offsetLimitFn
       }
     offsetLimitFn = (sqlEncode <$> Paginated.offset filterValue, sqlEncode $ fromMaybe 10000 $ Paginated.first filterValue)
+
+joinFilterFieldSimple :: (QueryFormat qf, SQLFilter qf record) => (Text, Text, Text) -> Maybe SQLFilterOption -> p -> record -> Maybe (SelectStruct qf)
+joinFilterFieldSimple (tableName, tableCol, parentCol) = joinFilterField joinRes
+  where
+    joinRes a = (joinEq tableName tableCol a parentCol, a)
+
+joinFilterField :: (
+  QueryFormat qf,
+  SQLFilter qf record,
+  FromText qf) =>
+  -- | The name of the table to join to.
+  (Text -> (Text, Text)) ->
+  Maybe SQLFilterOption -> p -> record -> Maybe (SelectStruct qf)
+joinFilterField joinFunction opts _ val = partialRes
+      where
+        partialRes = (Just (mempty{
+          _join = [
+              fromText $ joiningRes
+            ]
+          } <> recordPart))
+        (joiningRes, joiningName) = joinFunction fatherTable
+        fatherTable = fromMaybe "" (filterTableName <$> opts)
+        recordPart = fromMaybe mempty (toQueryFormatFilter updatedOpt val)
+        updatedOpt = updateFiltOpt <$> opts
+        updateFiltOpt a = a{filterTableName = joiningName}
 
 type SelectConstraint qf filterType = (
     QueryFormat qf,
@@ -523,6 +552,27 @@ instance (
   QueryFormat qf,
   SQLFilter qf a) => SQLFilter qf (Paginated a) where
   toQueryFormatFilter opt val = Just $ paginatedFilterToSelectStruct opt val
+
+-- | This is just the asc/desc part of the equation.
+-- But it assumes the ordering yields something to which you can concatenate asc/desc.
+instance (QueryFormat qf, SQLFilterField qf a) =>
+  SQLFilterField qf [OrderingBy a] where
+  filterStruct _ _ [] = Nothing
+  filterStruct maybeOpt selection input = result
+    where
+      result = foldl' (\existingSQL y -> combine existingSQL $ fullName y) (Just mempty) input
+      combine a Nothing = a
+      combine Nothing b  = b
+      combine (Just a) (Just b)  = Just (a <> b)
+      fullName (OrderingBy wayVal colVal) = withWayOrderBy newStruct
+        where
+          withWayOrderBy (Just selStruct) = Just selStruct{
+              _orderBy=fmap (<> ordTrans wayVal) (_orderBy selStruct)
+            }
+          withWayOrderBy Nothing = Nothing
+          newStruct = filterStruct maybeOpt selection colVal
+      ordTrans DESC = " DESC" 
+      ordTrans ASC = " ASC" 
 
 -- | A function to use when implementing SQLFilterField for composite types.
 compositeFieldFilter :: (

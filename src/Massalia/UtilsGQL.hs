@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- |
 -- Module      : Massalia.UtilsGQL
@@ -9,11 +10,14 @@
 module Massalia.UtilsGQL
   ( -- TEXT
     Paginated (..),
-    defaultPaginated
+    defaultPaginated,
+    OrderByWay(..),
+    OrderingBy(..)
   )
 where
 
-import Massalia.MorpheusTypes (GQLType, description)
+import Data.Morpheus.Types (GQLType, description, KIND)
+import Data.Morpheus.Kind (INPUT)
 import Data.Aeson (FromJSON, ToJSON)
 import Protolude
 
@@ -33,3 +37,12 @@ defaultPaginated = Paginated [] Nothing Nothing
 instance (Typeable filterType, GQLType filterType) =>
   GQLType (Paginated filterType) where
   description = const (Just "A simple wrapper around any filter type to get pagination and OR filtered capabilities")
+
+data OrderByWay = ASC | DESC deriving (Eq, Show, Generic, GQLType)
+data OrderingBy a = OrderingBy {
+  way :: OrderByWay,
+  column :: a
+} deriving (Eq, Show, Generic)
+
+instance (Typeable a) => GQLType (OrderingBy a) where
+  type KIND (OrderingBy a) = INPUT
