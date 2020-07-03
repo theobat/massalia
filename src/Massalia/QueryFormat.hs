@@ -28,7 +28,7 @@
 module Massalia.QueryFormat
   ( QueryFormat(sqlEncode),
     formattedColName,
-    SQLEncoder (wrapEncoding, ignoreInGenericInstance, textEncode, binaryEncode, bothEncode),
+    SQLEncoder (wrapEncoding, ignoreInGenericInstance, textEncode, binaryEncode, polyEncode),
     SQLDecoder(sqlDecode),
     DecodeOption(..),
     DecodeFieldPrefixType(..),
