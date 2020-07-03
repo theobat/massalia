@@ -60,11 +60,11 @@ where
 import qualified Data.Map as Map
 import Massalia.QueryFormat
   (
-    QueryFormat,
+    QueryFormat(sqlEncode),
     (°),
     formattedColName,
     FromText(fromText),
-    SQLEncoder(sqlEncode),
+    SQLEncoder,
     SQLDecoder(sqlDecode),
     DecodeTuple (DecodeTuple),
     BinaryQuery,
@@ -228,7 +228,7 @@ basicQueryAndDecoder :: (
     MassaliaContext contextT,
     MassaliaTree selectionType,
     SQLRecord qf contextT nodeType,
-    SQLEncoder qf Int
+    QueryFormat qf
   ) =>
   -- | The sql table name and pagination filter mapping from the context.
   (contextT -> (Text, SelectStruct qf)) ->
@@ -297,8 +297,7 @@ basicEntityQuery tablename filterAcc context = (tablename, withFilter base)
 -- (which you can add to your existing one through (<>)).
 paginatedFilterToSelectStruct :: (
     QueryFormat qf,
-    SQLFilter qf filterT,
-    SQLEncoder qf Int
+    SQLFilter qf filterT
   ) =>
   Maybe SQLFilterOption -> Paginated filterT -> (SelectStruct qf)
 paginatedFilterToSelectStruct filterOption filterValue = result
@@ -341,8 +340,7 @@ joinFilterField joinFunction opts _ val = partialRes
         updateFiltOpt a = a{filterTableName = joiningName}
 
 type SelectConstraint qf filterType = (
-    QueryFormat qf,
-    SQLEncoder qf Int
+    QueryFormat qf
   )
 
 -- | This class represents all the haskell types with a corresponding SQL
@@ -425,11 +423,8 @@ instance (GValues a queryFormat) => GValues (M1 S c a) queryFormat where
 instance (GValues a queryFormat) => GValues (M1 C c a) queryFormat where
   goToValues (M1 x) = goToValues x
 
-instance (SQLEncoder Text a, GValues (K1 i a) Text) =>
-  GValues (K1 i a) Text where
-  goToValues (K1 val) = [(sqlEncode val)]
-instance (SQLEncoder BinaryQuery a, GValues (K1 i a) BinaryQuery) =>
-  GValues (K1 i a) BinaryQuery where
+instance (SQLEncoder a, QueryFormat qf, GValues (K1 i a) Text) =>
+  GValues (K1 i a) qf where
   goToValues (K1 val) = [(sqlEncode val)]
 
 ----------------------------------------------------------------------------
@@ -548,7 +543,6 @@ instance (QueryFormat qf) => SQLFilterField qf Bool where
       actualFieldName = fromText $ getFilterFieldName selectorName options
 
 instance (
-  SQLEncoder qf Int,
   QueryFormat qf,
   SQLFilter qf a) => SQLFilter qf (Paginated a) where
   toQueryFormatFilter opt val = Just $ paginatedFilterToSelectStruct opt val

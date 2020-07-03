@@ -47,6 +47,9 @@ packages:
   original:
     hackage: morpheus-graphql-0.13.0
 - completed:
+    cabal-file:
+      size: 1502
+      sha256: 422af001e4b892ea77f66a39cb93f69023461c88ecca4307ba71c990f881b23e
     name: hasql-url
     version: 0.1.0.0
     git: https://github.com/theobat/hasql-url.git
@@ -59,6 +62,9 @@ packages:
     commit: e41c9bc3179c36878e8c865685ff2be17a8ecef4
 - completed:
     subdir: .
+    cabal-file:
+      size: 2811
+      sha256: bb0745a76ec01154c4ee1b5efbd66510d027f66b822a222032eedb07b8119c94
     name: hasql-migration
     version: 0.3.0
     git: https://github.com/theobat/hasql-migration.git

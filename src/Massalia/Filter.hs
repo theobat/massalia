@@ -43,9 +43,9 @@ where
 import Data.Aeson (FromJSON, ToJSON)
 import Data.UUID
 import Massalia.QueryFormat (
-    SQLEncoder(
-        sqlEncode
-      )
+  QueryFormat (sqlEncode),
+  SQLEncoder (textEncode, binaryEncode),
+  DefaultParamEncoder
   )
 import Massalia.Utils (Day, LocalTime, SimpleRange(..), Inclusivity(..))
 import qualified Massalia.Utils as MassaliaUtils (intercalate)
@@ -140,11 +140,14 @@ defaultScalarFilter =
     }
 
 type FilterConstraint qf a b c = (
-    SQLEncoder qf a,
-    SQLEncoder qf [a],
-    SQLEncoder qf b,
-    SQLEncoder qf c,
-    PostgresRange c
+    SQLEncoder a,
+    SQLEncoder [a],
+    DefaultParamEncoder [a], 
+    Show a,
+    SQLEncoder b,
+    SQLEncoder c,
+    PostgresRange c,
+    QueryFormat qf
   )
 
 filterFieldToMaybeContent ::
@@ -178,23 +181,23 @@ filterFieldToMaybeContent prefixedFieldName (Just filterVal) = case filterVal of
       filtList -> Just (MassaliaUtils.intercalate " AND " filtList)
 
 snippetContent ::
-  forall content a. (SQLEncoder content a) =>
-  content ->
-  content ->
+  forall qf a. (SQLEncoder a, QueryFormat qf) =>
+  qf ->
+  qf ->
   Maybe a ->
-  Maybe content
+  Maybe qf
 snippetContent fieldName op maybeVal = effectFunc <$> maybeVal
   where
     effectFunc parameterVal = fieldName <> " " <> op <> " " <> sqlEncode parameterVal
 
 wrappedContent ::
-  forall content.
-  content ->
-  ( forall filterValue. (SQLEncoder content filterValue) =>
-    content ->
+  forall qf. (QueryFormat qf) =>
+  qf ->
+  ( forall filterValue. (SQLEncoder filterValue) =>
+    qf ->
     Maybe filterValue ->
-    content ->
-    [content]
+    qf ->
+    [qf]
   )
 wrappedContent _ _ Nothing _ = []
 wrappedContent fieldName op (Just a) suffix =
@@ -209,14 +212,18 @@ wrappedContent fieldName op (Just a) suffix =
 -- daterange — Range of date
 
 instance (
-    IsString content,
     PostgresRange a,
-    SQLEncoder content a
-  ) => SQLEncoder content (SimpleRange a) where
-  -- | test
-  -- >>> (sqlEncode $ SimpleRange (Just 1::Int) Nothing Nothing) :: Text
-  -- 
-  sqlEncode value = postgresRangeName @a <> "(" <> startValue <> "," <> endValue <> bounds <> ")"
+    SQLEncoder a
+  ) => SQLEncoder (SimpleRange a) where
+  textEncode = encodeRange
+  binaryEncode = encodeRange
+
+-- | test
+-- >>> (sqlEncode $ SimpleRange (Just 1::Int) Nothing Nothing) :: Text
+-- 
+encodeRange :: forall qf dataT. (
+  QueryFormat qf, SQLEncoder dataT, PostgresRange dataT) => SimpleRange dataT -> qf
+encodeRange value = postgresRangeName @dataT <> "(" <> startValue <> "," <> endValue <> bounds <> ")"
     where
       startValue = getBoundary start
       endValue = getBoundary end
@@ -226,7 +233,7 @@ instance (
           Just IE -> ", [)"
           Just EI -> ", (]"
           Just EE -> ", ()"
-        ) :: content
+        )
       getBoundary accessor = fromMaybe "null" $ (sqlEncode <$> accessor value)
 
 class PostgresRange a where

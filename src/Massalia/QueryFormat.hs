@@ -16,6 +16,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DefaultSignatures #-}
 
 -- |
 -- Module      : Massalia.QueryFormat
@@ -25,9 +26,9 @@
 --  a problem for testing and for debugging. This module defined a typeclass to abstract whatever Type is used for the
 --  query formatting.
 module Massalia.QueryFormat
-  ( QueryFormat,
+  ( QueryFormat(sqlEncode),
     formattedColName,
-    SQLEncoder (sqlEncode, wrapEncoding, ignoreInGenericInstance),
+    SQLEncoder (wrapEncoding, ignoreInGenericInstance, textEncode, binaryEncode),
     SQLDecoder(sqlDecode),
     DecodeOption(..),
     DecodeFieldPrefixType(..),
@@ -107,11 +108,15 @@ simpleEq tableA fieldA tableB fieldB = (tableA ° fieldA) <> " = " <> (tableB °
 commaAssemble :: (IsString a, Monoid a) => [a] -> a
 commaAssemble = intercalateMap identity ","
 
-class (FromText queryFormat, IsString queryFormat, Monoid queryFormat)
-  => QueryFormat queryFormat
+class (
+    FromText queryFormat, IsString queryFormat, Monoid queryFormat
+  ) => QueryFormat queryFormat where
+    sqlEncode :: (SQLEncoder a) => a -> queryFormat
 
-instance QueryFormat Text
-instance QueryFormat Snippet
+instance QueryFormat TextQuery where
+  sqlEncode = textEncode
+instance QueryFormat BinaryQuery where
+  sqlEncode = binaryEncode
 
 class FromText content where
   fromText :: Text -> content
@@ -122,81 +127,51 @@ instance FromText String where
 instance FromText Snippet where
   fromText = String.fromString . unpack
 
-class (QueryFormat queryFormat) =>
-  SQLEncoder queryFormat underlyingType where
+class SQLEncoder dataT where
   ignoreInGenericInstance :: Bool
   ignoreInGenericInstance = False
   wrapEncoding :: queryFormat -> queryFormat
   wrapEncoding = identity
-  sqlEncode :: underlyingType -> queryFormat
+  textEncode :: dataT -> TextQuery
+  default textEncode :: (Show dataT) => dataT -> TextQuery
+  textEncode = inSingleQuote . pack . show
+  binaryEncode :: dataT -> BinaryQuery
+  default binaryEncode :: (DefaultParamEncoder dataT) => dataT -> BinaryQuery
+  binaryEncode = Snippet.param
 
 voidMessage :: Text
-voidMessage = "cannot happen because Void has no inhabitant and sqlEncode expect Void -> queryFormat"
-instance SQLEncoder Text Void where
-  sqlEncode = panic $ "(SQLEncoder Text Void)" <> voidMessage
-instance SQLEncoder Snippet Void where
-  sqlEncode = panic $ "(SQLEncoder Snippet Void)" <> voidMessage
+voidMessage = " from void cannot happen because Void has no inhabitant and sqlEncode expect Void -> queryFormat"
+instance SQLEncoder Void where
+  textEncode = panic $ "text" <> voidMessage
+  binaryEncode = panic $ "binary" <> voidMessage
 
-instance (SQLEncoder Text a) => SQLEncoder Text (Maybe a) where
-  sqlEncode = (wrapEncoding @Text @a) . maybe "null" sqlEncode
-instance (SQLEncoder Snippet a) => SQLEncoder Snippet (Maybe a) where
-  sqlEncode = (wrapEncoding @Snippet @a) . maybe "null" sqlEncode
-instance (SQLEncoder Text a) => SQLEncoder Text [a] where
-  sqlEncode =  collectionTextEncode
-instance (DefaultParamEncoder [a]) => SQLEncoder Snippet [a] where
-  sqlEncode =  Snippet.param
-instance (SQLEncoder Text a) => SQLEncoder Text (Vector a) where
-  sqlEncode =  collectionTextEncode
-instance (SQLEncoder Snippet a, DefaultParamEncoder (Vector a)) => SQLEncoder Snippet (Vector a) where
-  sqlEncode =  Snippet.param
-instance (SQLEncoder Text a) => SQLEncoder Text (Seq a) where
-  sqlEncode =  collectionTextEncode
-instance (SQLEncoder Snippet a, DefaultParamEncoder (Seq a)) => SQLEncoder Snippet (Seq a) where
-  sqlEncode =  Snippet.param
-instance (SQLEncoder Text a) => SQLEncoder Text (Set a) where
-  sqlEncode =  collectionTextEncode
-instance (SQLEncoder Snippet a, DefaultParamEncoder (Set a)) => SQLEncoder Snippet (Set a) where
-  sqlEncode = Snippet.param
-instance (QueryFormat format) => SQLEncoder format (Paginated a) where
-  ignoreInGenericInstance = True
-  sqlEncode = const ""
+instance (Show a, SQLEncoder a, DefaultParamEncoder a) => SQLEncoder (Maybe a) where
+  textEncode = (wrapEncoding @a) . maybe "null" textEncode
+  binaryEncode = (wrapEncoding @a) . maybe "null" binaryEncode
+instance (DefaultParamEncoder [a], Show a, SQLEncoder a) => SQLEncoder [a] where
+  textEncode = collectionTextEncode
+instance (DefaultParamEncoder (Set a), Show a, SQLEncoder a) => SQLEncoder (Set a) where
+  textEncode = collectionTextEncode
+instance (DefaultParamEncoder (Vector a), Show a, SQLEncoder a) => SQLEncoder (Vector a) where
+  textEncode = collectionTextEncode
+instance (DefaultParamEncoder (Seq a), Show a, SQLEncoder a) => SQLEncoder (Seq a) where
+  textEncode = collectionTextEncode
 
-
-instance SQLEncoder Text UUID where
-  sqlEncode = (inSingleQuote . toText)
-instance SQLEncoder Snippet UUID where
-  sqlEncode = Snippet.param
-  
-instance SQLEncoder Text Text where
-  sqlEncode = inSingleQuote
-instance SQLEncoder Snippet Text where
-  sqlEncode = Snippet.param
-  
-instance SQLEncoder Text Int64 where
-  sqlEncode = pack . show
-instance SQLEncoder Snippet Int64 where
-  sqlEncode = Snippet.param
-instance SQLEncoder Text Int where
-  sqlEncode = pack . show
-instance SQLEncoder Snippet Int where
-  sqlEncode input = Snippet.param (fromIntegral input :: Int64)
-
-instance SQLEncoder Text Day where
-  sqlEncode = inSingleQuote . pack . show
-instance SQLEncoder Snippet Day where
-  sqlEncode = Snippet.param
-instance SQLEncoder Text LocalTime where
-  sqlEncode = inSingleQuote . pack . show
-instance SQLEncoder Snippet LocalTime where
-  sqlEncode = Snippet.param
-instance SQLEncoder Text ZonedTime where
-  sqlEncode = inSingleQuote . pack . show
-instance SQLEncoder Snippet ZonedTime where
-  sqlEncode = Snippet.param . zonedTimeToUTC
-instance SQLEncoder Text EmailAddress where
-  sqlEncode = inSingleQuote . emailToText
-instance SQLEncoder Snippet EmailAddress where
-  sqlEncode = Snippet.param . emailToText 
+instance SQLEncoder UUID -- all default
+instance SQLEncoder Day -- all default
+instance SQLEncoder LocalTime -- all default
+instance SQLEncoder Text where
+  textEncode = inSingleQuote
+instance SQLEncoder Int64 where
+  textEncode = pack . show
+instance SQLEncoder Int where
+  textEncode = pack . show
+  binaryEncode = Snippet.param . (fromIntegral @Int @Int64)
+instance SQLEncoder ZonedTime where
+  binaryEncode = Snippet.param . zonedTimeToUTC
+instance SQLEncoder EmailAddress where
+  textEncode = inSingleQuote . emailToText
+  binaryEncode = Snippet.param . emailToText 
 
 inSingleQuote :: (Semigroup a, IsString a) => a -> a
 inSingleQuote a = "'" <> a <> "'"
@@ -205,15 +180,15 @@ inParens a = "(" <> a <> ")"
 commaSepInParens :: [[Char]] -> [Char]
 commaSepInParens = inParens . (intercalate ",")
 
-collectionTextEncode :: (Foldable collection, SQLEncoder Text underlyingType) =>
-  collection underlyingType -> Text
+collectionTextEncode :: (Foldable collection, SQLEncoder dataT, Show dataT) =>
+  collection dataT -> Text
 collectionTextEncode collection = wrapCollection assembled
   where
     assembled = foldr assemblerFun "" collection
-    assemblerFun :: SQLEncoder Text b => b -> Text -> Text
+    assemblerFun :: (SQLEncoder b, Show b) => b -> Text -> Text
     assemblerFun val "" = rawEncode val
     assemblerFun val currentEncoded = currentEncoded <> "," <> rawEncode val
-    rawEncode val = replace "'" "" $ sqlEncode val
+    rawEncode val = replace "'" "" $ textEncode val
     wrapCollection a = "'{" <> a <> "}'"
 
 formattedColName :: (QueryFormat qf) => DecodeFieldPrefixType -> Maybe qf -> qf -> qf
