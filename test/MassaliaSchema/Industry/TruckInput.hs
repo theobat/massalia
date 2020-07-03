@@ -23,7 +23,6 @@ import qualified Massalia.HasqlDec as Decoders
 import Massalia.QueryFormat
   ( BinaryQuery,
     takeMaybeParam,
-    takeParam,
     (§),
     FromText(fromText),
     SQLEncoder(sqlEncode)

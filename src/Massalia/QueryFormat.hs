@@ -45,8 +45,6 @@ module Massalia.QueryFormat
     (°),
     joinEq,
     simpleEq,
-    takeParam,
-    takeMaybeParam,
     Snippet.param,
     inSingleQuote,
     inParens,
@@ -108,24 +106,6 @@ simpleEq tableA fieldA tableB fieldB = (tableA ° fieldA) <> " = " <> (tableB °
 
 commaAssemble :: (IsString a, Monoid a) => [a] -> a
 commaAssemble = intercalateMap identity ","
-
--- | Yields a query formatted snippet with the given parameter encoded as a parameter in the query format.
-takeParam ::
-  (SQLEncoder content paramValueType) =>
-  (recordType -> paramValueType) ->
-  recordType ->
-  content
-takeParam accessor record = sqlEncode $ accessor record
-
-takeMaybeParam ::
-  (SQLEncoder content paramValueType) =>
-  (recordType -> Maybe paramValueType) ->
-  recordType ->
-  content ->
-  content
-takeMaybeParam accessor record defaultValue = case (accessor record) of
-  Nothing -> defaultValue
-  Just value -> sqlEncode value
 
 class (FromText queryFormat, IsString queryFormat, Monoid queryFormat)
   => QueryFormat queryFormat
