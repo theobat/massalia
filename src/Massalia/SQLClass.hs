@@ -21,6 +21,10 @@
 -- Description : A module to define SQL-related typeclasses
 -- with generic deriving capabilities. Along with QueryFormat,
 -- it's the main module of massalia.
+--
+-- In the entire module (as in the entire project), the @qf@ type variable stands for 
+-- query format.
+--
 module Massalia.SQLClass
   ( SQLName(..),
     SQLColumns(..),
@@ -29,7 +33,6 @@ module Massalia.SQLClass
     WithQueryOption(..),
     SQLFilter(toQueryFormatFilter),
     SQLFilterField (filterStruct),
-    SelectConstraint,
     SubSelectConstraint,
     basicEntityQuery,
     basicEntityNoFilter,
@@ -60,6 +63,7 @@ where
 import qualified Data.Map as Map
 import Massalia.QueryFormat
   (
+    DefaultParamEncoder,
     QueryFormat(sqlEncode),
     (°),
     formattedColName,
@@ -67,7 +71,6 @@ import Massalia.QueryFormat
     SQLEncoder,
     SQLDecoder(sqlDecode),
     DecodeTuple (DecodeTuple),
-    BinaryQuery,
     MassaliaContext(getDecodeOption, setDecodeOption),
     DecodeOption(nameMap, fieldPrefixType),
     DecodeFieldPrefixType(TableName, CompositeField),
@@ -113,21 +116,20 @@ import Massalia.UtilsGQL (OrderingBy(..), OrderByWay(..))
 
 type SubSelectConstraint qf contextT subNodeT = (
     QueryFormat qf,
-    SelectConstraint qf contextT,
-    SQLSelect qf contextT subNodeT,
-    SQLRecord qf contextT subNodeT
+    SQLSelect contextT subNodeT,
+    SQLRecord contextT subNodeT
   )
 
 -- | This is a utility function to facilitate the writing
 -- of SQLDecode for inner records.
 basicDecodeInnerRecord :: 
-  forall qf contextT nodeT treeNode.
+  forall contextT nodeT treeNode qf.
   (
-    QueryFormat qf,
-    SQLRecord qf contextT nodeT,
+    SQLRecord contextT nodeT,
     MassaliaTree treeNode,
     MassaliaContext contextT,
-    SQLRecord qf contextT nodeT
+    SQLRecord contextT nodeT,
+    QueryFormat qf
   ) =>
   contextT ->
   treeNode ->
@@ -143,7 +145,7 @@ basicDecodeInnerRecord context selection = result
       where
         parentName = decodeName currentDecodeOpt name
         compositeName = unsafeSnakeCaseT (parentName ° (getName selection))
-    (colListThunk, decoderVal) = toColumnListAndDecoder @qf selection updatedContext
+    (colListThunk, decoderVal) = toColumnListAndDecoder selection updatedContext
     updatedContext = setDecodeOption @contextT (currentDecodeOpt{fieldPrefixType=CompositeField}) context
     currentDecodeOpt = fromMaybe mempty $ getDecodeOption context
 
@@ -152,9 +154,9 @@ basicDecodeInnerRecord context selection = result
 basicDecodeRecordSubquery :: 
   forall qf parentContextT childrenContextT childrenT treeNode.
   (
-    SQLSelect qf childrenContextT childrenT,
+    SQLSelect childrenContextT childrenT,
     MassaliaTree treeNode,
-    SQLRecord qf childrenContextT childrenT,
+    SQLRecord childrenContextT childrenT,
     QueryFormat qf, MassaliaContext parentContextT
   ) =>
   -- | The context switch between parent and child.
@@ -180,8 +182,8 @@ basicDecodeRecordSubquery contextSwitch joinFn parentContext selection = (record
 basicDecodeListSubquery ::
   forall qf parentContextT childrenContextT childrenT treeNode.
   (
-    SQLSelect qf childrenContextT childrenT,
-    MassaliaTree treeNode, SQLRecord qf childrenContextT childrenT,
+    SQLSelect childrenContextT childrenT,
+    MassaliaTree treeNode, SQLRecord childrenContextT childrenT,
     QueryFormat qf, MassaliaContext parentContextT
   ) =>
   -- | The context switch between parent and child.
@@ -205,9 +207,10 @@ basicDecodeListSubquery contextSwitch joinFn parentContext selection = (listSubq
 basicDecodeSubquery ::
   forall qf parentContextT childrenContextT childNodeT treeNode.
   (
-    SQLSelect qf childrenContextT childNodeT,
+    SQLSelect childrenContextT childNodeT,
+    QueryFormat qf,
     MassaliaTree treeNode,
-    SQLRecord qf childrenContextT childNodeT
+    SQLRecord childrenContextT childNodeT
   ) =>
   (parentContextT -> childrenContextT) ->
   treeNode ->
@@ -227,7 +230,7 @@ basicDecodeSubquery contextSwitcher selection parentContextT = subQueryRaw
 basicQueryAndDecoder :: (
     MassaliaContext contextT,
     MassaliaTree selectionType,
-    SQLRecord qf contextT nodeType,
+    SQLRecord contextT nodeType,
     QueryFormat qf
   ) =>
   -- | The sql table name and pagination filter mapping from the context.
@@ -252,7 +255,7 @@ basicQueryAndDecoder contextTransformer selection context = QueryAndDecoder {
 -- | This is a simple FROM "tablename" query bit with no filtering at all
 basicEntityNoFilter :: (
     MassaliaContext a,
-    QueryFormat qf, SQLFilter qf b
+    QueryFormat qf
   ) =>
   -- | An __unescaped__ SQL tablename/alias.
   Text ->
@@ -270,7 +273,7 @@ basicEntityNoFilter tablename context = (tablename, base)
 --  a potential filter
 basicEntityQuery :: (
     MassaliaContext a,
-    QueryFormat qf, SQLFilter qf b
+    QueryFormat qf, SQLFilter b
   ) =>
   -- | An __unescaped__ SQL tablename/alias.
   Text ->
@@ -297,7 +300,7 @@ basicEntityQuery tablename filterAcc context = (tablename, withFilter base)
 -- (which you can add to your existing one through (<>)).
 paginatedFilterToSelectStruct :: (
     QueryFormat qf,
-    SQLFilter qf filterT
+    SQLFilter filterT
   ) =>
   Maybe SQLFilterOption -> Paginated filterT -> (SelectStruct qf)
 paginatedFilterToSelectStruct filterOption filterValue = result
@@ -314,14 +317,14 @@ paginatedFilterToSelectStruct filterOption filterValue = result
       }
     offsetLimitFn = (sqlEncode <$> Paginated.offset filterValue, sqlEncode $ fromMaybe 10000 $ Paginated.first filterValue)
 
-joinFilterFieldSimple :: (QueryFormat qf, SQLFilter qf record) => (Text, Text, Text) -> Maybe SQLFilterOption -> p -> record -> Maybe (SelectStruct qf)
+joinFilterFieldSimple :: (QueryFormat qf, SQLFilter record) => (Text, Text, Text) -> Maybe SQLFilterOption -> p -> record -> Maybe (SelectStruct qf)
 joinFilterFieldSimple (tableName, tableCol, parentCol) = joinFilterField joinRes
   where
     joinRes a = (joinEq tableName tableCol a parentCol, a)
 
 joinFilterField :: (
   QueryFormat qf,
-  SQLFilter qf record,
+  SQLFilter record,
   FromText qf) =>
   -- | The name of the table to join to.
   (Text -> (Text, Text)) ->
@@ -338,10 +341,6 @@ joinFilterField joinFunction opts _ val = partialRes
         recordPart = fromMaybe mempty (toQueryFormatFilter updatedOpt val)
         updatedOpt = updateFiltOpt <$> opts
         updateFiltOpt a = a{filterTableName = joiningName}
-
-type SelectConstraint qf filterType = (
-    QueryFormat qf
-  )
 
 -- | This class represents all the haskell types with a corresponding SQL
 -- name. It provides 2 functions: @sqlName@ and @tableName@. @sqlName@ is meant
@@ -383,15 +382,18 @@ class SQLName a where
 -- Would yield something like @["name", "identifier", "p_id"]@.
 -- 
 class SQLColumns a where
-  sqlColumns :: (IsString queryFormat) => [queryFormat]
-  default sqlColumns :: forall queryFormat. (IsString queryFormat, Generic a, GSelectors (Rep a)) => [queryFormat]
-  sqlColumns = gsqlColumns @queryFormat @a
+  sqlColumns :: (QueryFormat queryFormat) => [queryFormat]
+  default sqlColumns :: forall queryFormat. (QueryFormat queryFormat, Generic a, GSelectors (Rep a)) => [queryFormat]
+  sqlColumns = gsqlColumns @a
 
-gsqlColumns :: forall queryFormat a. (IsString queryFormat, Generic a, GSelectors (Rep a)) => [queryFormat]
+gsqlColumns :: forall a. (Generic a, GSelectors (Rep a)) => forall queryFormat. (QueryFormat queryFormat) => [queryFormat]
 gsqlColumns = snakeTypename
   where
     snakeTypename = (fromString . simpleSnakeCase . fst) <$> listValue
     listValue = selectors @(Rep a) 
+
+columnList :: forall a queryFormat. (QueryFormat queryFormat, SQLColumns a) => queryFormat
+columnList = fromString $ toCSVInParens (sqlColumns @a)
 
 -- | This class represents all the haskell types with a corresponding 'toSQLValues'
 -- function. It's a function meant to encode a haskell record as an SQL comma separated
@@ -403,28 +405,28 @@ gsqlColumns = snakeTypename
 -- Would yield something like @(?, ?, ?)@ with @["some text", 1234, "really ?"]@ parameters.
 -- Or @ ("some text", 1234, "really ?") @ if the 'queryFormat' is 'Text'.
 -- 
-class SQLValues queryFormat a where
-  toSQLValues :: a -> [queryFormat]
-  default toSQLValues :: (Generic a, GValues (Rep a) queryFormat) => a -> [queryFormat]
+class SQLValues a where
+  toSQLValues :: (QueryFormat queryFormat) => a -> [queryFormat]
+  default toSQLValues :: (QueryFormat queryFormat, Generic a, GValues (Rep a)) => a -> [queryFormat]
   toSQLValues value = goToValues (from value)
 
-class GValues f queryFormat where
-  goToValues :: f a -> [queryFormat]
+class GValues f where
+  goToValues :: forall queryFormat a. (QueryFormat queryFormat) => f a -> [queryFormat]
 
-instance (Monoid queryFormat) => GValues U1 queryFormat where
+instance GValues U1 where
   goToValues U1 = mempty
-instance (GValues a queryFormat, GValues b queryFormat) => GValues (a :*: b) queryFormat where
+instance (GValues a, GValues b) => GValues (a :*: b) where
   goToValues (a :*: b) = goToValues a <> goToValues b
 
-instance (GValues a queryFormat) => GValues (M1 D c a) queryFormat where
+instance (GValues a) => GValues (M1 D c a) where
   goToValues (M1 x) = goToValues x
-instance (GValues a queryFormat) => GValues (M1 S c a) queryFormat where
+instance (GValues a) => GValues (M1 S c a) where
   goToValues (M1 x) = goToValues x
-instance (GValues a queryFormat) => GValues (M1 C c a) queryFormat where
+instance (GValues a) => GValues (M1 C c a) where
   goToValues (M1 x) = goToValues x
 
-instance (SQLEncoder a, QueryFormat qf, GValues (K1 i a) Text) =>
-  GValues (K1 i a) qf where
+instance (SQLEncoder a, GValues (K1 i a)) =>
+  GValues (K1 i a) where
   goToValues (K1 val) = [(sqlEncode val)]
 
 ----------------------------------------------------------------------------
@@ -449,47 +451,46 @@ defaultFilterOption = SQLFilterOption{
     filterFieldType=TableName
   }
 
-class SQLFilter queryFormat record where
-  toQueryFormatFilter :: Maybe SQLFilterOption -> record -> Maybe (SelectStruct queryFormat)
-  default toQueryFormatFilter :: (
-      IsString queryFormat, Monoid queryFormat, Generic record,
-      GSQLFilter (Rep record) queryFormat
+class SQLFilter record where
+  toQueryFormatFilter :: forall qf. (QueryFormat qf) => Maybe SQLFilterOption -> record -> Maybe (SelectStruct qf)
+  default toQueryFormatFilter :: forall qf. (
+      QueryFormat qf, Generic record,
+      GSQLFilter (Rep record)
     ) =>
-    Maybe SQLFilterOption -> record -> Maybe (SelectStruct queryFormat)
-  toQueryFormatFilter options value = case filterGroupList of
+    Maybe SQLFilterOption -> record -> Maybe (SelectStruct qf)
+  toQueryFormatFilter options value = case gtoQueryFormatFilter @(Rep record) @qf options (from value) of
     [] -> Nothing
     nonEmptyList -> Just (filterConcat mempty nonEmptyList)
-    where filterGroupList = gtoQueryFormatFilter options (from value)
 
-class GSQLFilter f queryFormat where
-  gtoQueryFormatFilter :: Maybe SQLFilterOption -> f a -> [SelectStruct queryFormat]
+class GSQLFilter f where
+  gtoQueryFormatFilter :: forall qf a. (QueryFormat qf) => Maybe SQLFilterOption -> f a -> [SelectStruct qf]
 
-instance (Monoid queryFormat) => GSQLFilter U1 queryFormat where
+instance GSQLFilter U1 where
   gtoQueryFormatFilter _ U1 = mempty
-instance (Monoid queryFormat, GSQLFilter a queryFormat, GSQLFilter b queryFormat) =>
-  GSQLFilter (a :*: b) queryFormat where
+instance (GSQLFilter a, GSQLFilter b) =>
+  GSQLFilter (a :*: b) where
   gtoQueryFormatFilter options (a :*: b) = withStatementA <> withStatementB
     where
-      withStatementA = gtoQueryFormatFilter options a
-      withStatementB = gtoQueryFormatFilter options b
+      withStatementA = gtoQueryFormatFilter @a options a
+      withStatementB = gtoQueryFormatFilter @b options b
 
-instance (GSQLFilter a queryFormat) => GSQLFilter (M1 D c a) queryFormat where
+instance (GSQLFilter a) => GSQLFilter (M1 D c a) where
   gtoQueryFormatFilter options (M1 x) = gtoQueryFormatFilter options x
-instance (GSQLFilter a queryFormat) => GSQLFilter (M1 C c a) queryFormat where
+instance (GSQLFilter a) => GSQLFilter (M1 C c a) where
   gtoQueryFormatFilter options (M1 x) = gtoQueryFormatFilter options x
   
 instance (
     Selector s,
-    IsString queryFormat,
-    SQLFilterField queryFormat filterType
-  ) => GSQLFilter (M1 S s (K1 R filterType)) queryFormat where
+    SQLFilterField filterType
+  ) => GSQLFilter (M1 S s (K1 R filterType)) where
   gtoQueryFormatFilter options (M1 (K1 val)) = maybeToList result
     where
       result = filterStruct options selector val 
       selector = fromString $ simpleSnakeCase $ selName (proxySelName :: M1 S s (K1 R t) ())
 
-class SQLFilterField queryFormat fieldType where
+class SQLFilterField fieldType where
   filterStruct ::
+    (QueryFormat qf) =>
     -- | A potential dictionary for rewriting names
     Maybe SQLFilterOption ->
     -- | selector __snakecase__ name 
@@ -497,14 +498,13 @@ class SQLFilterField queryFormat fieldType where
     -- | field value
     fieldType ->
     -- | the resulting query to concatenate
-    Maybe (SelectStruct queryFormat)
+    Maybe (SelectStruct qf)
 
 -- Basic filters instances
 instance (
-    IsString queryFormat,
-    FromText queryFormat,
-    FilterConstraint queryFormat b c d
-  ) => SQLFilterField queryFormat (GQLScalarFilterCore b c d) where
+    -- DefaultParamEncoder [b], Show b, SQLEncoder b, SQLEncoder c
+    FilterConstraint b c d
+  ) => SQLFilterField (GQLScalarFilterCore b c d) where
   filterStruct options selectorName val = result <$> filterBitResult
     where
       result whClause = mempty {
@@ -514,23 +514,23 @@ instance (
       prefixedField = formattedColName (fromMaybe TableName $ (filterFieldType <$> options)) prefix actualFieldName
       prefix = (fromText . filterTableName) <$> options
       actualFieldName = fromText $ getFilterFieldName selectorName options
-instance SQLFilter queryFormat () where
+
+instance SQLFilter () where
   toQueryFormatFilter _ _ = Nothing
-instance SQLFilterField queryFormat () where
+instance SQLFilterField () where
   filterStruct _ _ _ = Nothing
-instance (SQLFilter queryFormat a) => SQLFilter queryFormat (Maybe a) where
+instance (SQLFilter a) => SQLFilter (Maybe a) where
   toQueryFormatFilter options val = toQueryFormatFilter options =<< val
 instance (
-    QueryFormat queryFormat,
-    SQLFilterField queryFormat a
-  ) => SQLFilterField queryFormat (Maybe a) where
+    SQLFilterField a
+  ) => SQLFilterField (Maybe a) where
   filterStruct options selectorName val = (filterStruct options selectorName) =<< val
 
 -- | Paginated filters are for top queries => always
 -- (and handled through the SQLRecord machinery)
-instance SQLFilterField queryFormat (Paginated a) where
+instance SQLFilterField (Paginated a) where
   filterStruct _ _ _ = Nothing
-instance (QueryFormat qf) => SQLFilterField qf Bool where
+instance SQLFilterField Bool where
   filterStruct options selectorName val = Just result
     where
       result = mempty {
@@ -542,15 +542,13 @@ instance (QueryFormat qf) => SQLFilterField qf Bool where
       prefix = (fromText . filterTableName) <$> options
       actualFieldName = fromText $ getFilterFieldName selectorName options
 
-instance (
-  QueryFormat qf,
-  SQLFilter qf a) => SQLFilter qf (Paginated a) where
+instance (SQLFilter a) => SQLFilter (Paginated a) where
   toQueryFormatFilter opt val = Just $ paginatedFilterToSelectStruct opt val
 
 -- | This is just the asc/desc part of the equation.
 -- But it assumes the ordering yields something to which you can concatenate asc/desc.
-instance (QueryFormat qf, SQLFilterField qf a, Foldable contT) =>
-  SQLFilterField qf (contT (OrderingBy a)) where
+instance (SQLFilterField a, Foldable contT) =>
+  SQLFilterField (contT (OrderingBy a)) where
   filterStruct maybeOpt selection input = if null input then Nothing else result
     where
       result = foldl' (\existingSQL y -> combine existingSQL $ fullName y) (Just mempty) input
@@ -569,7 +567,8 @@ instance (QueryFormat qf, SQLFilterField qf a, Foldable contT) =>
 
 -- | A function to use when implementing SQLFilterField for composite types.
 compositeFieldFilter :: (
-    SQLFilter qf filterT
+    SQLFilter filterT,
+    QueryFormat qf
   ) =>
   Maybe SQLFilterOption ->
   Text ->
@@ -609,32 +608,32 @@ data InsertQueryOption = PureSelect | Insert {
     hasOnConflictId :: Bool
   } 
 
-class DBContext queryFormat record where
-  toWithQuery :: Maybe WithQueryOption -> record -> queryFormat
+class DBContext record where
+  toWithQuery :: (QueryFormat queryFormat) => Maybe WithQueryOption -> record -> queryFormat
   default toWithQuery :: (
-      IsString queryFormat, Monoid queryFormat, Generic record,
-      GDBContext (Rep record) queryFormat
+      QueryFormat queryFormat, Generic record,
+      GDBContext (Rep record)
     ) =>
     Maybe WithQueryOption -> record -> queryFormat
   toWithQuery options value = "WITH " <> (intercalate "," genericRes)
     where genericRes = gtoWithQuery options (from value)
 
-class GDBContext f queryFormat where
-  gtoWithQuery :: Maybe WithQueryOption -> f a -> [queryFormat]
+class GDBContext f where
+  gtoWithQuery :: (QueryFormat queryFormat) => Maybe WithQueryOption -> f a -> [queryFormat]
 
-instance (Monoid queryFormat) => GDBContext U1 queryFormat where
+instance GDBContext U1 where
   gtoWithQuery _ U1 = mempty
-instance (Monoid queryFormat, GDBContext a queryFormat, GDBContext b queryFormat) =>
-  GDBContext (a :*: b) queryFormat where
+instance (GDBContext a, GDBContext b) =>
+  GDBContext (a :*: b) where
   gtoWithQuery options (a :*: b) = withStatement a <> withStatement b
     where
       withStatement input = gtoWithQuery options input
 
-instance (GDBContext a queryFormat) => GDBContext (M1 D c a) queryFormat where
+instance (GDBContext a) => GDBContext (M1 D c a) where
   gtoWithQuery options (M1 x) = gtoWithQuery options x
-instance (GDBContext a queryFormat) => GDBContext (M1 S c a) queryFormat where
+instance (GDBContext a) => GDBContext (M1 S c a) where
   gtoWithQuery options (M1 x) = gtoWithQuery options x
-instance (GDBContext a queryFormat) => GDBContext (M1 C c a) queryFormat where
+instance (GDBContext a) => GDBContext (M1 C c a) where
   gtoWithQuery options (M1 x) = gtoWithQuery options x
 
 instance (
@@ -642,13 +641,11 @@ instance (
     Functor collection,
     Eq (collection a),
     Monoid (collection a),
-    Monoid queryFormat,
-    QueryFormat queryFormat,
     SQLName a,
     SQLColumns a,
-    SQLValues queryFormat a
+    SQLValues a
   ) =>
-  GDBContext (K1 i (collection a)) queryFormat where
+  GDBContext (K1 i (collection a)) where
   gtoWithQuery options (K1 val) = result
     where
       result
@@ -667,7 +664,7 @@ insertValuesQuery ::
     Functor collection,
     FromText queryFormat,
     QueryFormat queryFormat,
-    SQLValues queryFormat recordType,
+    SQLValues recordType,
     SQLColumns recordType,
     SQLName recordType
   ) =>
@@ -704,7 +701,7 @@ selectValuesQuery ::
     Foldable collection,
     Functor collection,
     QueryFormat queryFormat,
-    SQLValues queryFormat recordType,
+    SQLValues recordType,
     SQLColumns recordType,
     SQLName recordType
   ) =>
@@ -715,11 +712,9 @@ selectValuesQuery (maybeCols) recordCollection = result
     name = fromText $ sqlName @recordType
     assembledRows = ("VALUES " <>) $ rowsAssembler " " listOfRows
     listOfRows = (inParens . intercalate ",") <$> listOfListOfValues
-    listOfListOfValues = toSQLValues @queryFormat <$> recordCollection
+    listOfListOfValues = toSQLValues <$> recordCollection
     cols = fromMaybe (columnList @recordType) maybeCols
 
-columnList :: forall a queryFormat. (IsString queryFormat, SQLColumns a) => queryFormat
-columnList = fromString $ toCSVInParens (sqlColumns @a)
 
 
 ---------------------- SQLSelect test
@@ -745,10 +740,10 @@ defaultSelectConfig = SQLSelectOption {
 
 -- | This is the class to get an SQL select query out of a selection set ('MassaliaTree'),
 -- and a paginated filter.
-class SQLSelect queryFormat contextT nodeType where
+class SQLSelect contextT nodeType where
   -- | Takes a selection set of GQL fields along and a context type.
   -- Gives an SQL query with a Hasql decoder ('QueryAndDecoder').
-  toSelectQuery :: (MassaliaTree selectionType) =>
+  toSelectQuery :: forall queryFormat selectionType. (QueryFormat queryFormat, MassaliaTree selectionType) =>
     -- | The selection set (in the form of a 'Tree' interface)
     selectionType ->
     -- | The node's context. It Has to respect the MassaliaContext interface/class.
@@ -760,41 +755,42 @@ class SQLSelect queryFormat contextT nodeType where
 --  for a given type and its filter.
 -- It also provides a way to access all the selectors of a type (fullTopSelection).
 -- 
-class SQLRecord queryFormat contextT nodeT where
+class SQLRecord contextT nodeT where
   -- | Given a top name, selects every leaf selector in this type.
   fullTopSelection :: Text -> MassaliaNode
   default fullTopSelection :: (
-      GSQLRecord queryFormat contextT (Rep nodeT),
+      GSQLRecord contextT (Rep nodeT),
       Generic nodeT
     ) => Text -> MassaliaNode
-  fullTopSelection name = gfullTopSelection @queryFormat @contextT @(Rep nodeT) name
+  fullTopSelection name = gfullTopSelection @contextT @(Rep nodeT) name
   toColumnListAndDecoder ::
-    (MassaliaTree selectionType) =>
+    forall selectionType queryFormat. (QueryFormat queryFormat, MassaliaTree selectionType) =>
     -- | The selection set (in the form of a 'Tree' interface).
     selectionType ->
-    -- | The node's context. It Has to respect the MassaliaContext interface/class.
+    -- | The node's cont. It Has to respect the MassaliaContext interface/class.
     contextT ->
     -- | A queryFormatted list of columns and a Hasql decoder.
     (Text -> [queryFormat], Composite nodeT)
   default toColumnListAndDecoder ::
-    (
+    forall selectionType queryFormat. (
+      QueryFormat queryFormat,
       SQLDefault nodeT,
       MassaliaTree selectionType,
-      GSQLRecord queryFormat contextT (Rep nodeT),
+      GSQLRecord contextT (Rep nodeT),
       Generic nodeT
     ) =>
     selectionType ->
     contextT ->
     (Text -> [queryFormat], Composite nodeT)
-  toColumnListAndDecoder selectionVal context = (colListThunk, to <$> gdeco)
+  toColumnListAndDecoder selectionVal context = fmap (to <$>) $ gtoColumnListAndDecoder selectionVal context defaultVal
     where
-      (colListThunk, gdeco) = gtoColumnListAndDecoder @queryFormat selectionVal context defaultVal
+      -- (colListThunk, gdeco) = gtoColumnListAndDecoder selectionVal context defaultVal
       defaultVal = from $ getDefault @nodeT
 
-class GSQLRecord queryFormat contextT (rep :: * -> *) where
+class GSQLRecord contextT (rep :: * -> *) where
   gfullTopSelection :: Text -> MassaliaNode
   gtoColumnListAndDecoder ::
-    (MassaliaTree selectionType) =>
+    forall selectionType nodeT queryFormat. (QueryFormat queryFormat, MassaliaTree selectionType) =>
     -- | The selection set (in the form of a 'Tree' interface)
     selectionType ->
     -- | The node's context type
@@ -806,13 +802,13 @@ class GSQLRecord queryFormat contextT (rep :: * -> *) where
 
 -- | Use the Monad instance of the composite hasql type
 -- It's where the magic happens
-instance (GSQLRecord queryFormat contextT a, GSQLRecord queryFormat contextT b) =>
-  GSQLRecord queryFormat contextT (a :*: b) where
+instance (GSQLRecord contextT a, GSQLRecord contextT b) =>
+  GSQLRecord contextT (a :*: b) where
   gfullTopSelection name = resParent
     where
       resParent = (resA <> resB)
-      resA = gfullTopSelection @queryFormat @contextT @a name :: MassaliaNode
-      resB = gfullTopSelection @queryFormat @contextT @b name :: MassaliaNode
+      resA = gfullTopSelection @contextT @a name :: MassaliaNode
+      resB = gfullTopSelection @contextT @b name :: MassaliaNode
   gtoColumnListAndDecoder selectionVal context (a :*: b) = result
     where
       result = (combineCols, compoCombined)
@@ -824,22 +820,22 @@ instance (GSQLRecord queryFormat contextT a, GSQLRecord queryFormat contextT b) 
         cb <- compoB
         pure (ca :*: cb)
 
-instance (GSQLRecord queryFormat contextT a) => GSQLRecord queryFormat contextT (M1 D c a) where
-  gfullTopSelection name = gfullTopSelection @queryFormat @contextT @a name
+instance (GSQLRecord contextT a) => GSQLRecord contextT (M1 D c a) where
+  gfullTopSelection name = gfullTopSelection @contextT @a name
   gtoColumnListAndDecoder selectionVal context (M1 x) = second (M1 <$>) res
     where res = gtoColumnListAndDecoder selectionVal context x
-instance (GSQLRecord queryFormat contextT a) => GSQLRecord queryFormat contextT (M1 C c a) where
-  gfullTopSelection name = gfullTopSelection @queryFormat @contextT @a name
+instance (GSQLRecord contextT a) => GSQLRecord contextT (M1 C c a) where
+  gfullTopSelection name = gfullTopSelection @contextT @a name
   gtoColumnListAndDecoder selectionVal context (M1 x) = second (M1 <$>) res
     where res = gtoColumnListAndDecoder selectionVal context x
 
 -- | This is where we encouter a leaf, if the leaf is in the tree (asked) we query it
 -- otherwise we simply return the default provided value.
 instance (
-    FromText queryFormat, IsString queryFormat, Selector s,
-    SQLDecoder queryFormat contextT t
+    Selector s,
+    SQLDecoder contextT t
   ) =>
-  GSQLRecord queryFormat contextT (M1 S s (K1 R t)) where
+  GSQLRecord contextT (M1 S s (K1 R t)) where
   gfullTopSelection name = leaf name `over` leaf key
     where
       key = (fromString $ selName (proxySelName :: M1 S s (K1 R t) ()))
@@ -852,7 +848,7 @@ instance (
         decoderWrapper = ((M1 . K1) <$>) . Decoders.field
         decoded = (columnFn, nullability decValue)
         (columnFn, DecodeTuple decValue nullability) = decodeRes
-        decodeRes = sqlDecode @queryFormat @contextT contextT childTree
+        decodeRes = sqlDecode @contextT contextT childTree
     where
       lookupRes = MassaliaTree.lookupChildren key selection
       key = (fromString $ selName (proxySelName :: M1 S s (K1 R t) ()))

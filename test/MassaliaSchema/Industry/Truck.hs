@@ -26,7 +26,6 @@ import Massalia.QueryFormat
   )
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
 import Massalia.SQLClass (
-    SelectConstraint,
     SQLRecord,
     SQLSelect(toSelectQuery),
     SQLDefault(getDefault),
@@ -43,13 +42,11 @@ data Truck
       }
   deriving (Show, Generic, Eq, GQLType)
 
-deriving instance (QueryFormat qf) => SQLRecord qf (Paginated TruckFilter) Truck
+deriving instance SQLRecord (Paginated TruckFilter) Truck
 
 -- | TODO: add actual truckFilter application
-instance (
-  QueryFormat qf,
-  SQLEncoder qf Int ) => SQLSelect qf (Paginated TruckFilter) Truck where
-  toSelectQuery = basicQueryAndDecoder (bassicEntityNoFilter "truck")
+instance SQLSelect (Paginated TruckFilter) Truck where
+  toSelectQuery = basicQueryAndDecoder (basicEntityNoFilter "truck")
 
 instance SQLDefault Truck where
   getDefault = defaultTruck

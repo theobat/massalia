@@ -6,6 +6,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ExtendedDefaultRules #-}
 
 module MassaliaSchema.Industry.PlantInput
   ( PlantInput (..),
@@ -22,6 +23,7 @@ import GHC.Generics (Generic)
 import Massalia.QueryFormat
   (
     BinaryQuery,
+    QueryFormat,
   )
 import Massalia.SQLClass (
     DBContext(toWithQuery), SQLName, SQLColumns, SQLValues,
@@ -37,8 +39,7 @@ data PlantInput
       }
   deriving (
     Eq, Show, Generic, JSON.FromJSON,
-    SQLName, SQLColumns,
-    SQLValues Text, SQLValues BinaryQuery
+    SQLName, SQLColumns, SQLValues
     )
 
 data PlantListInput container
@@ -48,10 +49,10 @@ data PlantListInput container
       }
   deriving (Generic)
 
-deriving instance DBContext Text (PlantListInput [])
-deriving instance DBContext BinaryQuery (PlantListInput [])
+deriving instance DBContext (PlantListInput [])
+-- deriving instance DBContext BinaryQuery (PlantListInput [])
 
-queryTest :: (DBContext queryFormat (PlantListInput [])) => queryFormat
+queryTest :: (QueryFormat qf, DBContext (PlantListInput [])) => qf
 queryTest =
   toWithQuery (Just defaultWithQueryOption)
     PlantListInput

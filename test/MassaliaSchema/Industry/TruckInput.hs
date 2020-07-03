@@ -4,9 +4,10 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module MassaliaSchema.Industry.TruckInput
   ( TruckInput (..),
@@ -22,10 +23,8 @@ import qualified Hasql.Encoders as Encoders
 import qualified Massalia.HasqlDec as Decoders
 import Massalia.QueryFormat
   ( BinaryQuery,
-    takeMaybeParam,
-    (§),
     FromText(fromText),
-    SQLEncoder(sqlEncode)
+    SQLEncoder(textEncode, binaryEncode)
   )
 import Massalia.SQLClass (SQLName, SQLColumns, SQLValues)
 import Protolude
@@ -39,17 +38,14 @@ data TruckInput
   deriving (
     Eq, Show, Generic,
     JSON.FromJSON,
-    SQLName, SQLColumns,
-    SQLValues Text, SQLValues BinaryQuery
-  )
+    SQLName, SQLColumns, SQLValues)
 
 data Chassis = C8x4 | C6x4 | C4x4 | C4x2 | CUnknown
   deriving (Eq, Show, Generic, JSON.FromJSON)
 
-instance SQLEncoder Text Chassis where
-  sqlEncode = chassisToQueryFormat
-instance SQLEncoder BinaryQuery Chassis where
-  sqlEncode = fromText . chassisToQueryFormat
+instance SQLEncoder Chassis where
+  textEncode = chassisToQueryFormat
+  binaryEncode = fromText . chassisToQueryFormat
 
 chassisFromTuple :: (Int, Int) -> Chassis
 chassisFromTuple value = case value of

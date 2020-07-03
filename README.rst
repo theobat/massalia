@@ -35,13 +35,10 @@ The main function of massalia is to implement this workflow:
   data Plant = Plant {
     id :: UUID,
     name :: Text
-  } deriving (Show, Generic, GQLType)
+  } deriving (Show, Generic, GQLType, SQLRecord ())
 
-  plantSelect :: QueryFormat queryFormat => ValidSelection -> SelectStructPlant queryFormat -> SelectStructPlant queryFormat
-  plantSelect selection = case fieldName of
-    "id" -> scalarField (\e v -> e{id=v}) Decoders.uuid
-    "name" -> scalarField (\e v -> e{name=v}) Decoders.text
-    _ -> Prelude.id
+  instance SQLSelect () Plant where
+    toSelectQuery = basicQueryAndDecoder (basicEntityNoFilter "plant")
 
 - assuming it receives this graphql query:
 
@@ -55,7 +52,6 @@ The main function of massalia is to implement this workflow:
 
   SELECT row(plant.name, plant.id)
   FROM plant
-  LIMIT $1
 
 - then hasql decode it into this value
 

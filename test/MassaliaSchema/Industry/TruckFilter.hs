@@ -11,7 +11,9 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE QuantifiedConstraints #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE ExtendedDefaultRules #-}
 
 module MassaliaSchema.Industry.TruckFilter
   ( TruckFilter (..),
@@ -36,7 +38,7 @@ import Massalia.QueryFormat
     BinaryQuery,
     TextQuery,
     FromText,
-    SQLEncoder(sqlEncode, ignoreInGenericInstance),
+    SQLEncoder,
     MassaliaContext(..)
   )
 import Massalia.SQLClass (
@@ -52,20 +54,11 @@ data TruckFilter
       { id :: Maybe GQLFilterUUID,
         vehicleId :: Maybe GQLFilterText
       }
-  deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON
-    )
+  deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON, SQLFilter)
 
-deriving instance SQLFilter BinaryQuery TruckFilter
-deriving instance SQLFilter TextQuery TruckFilter
 
-instance SQLFilterField queryFormat TruckFilter where
-  filterStruct _ selection value = Nothing -- this should implement 
--- instance SQLFilterField queryFormat (Paginated TruckFilter) where
---   filterStruct _ selection value = Nothing -- this should stay nothing
-
--- deriving instance (
---     QueryFormat qf
---   ) =>  SQLFilter qf TruckFilter
+instance SQLFilterField TruckFilter where
+  filterStruct _ selection value = Nothing
 
 testInstance =
   TruckFilter

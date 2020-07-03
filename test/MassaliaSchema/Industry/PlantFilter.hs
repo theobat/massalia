@@ -50,11 +50,11 @@ data PlantFilter
         existsTruck :: Maybe TruckFilter
       }
   deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON,
-    SQLFilter Text, SQLFilter BinaryQuery)
+    SQLFilter)
 
-instance (QueryFormat a) => SQLEncoder a PlantFilter where
-  ignoreInGenericInstance = True
-  sqlEncode = const ""
+-- instance (QueryFormat a) => SQLEncoder PlantFilter where
+--   ignoreInGenericInstance = True
+--   sqlEncode = const ""
 instance GQLType PlantFilter where
   type KIND PlantFilter = INPUT
   description = const $ Just ("A set of filters for the Plant type" :: Text)

@@ -115,6 +115,8 @@ class (
 
 instance QueryFormat TextQuery where
   sqlEncode = textEncode
+instance QueryFormat String where
+  sqlEncode = unpack . textEncode
 instance QueryFormat BinaryQuery where
   sqlEncode = binaryEncode
 
@@ -148,6 +150,7 @@ instance SQLEncoder Void where
 instance (Show a, SQLEncoder a, DefaultParamEncoder a) => SQLEncoder (Maybe a) where
   textEncode = (wrapEncoding @a) . maybe "null" textEncode
   binaryEncode = (wrapEncoding @a) . maybe "null" binaryEncode
+
 instance (DefaultParamEncoder [a], Show a, SQLEncoder a) => SQLEncoder [a] where
   textEncode = collectionTextEncode
 instance (DefaultParamEncoder (Set a), Show a, SQLEncoder a) => SQLEncoder (Set a) where
@@ -256,41 +259,40 @@ decodeNameInContext context name = maybe name (flip decodeName $ name) (getDecod
   
 
 -- | A class to decode
-class (QueryFormat qf, MassaliaContext contextT) => SQLDecoder qf contextT decodedT where
+class (MassaliaContext contextT) => SQLDecoder contextT decodedT where
   sqlDecode :: (
     QueryFormat qf,
     MassaliaTree treeNode,
     MassaliaContext contextT
     ) =>
     contextT -> treeNode -> (Text -> qf, DecodeTuple decodedT)
-type DecodeConstraint qf contextT = (QueryFormat qf, MassaliaContext contextT)
+type DecodeConstraint contextT = (MassaliaContext contextT)
 
-instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT UUID where
+instance (DecodeConstraint contextT) => SQLDecoder contextT UUID where
   sqlDecode = scalar Decoders.uuid
-instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT Text where
+instance (DecodeConstraint contextT) => SQLDecoder contextT Text where
   sqlDecode = scalar Decoders.text
-instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT Bool where
+instance (DecodeConstraint contextT) => SQLDecoder contextT Bool where
   sqlDecode = scalar Decoders.bool
-instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT EmailAddress where
+instance (DecodeConstraint contextT) => SQLDecoder contextT EmailAddress where
   sqlDecode = scalar (Decoders.custom $ const emailValidateText)
-instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT Int64 where
+instance (DecodeConstraint contextT) => SQLDecoder contextT Int64 where
   sqlDecode = scalar Decoders.int8
-instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT Int where
+instance (DecodeConstraint contextT) => SQLDecoder contextT Int where
   sqlDecode = scalar (fromIntegral <$> Decoders.int8)
  
-instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT LocalTime where
+instance (DecodeConstraint contextT) => SQLDecoder contextT LocalTime where
   sqlDecode = scalar Decoders.timestamp
-instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT Day where
+instance (DecodeConstraint contextT) => SQLDecoder contextT Day where
   sqlDecode = scalar Decoders.date
-instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT Scientific where
+instance (DecodeConstraint contextT) => SQLDecoder contextT Scientific where
   sqlDecode = scalar Decoders.numeric
-instance (DecodeConstraint qf contextT) => SQLDecoder qf contextT UTCTime where
+instance (DecodeConstraint contextT) => SQLDecoder contextT UTCTime where
   sqlDecode = scalar Decoders.timestamptz
 
 instance (
-    SQLDecoder qf contextT a,
-    QueryFormat qf
-  ) => SQLDecoder qf contextT (Maybe a) where
+    SQLDecoder contextT a
+  ) => SQLDecoder contextT (Maybe a) where
   sqlDecode tree context = fmap action $ sqlDecode tree context
     where
       action (DecodeTuple decoder _) = DecodeTuple

@@ -139,19 +139,20 @@ defaultScalarFilter =
       isBetween = Nothing
     }
 
-type FilterConstraint qf a b c = (
+type FilterConstraint a b c = (
     SQLEncoder a,
     SQLEncoder [a],
     DefaultParamEncoder [a], 
     Show a,
     SQLEncoder b,
     SQLEncoder c,
-    PostgresRange c,
-    QueryFormat qf
+    PostgresRange c
+    -- QueryFormat qf
   )
 
 filterFieldToMaybeContent ::
-  FilterConstraint qf eqScalarType likeScalarType ordScalarType =>
+  forall qf eqScalarType likeScalarType ordScalarType.
+  (QueryFormat qf, FilterConstraint eqScalarType likeScalarType ordScalarType) =>
   qf ->
   Maybe (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) ->
   Maybe qf

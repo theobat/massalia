@@ -5,7 +5,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE QuantifiedConstraints #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -53,8 +52,6 @@ import Massalia.SQLClass (
     SQLDefault(getDefault),
     SQLRecordConfig(..),
     SQLFilter,
-    SelectConstraint,
-    SubSelectConstraint,
     basicDecodeListSubquery,
     basicQueryAndDecoder,
     basicEntityQuery
@@ -70,23 +67,12 @@ data Plant
         truckList :: [Truck]
       }
   deriving (Show, Generic, GQLType)
-
-deriving instance (
-    QueryFormat qf,
-    SQLEncoder qf Int
-  ) => SQLRecord qf (Paginated PlantFilter) Plant
+deriving instance SQLRecord (Paginated PlantFilter) Plant
   
-instance (
-    SQLFilter qf PlantFilter,
-    SelectConstraint qf (Paginated PlantFilter)
-  ) => SQLSelect qf (Paginated PlantFilter) Plant where
+instance SQLSelect (Paginated PlantFilter) Plant where
   toSelectQuery = basicQueryAndDecoder (basicEntityQuery "plant" Just)
 
-instance (
-  QueryFormat qf,
-  SQLSelect qf (Paginated TruckFilter) Truck,
-  SQLEncoder qf Int
-  ) => SQLDecoder qf (Paginated PlantFilter) [Truck] where
+instance SQLDecoder (Paginated PlantFilter) [Truck] where
   sqlDecode = basicDecodeListSubquery contextSwitch joinFn
     where
       contextSwitch input = undefined :: (Paginated TruckFilter)  -- fromMaybe defaultPaginated (PlantFilter.truckList <$> (Paginated.filtered input))
@@ -100,7 +86,11 @@ instance (
 
 instance SQLDefault Plant where
   getDefault = defaultPlant
-defaultPlant = Plant {id = nil, truckList = mempty, name = ""}
+defaultPlant = Plant {
+    id = nil,
+    truckList = mempty,
+    name = ""
+  }
 
 plantListQuery maybePool queryArgs = do
   massaliaTree <- (pure . fromMorpheusContext) =<< unsafeInternalContext
