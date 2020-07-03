@@ -134,12 +134,14 @@ class SQLEncoder dataT where
   ignoreInGenericInstance = False
   wrapEncoding :: queryFormat -> queryFormat
   wrapEncoding = identity
+  polyEncode :: (QueryFormat qf) => Maybe (dataT -> qf)
+  polyEncode = Nothing
   textEncode :: dataT -> TextQuery
   default textEncode :: (Show dataT) => dataT -> TextQuery
-  textEncode = inSingleQuote . pack . show
+  textEncode = fromMaybe (inSingleQuote . pack . show) (polyEncode @dataT @TextQuery)
   binaryEncode :: dataT -> BinaryQuery
   default binaryEncode :: (DefaultParamEncoder dataT) => dataT -> BinaryQuery
-  binaryEncode = Snippet.param
+  binaryEncode = fromMaybe (Snippet.param) (polyEncode @dataT @BinaryQuery)
 
 voidMessage :: Text
 voidMessage = " from void cannot happen because Void has no inhabitant and sqlEncode expect Void -> queryFormat"
