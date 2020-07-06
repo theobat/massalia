@@ -502,7 +502,6 @@ class SQLFilterField fieldType where
 
 -- Basic filters instances
 instance (
-    -- DefaultParamEncoder [b], Show b, SQLEncoder b, SQLEncoder c
     FilterConstraint b c d
   ) => SQLFilterField (GQLScalarFilterCore b c d) where
   filterStruct options selectorName val = result <$> filterBitResult

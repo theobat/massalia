@@ -146,19 +146,9 @@ instance SQLEncoder Void where
   textEncode = panic $ "text" <> voidMessage
   binaryEncode = panic $ "binary" <> voidMessage
 
-instance (Show a, SQLEncoder a, DefaultParamEncoder a) => SQLEncoder (Maybe a) where
+instance (Show a, SQLEncoder a) => SQLEncoder (Maybe a) where
   textEncode = (wrapEncoding @a) . maybe "null" textEncode
   binaryEncode = (wrapEncoding @a) . maybe "null" binaryEncode
-
--- instance (DefaultParamEncoder [a], Show a, SQLEncoder a) => SQLEncoder [a] where
---   textEncode = collectionTextEncode
---   binaryEncode = Snippet.param
--- instance (DefaultParamEncoder (Set a), Show a, SQLEncoder a) => SQLEncoder (Set a) where
---   textEncode = collectionTextEncode
--- instance (DefaultParamEncoder (Vector a), Show a, SQLEncoder a) => SQLEncoder (Vector a) where
---   textEncode = collectionTextEncode
--- instance (DefaultParamEncoder (Seq a), Show a, SQLEncoder a) => SQLEncoder (Seq a) where
---   textEncode = collectionTextEncode
 
 instance SQLEncoder UUID where
   binaryEncode = Snippet.param

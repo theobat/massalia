@@ -45,7 +45,6 @@ import Data.UUID
 import Massalia.QueryFormat (
   QueryFormat (sqlEncode),
   SQLEncoder (textEncode, binaryEncode),
-  DefaultParamEncoder
   )
 import Massalia.Utils (Day, LocalTime, SimpleRange(..), Inclusivity(..))
 import qualified Massalia.Utils as MassaliaUtils (intercalate)
@@ -142,7 +141,6 @@ defaultScalarFilter =
 type FilterConstraint a b c = (
     SQLEncoder a,
     SQLEncoder [a],
-    DefaultParamEncoder [a], 
     Show a,
     SQLEncoder b,
     SQLEncoder c,
