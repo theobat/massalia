@@ -28,7 +28,7 @@
 module Massalia.QueryFormat
   ( QueryFormat(sqlEncode),
     formattedColName,
-    SQLEncoder (wrapEncoding, ignoreInGenericInstance, textEncode, binaryEncode, polyEncode),
+    SQLEncoder (wrapEncoding, ignoreInGenericInstance, textEncode, binaryEncode),
     SQLDecoder(sqlDecoder, sqlExpr),
     fmapList,
     fmapVector,
@@ -135,14 +135,10 @@ class SQLEncoder dataT where
   ignoreInGenericInstance = False
   wrapEncoding :: (QueryFormat qf) => qf -> qf
   wrapEncoding = identity
-  polyEncode :: (QueryFormat qf) => Maybe (dataT -> qf)
-  polyEncode = Nothing
   textEncode :: dataT -> TextQuery
   default textEncode :: (Show dataT) => dataT -> TextQuery
-  textEncode = fromMaybe (inSingleQuote . pack . show) (polyEncode @dataT @TextQuery)
+  textEncode = inSingleQuote . pack . show
   binaryEncode :: dataT -> BinaryQuery
-  default binaryEncode :: (DefaultParamEncoder dataT) => dataT -> BinaryQuery
-  binaryEncode = fromMaybe (Snippet.param) (polyEncode @dataT @BinaryQuery)
 
 voidMessage :: Text
 voidMessage = " from void cannot happen because Void has no inhabitant and sqlEncode expect Void -> queryFormat"
@@ -154,22 +150,28 @@ instance (Show a, SQLEncoder a, DefaultParamEncoder a) => SQLEncoder (Maybe a) w
   textEncode = (wrapEncoding @a) . maybe "null" textEncode
   binaryEncode = (wrapEncoding @a) . maybe "null" binaryEncode
 
-instance (DefaultParamEncoder [a], Show a, SQLEncoder a) => SQLEncoder [a] where
-  textEncode = collectionTextEncode
-instance (DefaultParamEncoder (Set a), Show a, SQLEncoder a) => SQLEncoder (Set a) where
-  textEncode = collectionTextEncode
-instance (DefaultParamEncoder (Vector a), Show a, SQLEncoder a) => SQLEncoder (Vector a) where
-  textEncode = collectionTextEncode
-instance (DefaultParamEncoder (Seq a), Show a, SQLEncoder a) => SQLEncoder (Seq a) where
-  textEncode = collectionTextEncode
+-- instance (DefaultParamEncoder [a], Show a, SQLEncoder a) => SQLEncoder [a] where
+--   textEncode = collectionTextEncode
+--   binaryEncode = Snippet.param
+-- instance (DefaultParamEncoder (Set a), Show a, SQLEncoder a) => SQLEncoder (Set a) where
+--   textEncode = collectionTextEncode
+-- instance (DefaultParamEncoder (Vector a), Show a, SQLEncoder a) => SQLEncoder (Vector a) where
+--   textEncode = collectionTextEncode
+-- instance (DefaultParamEncoder (Seq a), Show a, SQLEncoder a) => SQLEncoder (Seq a) where
+--   textEncode = collectionTextEncode
 
-instance SQLEncoder UUID -- all default
-instance SQLEncoder Day -- all default
-instance SQLEncoder LocalTime -- all default
+instance SQLEncoder UUID where
+  binaryEncode = Snippet.param
+instance SQLEncoder Day where
+  binaryEncode = Snippet.param
+instance SQLEncoder LocalTime where
+  binaryEncode = Snippet.param
 instance SQLEncoder Text where
   textEncode = inSingleQuote
+  binaryEncode = Snippet.param
 instance SQLEncoder Int64 where
   textEncode = pack . show
+  binaryEncode = Snippet.param
 instance SQLEncoder Int where
   textEncode = pack . show
   binaryEncode = Snippet.param . (fromIntegral @Int @Int64)
