@@ -65,8 +65,7 @@ import Data.UUID hiding (fromText, fromString)
 import Data.Vector (Vector)
 import Hasql.DynamicStatements.Snippet (Snippet)
 import qualified Hasql.DynamicStatements.Snippet as Snippet
-import qualified Hasql.Encoders as Encoders
-import Hasql.Implicits.Encoders (DefaultParamEncoder(defaultParam))
+import Hasql.Implicits.Encoders (DefaultParamEncoder())
 import Massalia.Utils (
     EmailAddress, LocalTime, ZonedTime,
     Day, Scientific, UTCTime,
@@ -77,7 +76,6 @@ import Massalia.Utils (
 import Data.Time.LocalTime (zonedTimeToUTC)
 import qualified Hasql.Decoders as Decoders
 import Protolude hiding (intercalate, replace)
-import Data.Functor.Contravariant ((>$<))
 
 -- | The text query format is the canonical representation for debugging
 -- and printing queries.

@@ -56,20 +56,20 @@ module Massalia.SQLClass
     defaultSelectConfig,
     defaultWithQueryOption,
     InsertQueryOption(..),
-    insertValuesQuery
+    insertValuesQuery,
+    decoderFromSQLDefault
   )
 where
 
 import qualified Data.Map as Map
 import Massalia.QueryFormat
   (
-    DefaultParamEncoder,
     QueryFormat(sqlEncode),
     (°),
     formattedColName,
     FromText(fromText),
     SQLEncoder,
-    SQLDecoder(sqlDecoder, sqlExpr),
+    SQLDecoder(sqlExpr),
     DecodeTuple (DecodeTuple),
     MassaliaContext(getDecodeOption, setDecodeOption),
     DecodeOption(nameMap, fieldPrefixType),
@@ -853,3 +853,6 @@ instance (
     where
       lookupRes = MassaliaTree.lookupChildren key selection
       key = (fromString $ selName (proxySelName :: M1 S s (K1 R t) ()))
+
+decoderFromSQLDefault :: (SQLDefault a) => DecodeTuple a
+decoderFromSQLDefault = defaultDecodeTuple $ Decoders.composite (pure getDefault)
