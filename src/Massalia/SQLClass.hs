@@ -69,7 +69,7 @@ import Massalia.QueryFormat
     formattedColName,
     FromText(fromText),
     SQLEncoder,
-    SQLDecoder(sqlDecode),
+    SQLDecoder(sqlDecoder, sqlExpr),
     DecodeTuple (DecodeTuple),
     MassaliaContext(getDecodeOption, setDecodeOption),
     DecodeOption(nameMap, fieldPrefixType),
@@ -833,6 +833,7 @@ instance (GSQLRecord contextT a) => GSQLRecord contextT (M1 C c a) where
 -- otherwise we simply return the default provided value.
 instance (
     Selector s,
+    MassaliaContext contextT,
     SQLDecoder contextT t
   ) =>
   GSQLRecord contextT (M1 S s (K1 R t)) where
@@ -848,8 +849,7 @@ instance (
         decoderWrapper = ((M1 . K1) <$>) . Decoders.field
         decoded = (columnFn, nullability decValue)
         (columnFn, DecodeTuple decValue nullability) = decodeRes
-        decodeRes = sqlDecode @contextT contextT childTree
+        decodeRes = sqlExpr @contextT @t contextT childTree
     where
       lookupRes = MassaliaTree.lookupChildren key selection
       key = (fromString $ selName (proxySelName :: M1 S s (K1 R t) ()))
-

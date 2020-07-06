@@ -29,7 +29,9 @@ module Massalia.QueryFormat
   ( QueryFormat(sqlEncode),
     formattedColName,
     SQLEncoder (wrapEncoding, ignoreInGenericInstance, textEncode, binaryEncode, polyEncode),
-    SQLDecoder(sqlDecode),
+    SQLDecoder(sqlDecoder, sqlExpr),
+    fmapList,
+    fmapVector,
     DecodeOption(..),
     DecodeFieldPrefixType(..),
     DecodeTuple (DecodeTuple),
@@ -63,7 +65,8 @@ import Data.UUID hiding (fromText, fromString)
 import Data.Vector (Vector)
 import Hasql.DynamicStatements.Snippet (Snippet)
 import qualified Hasql.DynamicStatements.Snippet as Snippet
-import Hasql.Implicits.Encoders (DefaultParamEncoder)
+import qualified Hasql.Encoders as Encoders
+import Hasql.Implicits.Encoders (DefaultParamEncoder(defaultParam))
 import Massalia.Utils (
     EmailAddress, LocalTime, ZonedTime,
     Day, Scientific, UTCTime,
@@ -74,6 +77,7 @@ import Massalia.Utils (
 import Data.Time.LocalTime (zonedTimeToUTC)
 import qualified Hasql.Decoders as Decoders
 import Protolude hiding (intercalate, replace)
+import Data.Functor.Contravariant ((>$<))
 
 -- | The text query format is the canonical representation for debugging
 -- and printing queries.
@@ -201,16 +205,10 @@ formattedColName CompositeField (Just prefixName) colName = "(" <> prefixName <>
 formattedColName TableName (Just prefixName) colName = prefixName ° colName
 
 ------------------------- Decoder stuff
-scalar ::
-  (
-    QueryFormat queryFormat, MassaliaTree a,
-    MassaliaContext contextT
-  ) =>
-  Decoders.Value decodedT ->
-  contextT ->
-  a ->
-  (Text -> queryFormat, DecodeTuple decodedT)
-scalar decoder context input = (firstRes, (DecodeTuple decoder Decoders.nonNullable))
+
+defaultDecodeExpr :: (QueryFormat queryFormat, MassaliaTree selection, MassaliaContext contextT) =>
+  contextT -> selection -> (Text -> queryFormat)
+defaultDecodeExpr context input = firstRes
   where
     firstRes rawName = formattedColName (fieldPrefixType decOption) (Just $ tablename rawName) colName
     tablename rawName = fromText $ decodeName decOption rawName
@@ -227,11 +225,14 @@ defaultDecodeTuple value = DecodeTuple {
   decNValue = Decoders.nonNullable
 }
 refineDecoder :: (a -> Either Text b) -> DecodeTuple a -> DecodeTuple b
-refineDecoder refiner (DecodeTuple decoder _) = result
-  where result = DecodeTuple (Decoders.refine refiner decoder) Decoders.nonNullable
+refineDecoder refiner (DecodeTuple dec _) = result
+  where result = DecodeTuple (Decoders.refine refiner dec) Decoders.nonNullable
+fmapDecoderValue :: (Decoders.Value a -> Decoders.Value b) -> DecodeTuple a -> DecodeTuple b
+fmapDecoderValue refiner (DecodeTuple dec _) = result
+  where result = DecodeTuple (refiner dec) Decoders.nonNullable
 
 instance Functor DecodeTuple where
-  fmap typeChanger (DecodeTuple decoder _) = DecodeTuple (typeChanger <$> decoder) Decoders.nonNullable
+  fmap typeChanger (DecodeTuple dec _) = DecodeTuple (typeChanger <$> dec) Decoders.nonNullable
 
 data DecodeFieldPrefixType = TableName | CompositeField deriving (Show)
 data DecodeOption = DecodeOption {
@@ -260,41 +261,87 @@ decodeNameInContext context name = maybe name (flip decodeName $ name) (getDecod
   
 
 -- | A class to decode
-class (MassaliaContext contextT) => SQLDecoder contextT decodedT where
-  sqlDecode :: (
+class SQLDecoder contextT decodedT where
+  sqlExpr :: (
     QueryFormat qf,
     MassaliaTree treeNode,
     MassaliaContext contextT
-    ) =>
-    contextT -> treeNode -> (Text -> qf, DecodeTuple decodedT)
-type DecodeConstraint contextT = (MassaliaContext contextT)
+    ) => contextT -> treeNode -> (Text -> qf, DecodeTuple decodedT)
+  sqlExpr context selection = (defaultDecodeExpr context selection, sqlDecoder @contextT @decodedT)
+  sqlDecoder :: DecodeTuple decodedT
+  
+fmapList :: forall contextT element. (SQLDecoder contextT element) => DecodeTuple [element]
+fmapList = fmapDecoderValue (Decoders.listArray . Decoders.nonNullable) (sqlDecoder @contextT @element)
+fmapVector :: forall contextT element. (SQLDecoder contextT element) => DecodeTuple (Vector element)
+fmapVector = fmapDecoderValue (Decoders.vectorArray . Decoders.nonNullable) (sqlDecoder @contextT @element)
+instance SQLDecoder contextT UUID where
+  sqlDecoder = defaultDecodeTuple Decoders.uuid
+instance SQLDecoder contextT [UUID] where
+  sqlDecoder = fmapList
+instance SQLDecoder contextT (Vector UUID) where
+  sqlDecoder = fmapVector
+instance SQLDecoder contextT Text where
+  sqlDecoder = defaultDecodeTuple Decoders.text
+instance SQLDecoder contextT [Text] where
+  sqlDecoder = fmapList
+instance SQLDecoder contextT (Vector Text) where
+  sqlDecoder = fmapVector
+instance SQLDecoder contextT Bool where
+  sqlDecoder = defaultDecodeTuple Decoders.bool
+instance SQLDecoder contextT [Bool] where
+  sqlDecoder = fmapList
+instance SQLDecoder contextT (Vector Bool) where
+  sqlDecoder = fmapVector
 
-instance (DecodeConstraint contextT) => SQLDecoder contextT UUID where
-  sqlDecode = scalar Decoders.uuid
-instance (DecodeConstraint contextT) => SQLDecoder contextT Text where
-  sqlDecode = scalar Decoders.text
-instance (DecodeConstraint contextT) => SQLDecoder contextT Bool where
-  sqlDecode = scalar Decoders.bool
-instance (DecodeConstraint contextT) => SQLDecoder contextT EmailAddress where
-  sqlDecode = scalar (Decoders.custom $ const emailValidateText)
-instance (DecodeConstraint contextT) => SQLDecoder contextT Int64 where
-  sqlDecode = scalar Decoders.int8
-instance (DecodeConstraint contextT) => SQLDecoder contextT Int where
-  sqlDecode = scalar (fromIntegral <$> Decoders.int8)
- 
-instance (DecodeConstraint contextT) => SQLDecoder contextT LocalTime where
-  sqlDecode = scalar Decoders.timestamp
-instance (DecodeConstraint contextT) => SQLDecoder contextT Day where
-  sqlDecode = scalar Decoders.date
-instance (DecodeConstraint contextT) => SQLDecoder contextT Scientific where
-  sqlDecode = scalar Decoders.numeric
-instance (DecodeConstraint contextT) => SQLDecoder contextT UTCTime where
-  sqlDecode = scalar Decoders.timestamptz
+instance SQLDecoder contextT EmailAddress where
+  sqlDecoder = defaultDecodeTuple $ Decoders.custom $ const emailValidateText
+instance SQLDecoder contextT [EmailAddress] where
+  sqlDecoder = fmapList
+instance SQLDecoder contextT (Vector EmailAddress) where
+  sqlDecoder = fmapVector
+instance SQLDecoder contextT Int64 where
+  sqlDecoder = defaultDecodeTuple $ Decoders.int8
+instance SQLDecoder contextT [Int64] where
+  sqlDecoder = fmapList
+instance SQLDecoder contextT (Vector Int64) where
+  sqlDecoder = fmapVector
+instance SQLDecoder contextT Int where
+  sqlDecoder = defaultDecodeTuple (fromIntegral <$> Decoders.int8)
+instance SQLDecoder contextT [Int] where
+  sqlDecoder = fmapList
+instance SQLDecoder contextT (Vector Int) where
+  sqlDecoder = fmapVector
+
+instance SQLDecoder contextT LocalTime where
+  sqlDecoder = defaultDecodeTuple Decoders.timestamp
+instance SQLDecoder contextT [LocalTime] where
+  sqlDecoder = fmapList
+instance SQLDecoder contextT (Vector LocalTime) where
+  sqlDecoder = fmapVector
+
+instance SQLDecoder contextT Day where
+  sqlDecoder = defaultDecodeTuple Decoders.date
+instance SQLDecoder contextT [Day] where
+  sqlDecoder = fmapList
+instance SQLDecoder contextT (Vector Day) where
+  sqlDecoder = fmapVector
+instance SQLDecoder contextT Scientific where
+  sqlDecoder = defaultDecodeTuple Decoders.numeric
+instance SQLDecoder contextT [Scientific] where
+  sqlDecoder = fmapList
+instance SQLDecoder contextT (Vector Scientific) where
+  sqlDecoder = fmapVector
+instance SQLDecoder contextT UTCTime where
+  sqlDecoder = defaultDecodeTuple Decoders.timestamptz
+instance SQLDecoder contextT [UTCTime] where
+  sqlDecoder = fmapList
+instance SQLDecoder contextT (Vector UTCTime) where
+  sqlDecoder = fmapVector
 
 instance (
     SQLDecoder contextT a
   ) => SQLDecoder contextT (Maybe a) where
-  sqlDecode tree context = fmap action $ sqlDecode tree context
+  sqlDecoder = action (sqlDecoder @contextT @a)
     where
       action (DecodeTuple decoder _) = DecodeTuple
         (const Nothing <$> decoder) (const $ Decoders.nullable decoder)

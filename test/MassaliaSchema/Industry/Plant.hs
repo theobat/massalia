@@ -25,7 +25,7 @@ import Massalia.MorpheusTypes
 import Massalia.QueryFormat
   ( BinaryQuery,
     QueryFormat,
-    SQLDecoder(sqlDecode),
+    SQLDecoder(sqlExpr),
     SQLEncoder,
     joinEq,
     simpleEq,
@@ -73,7 +73,7 @@ instance SQLSelect (Paginated PlantFilter) Plant where
   toSelectQuery = basicQueryAndDecoder (basicEntityQuery "plant" Just)
 
 instance SQLDecoder (Paginated PlantFilter) [Truck] where
-  sqlDecode = basicDecodeListSubquery contextSwitch joinFn
+  sqlExpr = basicDecodeListSubquery contextSwitch joinFn
     where
       contextSwitch input = undefined :: (Paginated TruckFilter)  -- fromMaybe defaultPaginated (PlantFilter.truckList <$> (Paginated.filtered input))
       joinFn name = mempty {
