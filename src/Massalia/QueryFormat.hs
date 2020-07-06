@@ -56,7 +56,6 @@ module Massalia.QueryFormat
 where
 import Massalia.SelectionTree (MassaliaTree(getName))
 import qualified Data.Map as Map
-import Massalia.UtilsGQL (Paginated)
 import Data.String (String)
 import qualified Data.String as String (IsString (fromString))
 import Data.Text (pack, replace, unpack)
@@ -132,7 +131,7 @@ instance FromText Snippet where
 class SQLEncoder dataT where
   ignoreInGenericInstance :: Bool
   ignoreInGenericInstance = False
-  wrapEncoding :: queryFormat -> queryFormat
+  wrapEncoding :: (QueryFormat qf) => qf -> qf
   wrapEncoding = identity
   polyEncode :: (QueryFormat qf) => Maybe (dataT -> qf)
   polyEncode = Nothing
