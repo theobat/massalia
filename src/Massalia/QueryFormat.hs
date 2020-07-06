@@ -162,24 +162,48 @@ instance (Show a, SQLEncoder a, DefaultParamEncoder a) => SQLEncoder (Maybe a) w
 
 instance SQLEncoder UUID where
   binaryEncode = Snippet.param
+instance SQLEncoder [UUID] where
+  textEncode = collectionTextEncode
+  binaryEncode = Snippet.param
 instance SQLEncoder Day where
   binaryEncode = Snippet.param
+instance SQLEncoder [Day] where
+  textEncode = collectionTextEncode
+  binaryEncode = Snippet.param
 instance SQLEncoder LocalTime where
+  binaryEncode = Snippet.param
+instance SQLEncoder [LocalTime] where
+  textEncode = collectionTextEncode
   binaryEncode = Snippet.param
 instance SQLEncoder Text where
   textEncode = inSingleQuote
   binaryEncode = Snippet.param
+instance SQLEncoder [Text] where
+  textEncode = collectionTextEncode
+  binaryEncode = Snippet.param
 instance SQLEncoder Int64 where
   textEncode = pack . show
+  binaryEncode = Snippet.param
+instance SQLEncoder [Int64] where
+  textEncode = collectionTextEncode
   binaryEncode = Snippet.param
 instance SQLEncoder Int where
   textEncode = pack . show
   binaryEncode = Snippet.param . (fromIntegral @Int @Int64)
+instance SQLEncoder [Int] where
+  textEncode = collectionTextEncode
+  binaryEncode = Snippet.param . (fromIntegral @Int @Int64 <$>)
 instance SQLEncoder ZonedTime where
   binaryEncode = Snippet.param . zonedTimeToUTC
+instance SQLEncoder [ZonedTime] where
+  textEncode = collectionTextEncode
+  binaryEncode = Snippet.param . (zonedTimeToUTC <$>)
 instance SQLEncoder EmailAddress where
   textEncode = inSingleQuote . emailToText
   binaryEncode = Snippet.param . emailToText 
+instance SQLEncoder [EmailAddress] where
+  textEncode = collectionTextEncode
+  binaryEncode = Snippet.param . (emailToText <$>)
 
 inSingleQuote :: (Semigroup a, IsString a) => a -> a
 inSingleQuote a = "'" <> a <> "'"
