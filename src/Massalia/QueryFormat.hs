@@ -53,7 +53,8 @@ module Massalia.QueryFormat
     inParens,
     commaSepInParens,
     decodeName,
-    decodeNameInContext
+    decodeNameInContext,
+    collectionTextEncode
   )
 where
 import Massalia.SelectionTree (MassaliaTree(getName))
