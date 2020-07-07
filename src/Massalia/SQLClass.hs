@@ -326,7 +326,7 @@ paginatedFilterToSelectStruct filterOption filterValue = limitOffsetEffect . glo
 joinFilterFieldSimple :: (QueryFormat qf, SQLFilter record) => (Text, Text, Text) -> Maybe SQLFilterOption -> p -> record -> (SelectStruct qf)
 joinFilterFieldSimple (tableName, tableCol, parentCol) = joinFilterField joinRes
   where
-    joinRes a = (joinEq tableName tableCol a parentCol, a)
+    joinRes a = (joinEq tableName tableCol a parentCol, tableName)
 
 joinFilterField :: (
   QueryFormat qf,
