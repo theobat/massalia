@@ -284,11 +284,11 @@ basicEntityQuery :: (
   a ->
   -- | The tablename and its filtered/roled/customized select query.
   (Text, SelectStruct qf)
-basicEntityQuery tablename filterAcc context = (tablename, withFilter base)
+basicEntityQuery !tablename !filterAcc !context = (tablename, withFilter base)
   where
     withFilter a = case filterAcc context of
       Nothing -> a
-      Just b -> toQueryFormatFilter opt b a
+      Just !b -> toQueryFormatFilter opt b a
     base = mempty {_from = Just ("\"" <> fromText realTableName <> "\"")}
     opt = Just defaultFilterOption{
         filterTableName=realTableName,
@@ -306,10 +306,10 @@ paginatedFilterToSelectStruct :: (
   Maybe SQLFilterOption -> Paginated filterT -> (SelectStruct qf -> SelectStruct qf)
 paginatedFilterToSelectStruct filterOption filterValue = limitOffsetEffect . globalFilterEffect . unionEffect
   where
-    unionEffect baseQ = case Paginated.unionFilter filterValue of
+    unionEffect !baseQ = case Paginated.unionFilter filterValue of
       Nothing -> baseQ
       Just [] -> baseQ
-      Just nonEmptyList -> inlineAndUnion baseQ standaloneFilterList
+      Just !nonEmptyList -> inlineAndUnion baseQ standaloneFilterList
         where
           standaloneFilterList = fmap ($ simpleBase) (toQueryFormatFilter filterOption <$> nonEmptyList)
           simpleBase = mempty{_from = (_from baseQ), _select = simpleSelect name}
@@ -335,13 +335,13 @@ joinFilterField :: (
   -- | The name of the table to join to.
   (Text -> (Text, Text)) ->
   Maybe SQLFilterOption -> p -> record -> (SelectStruct qf)
-joinFilterField joinFunction opts _ val = partialRes
+joinFilterField !joinFunction !opts _ !val = partialRes
       where
-        partialRes = recordPart (mempty{
+        partialRes = (mempty{
           _join = [
               fromText $ joiningRes
             ]
-          })
+          }) <> recordPart mempty
         (joiningRes, joiningName) = joinFunction fatherTable
         fatherTable = fromMaybe "" (filterTableName <$> opts)
         recordPart = toQueryFormatFilter updatedOpt val
@@ -466,7 +466,7 @@ class SQLFilter record where
     Maybe SQLFilterOption -> record -> (SelectStruct qf -> SelectStruct qf)
   toQueryFormatFilter options value = reduced
     where
-      reduced !a = foldl' (&) a filterList
+      reduced !a = foldr' ($) a filterList
       filterList = gtoQueryFormatFilter @(Rep record) @qf options (from value)
 
 class GSQLFilter f where
