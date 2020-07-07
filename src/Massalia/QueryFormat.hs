@@ -356,9 +356,11 @@ instance SQLDecoder contextT (Vector UTCTime) where
 instance (
     SQLDecoder contextT a
   ) => SQLDecoder contextT (Maybe a) where
+  sqlExpr = (fmap . fmap . fmap) action (sqlExpr @contextT @a)
   sqlDecoder = action (sqlDecoder @contextT @a)
-    where
-      action (DecodeTuple decoder _) = DecodeTuple
+
+action :: DecodeTuple a -> DecodeTuple (Maybe a)
+action (DecodeTuple decoder _) = DecodeTuple
         (const Nothing <$> decoder) (const $ Decoders.nullable decoder)
 
 -- | This is the building bloc for the SQLSelect class, it creates the

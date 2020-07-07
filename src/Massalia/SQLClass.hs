@@ -721,6 +721,9 @@ selectValuesQuery (maybeCols) recordCollection = result
 -- | A simple default value for the given 'nodeType' type.
 class SQLDefault nodeType where
   getDefault :: nodeType
+instance (Applicative c, SQLDefault a) => SQLDefault (c a) where
+  getDefault = pure $ getDefault @a
+
 
 data SQLSelectOption = SQLSelectOption {
   selectDecodeOption :: DecodeOption
