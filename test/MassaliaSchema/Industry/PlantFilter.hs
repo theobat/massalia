@@ -52,9 +52,6 @@ data PlantFilter
   deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON,
     SQLFilter)
 
--- instance (QueryFormat a) => SQLEncoder PlantFilter where
---   ignoreInGenericInstance = True
---   sqlEncode = const ""
 instance GQLType PlantFilter where
   type KIND PlantFilter = INPUT
   description = const $ Just ("A set of filters for the Plant type" :: Text)
@@ -76,6 +73,7 @@ plantFilterTest =
                       Right a -> Just a
                   }
                 }
+
 
 instance MassaliaContext PlantFilter where
   getDecodeOption = const mempty

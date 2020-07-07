@@ -22,17 +22,23 @@ import Massalia.QueryFormat (
     TextQuery,
   )
 import Massalia.SQLSelectStruct (QueryAndDecoder (query), selectStructToQueryFormat)
-import Massalia.UtilsGQL (Paginated, defaultPaginated)
+import Massalia.UtilsGQL (Paginated, defaultPaginated, globalFilter, unionFilter)
 import MassaliaSchema.Industry.Plant (Plant)
 import MassaliaSchema.Industry.Truck (Truck)
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
-import MassaliaSchema.Industry.PlantFilter (PlantFilter)
+import MassaliaSchema.Industry.PlantFilter (PlantFilter, plantFilterTest)
 import Test.Tasty
 import Test.Tasty.HUnit
 import Protolude
 
 testPlantQuery :: QueryAndDecoder Text Plant
 testPlantQuery = toSelectQuery plantQuery (defaultPaginated @PlantFilter)
+testFilteredPlantQuery :: QueryAndDecoder Text Plant
+testFilteredPlantQuery = toSelectQuery plantQuery (defaultPaginated{globalFilter = Just plantFilterTest})
+testUnionFilterPlantQuery :: QueryAndDecoder Text Plant
+testUnionFilterPlantQuery = toSelectQuery plantQuery (defaultPaginated{
+    unionFilter = Just [plantFilterTest, plantFilterTest]
+  })
 
 testTruckList :: QueryAndDecoder Text Truck
 testTruckList = toSelectQuery truckQuery (defaultPaginated @TruckFilter)
@@ -47,6 +53,14 @@ listCase =
     ( "test simple Plant->Truck query",
       selectStructToQueryFormat (query testPlantQuery),
       "SELECT \"plant\".\"id\", (SELECT coalesce(array_agg(row(\"truck\".\"id\")), '{}') FROM \"truck\" JOIN \"truck_plant\" ON \"truck_plant\".\"truck_id\" = \"truck\".\"id\" WHERE \"truck_plant\".\"plant_id\" = \"plant\".\"id\" GROUP BY \"plant\".\"id\" LIMIT 10000) FROM \"plant\" LIMIT 10000"
+    ),
+    ( "test simple Plant->Truck query (filtered)",
+      selectStructToQueryFormat (query testFilteredPlantQuery),
+      "SELECT \"plant\".\"id\", (SELECT coalesce(array_agg(row(\"truck\".\"id\")), '{}') FROM \"truck\" JOIN \"truck_plant\" ON \"truck_plant\".\"truck_id\" = \"truck\".\"id\" WHERE \"truck_plant\".\"plant_id\" = \"plant\".\"id\" GROUP BY \"plant\".\"id\") WHERE (\"plant\".\"check_date\" <@ daterange('1991-08-21',null)) LIMIT 10000"
+    ),
+    ( "test simple Plant->Truck query (union filter)",
+      selectStructToQueryFormat (query testUnionFilterPlantQuery),
+      "SELECT \"plant\".\"id\", (SELECT coalesce(array_agg(row(\"truck\".\"id\")), '{}') FROM \"truck\" JOIN \"truck_plant\" ON \"truck_plant\".\"truck_id\" = \"truck\".\"id\" WHERE \"truck_plant\".\"plant_id\" = \"plant\".\"id\" GROUP BY \"plant\".\"id\") FROM ((SELECT \"plant\".* FROM \"plant\" WHERE (\"plant\".\"check_date\" <@ daterange('1991-08-21',null))) UNION (SELECT \"plant\".* FROM \"plant\" WHERE (\"plant\".\"check_date\" <@ daterange('1991-08-21',null))))\"plant\" LIMIT 10000"
     ),
     (
       "Filters type name",

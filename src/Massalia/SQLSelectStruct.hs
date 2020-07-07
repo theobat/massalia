@@ -241,6 +241,6 @@ inlineAndUnion input givenList = input{
     _from = Just result
   }
   where
-    result = "(" <> foldMap identity unioned <> ")"
+    result = "((" <> foldMap identity unioned <> "))" <> (fromMaybe "" $ _from input)
     unioned = intersperse ") UNION (" inlined
     inlined = assembleSelectStruct [] <$> givenList

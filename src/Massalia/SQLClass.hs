@@ -310,7 +310,12 @@ paginatedFilterToSelectStruct filterOption filterValue = limitOffsetEffect . glo
       Nothing -> baseQ
       Just [] -> baseQ
       Just nonEmptyList -> inlineAndUnion baseQ standaloneFilterList
-        where standaloneFilterList = fmap (baseQ &) (toQueryFormatFilter filterOption <$> nonEmptyList)
+        where
+          standaloneFilterList = fmap ($ simpleBase) (toQueryFormatFilter filterOption <$> nonEmptyList)
+          simpleBase = mempty{_from = (_from baseQ), _select = simpleSelect name}
+          name = _from baseQ
+          simpleSelect Nothing = ["*"]
+          simpleSelect (Just quotedName) = [quotedName <> ".*"]
     globalFilterEffect a = toQueryFormatFilter filterOption (Paginated.globalFilter filterValue) a
     limitOffsetEffect baseQ = baseQ <> offsetLimitQy
     offsetLimitQy = mempty {
@@ -485,7 +490,7 @@ instance (
     Selector s,
     SQLFilterField filterType
   ) => GSQLFilter (M1 S s (K1 R filterType)) where
-  gtoQueryFormatFilter options (M1 (K1 val)) = maybeToList (const <$> result)
+  gtoQueryFormatFilter options (M1 (K1 val)) = maybeToList ((<>) <$> result)
     where
       result = filterStruct options selector val 
       selector = fromString $ simpleSnakeCase $ selName (proxySelName :: M1 S s (K1 R t) ())
