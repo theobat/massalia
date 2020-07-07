@@ -45,7 +45,7 @@ import MassaliaSchema.Industry.TruckFilter (TruckFilter)
 import Data.Morpheus.Types (unsafeInternalContext)
 import Massalia.Utils (LocalTime, Day)
 import Massalia.UtilsGQL (Paginated, defaultPaginated)
-import qualified Massalia.UtilsGQL as Paginated(first, offset, filtered)
+import qualified Massalia.UtilsGQL as Paginated(first, offset, globalFilter)
 import Massalia.SQLClass (
     SQLRecord,
     SQLSelect(toSelectQuery),
@@ -75,7 +75,7 @@ instance SQLSelect (Paginated PlantFilter) Plant where
 instance SQLDecoder (Paginated PlantFilter) [Truck] where
   sqlExpr = basicDecodeListSubquery contextSwitch joinFn
     where
-      contextSwitch input = undefined :: (Paginated TruckFilter)  -- fromMaybe defaultPaginated (PlantFilter.truckList <$> (Paginated.filtered input))
+      contextSwitch input = undefined :: (Paginated TruckFilter)
       joinFn name = mempty {
         _join = [joinEq truckPlantName "truck_id" truckName "id"],
         _where = Just $ simpleEq truckPlantName "plant_id" name "id",
@@ -108,5 +108,5 @@ plantListQuery maybePool queryArgs = do
         Right listRes -> pure listRes
     -- statement validSel = queryAndDecoderToSession $ initialSnippet validSel
     initialSnippet selSet = toSelectQuery selSet arg
-    arg = defaultPaginated{Paginated.filtered = pure plantFilterTest}
+    arg = defaultPaginated{Paginated.globalFilter = pure plantFilterTest}
 

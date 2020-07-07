@@ -23,7 +23,8 @@ module Massalia.SQLSelectStruct
     queryAndDecoderToStatement,
     queryAndDecoderToSession,
     filterConcat,
-    concatAnd
+    concatAnd,
+    inlineAndUnion,
   )
 where
 
@@ -233,3 +234,13 @@ filterConcat ::
   t (SelectStruct queryFormat) ->
   SelectStruct queryFormat
 filterConcat init nonEmptyList = foldr filterMerge init nonEmptyList
+
+inlineAndUnion :: (QueryFormat qf) => SelectStruct qf -> [SelectStruct qf] -> SelectStruct qf
+inlineAndUnion input [] = input
+inlineAndUnion input givenList = input{
+    _from = Just result
+  }
+  where
+    result = "(" <> foldMap identity unioned <> ")"
+    unioned = intersperse ") UNION (" inlined
+    inlined = assembleSelectStruct [] <$> givenList

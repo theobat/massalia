@@ -110,6 +110,7 @@ import Massalia.SQLSelectStruct (
     compositeToListDecoderTuple,
     compositeToDecoderTuple,
     filterConcat,
+    inlineAndUnion,
   )
 import qualified Massalia.UtilsGQL as Paginated
 import Massalia.UtilsGQL (OrderingBy(..), OrderByWay(..))
@@ -285,9 +286,9 @@ basicEntityQuery :: (
   (Text, SelectStruct qf)
 basicEntityQuery tablename filterAcc context = (tablename, withFilter base)
   where
-    withFilter a = case (toQueryFormatFilter opt =<< filterAcc context) of
+    withFilter a = case filterAcc context of
       Nothing -> a
-      Just b -> a <> b 
+      Just b -> toQueryFormatFilter opt b a
     base = mempty {_from = Just ("\"" <> fromText realTableName <> "\"")}
     opt = Just defaultFilterOption{
         filterTableName=realTableName,
@@ -302,22 +303,22 @@ paginatedFilterToSelectStruct :: (
     QueryFormat qf,
     SQLFilter filterT
   ) =>
-  Maybe SQLFilterOption -> Paginated filterT -> (SelectStruct qf)
-paginatedFilterToSelectStruct filterOption filterValue = result
+  Maybe SQLFilterOption -> Paginated filterT -> (SelectStruct qf -> SelectStruct qf)
+paginatedFilterToSelectStruct filterOption filterValue = limitOffsetEffect . globalFilterEffect . unionEffect
   where
-    result = offsetLimitQy <> filteredAggregate
-    filteredAggregate = foldr' filterAggregator mempty filteredList
-    filterAggregator filtA existingFilt = case (_where existingFilt, _where filtA) of
-      (_, Nothing) -> existingFilt <> filtA
-      (Just _, Just _) -> existingFilt <> mempty{_where=Just " OR ("} <> mempty{_where= Just ")"}
-      (Nothing, Just _) -> existingFilt <> mempty{_where=Just "("} <> filtA <> mempty{_where= Just ")"}
-    filteredList = catMaybes $ (toQueryFormatFilter filterOption) <$> Paginated.filtered filterValue
+    unionEffect baseQ = case Paginated.unionFilter filterValue of
+      Nothing -> baseQ
+      Just [] -> baseQ
+      Just nonEmptyList -> inlineAndUnion baseQ standaloneFilterList
+        where standaloneFilterList = fmap (baseQ &) (toQueryFormatFilter filterOption <$> nonEmptyList)
+    globalFilterEffect a = toQueryFormatFilter filterOption (Paginated.globalFilter filterValue) a
+    limitOffsetEffect baseQ = baseQ <> offsetLimitQy
     offsetLimitQy = mempty {
         _offsetLimit = Just $ offsetLimitFn
       }
     offsetLimitFn = (sqlEncode <$> Paginated.offset filterValue, sqlEncode $ fromMaybe 10000 $ Paginated.first filterValue)
 
-joinFilterFieldSimple :: (QueryFormat qf, SQLFilter record) => (Text, Text, Text) -> Maybe SQLFilterOption -> p -> record -> Maybe (SelectStruct qf)
+joinFilterFieldSimple :: (QueryFormat qf, SQLFilter record) => (Text, Text, Text) -> Maybe SQLFilterOption -> p -> record -> (SelectStruct qf)
 joinFilterFieldSimple (tableName, tableCol, parentCol) = joinFilterField joinRes
   where
     joinRes a = (joinEq tableName tableCol a parentCol, a)
@@ -328,17 +329,17 @@ joinFilterField :: (
   FromText qf) =>
   -- | The name of the table to join to.
   (Text -> (Text, Text)) ->
-  Maybe SQLFilterOption -> p -> record -> Maybe (SelectStruct qf)
+  Maybe SQLFilterOption -> p -> record -> (SelectStruct qf)
 joinFilterField joinFunction opts _ val = partialRes
       where
-        partialRes = (Just (mempty{
+        partialRes = recordPart (mempty{
           _join = [
               fromText $ joiningRes
             ]
-          } <> recordPart))
+          })
         (joiningRes, joiningName) = joinFunction fatherTable
         fatherTable = fromMaybe "" (filterTableName <$> opts)
-        recordPart = fromMaybe mempty (toQueryFormatFilter updatedOpt val)
+        recordPart = toQueryFormatFilter updatedOpt val
         updatedOpt = updateFiltOpt <$> opts
         updateFiltOpt a = a{filterTableName = joiningName}
 
@@ -452,18 +453,19 @@ defaultFilterOption = SQLFilterOption{
   }
 
 class SQLFilter record where
-  toQueryFormatFilter :: forall qf. (QueryFormat qf) => Maybe SQLFilterOption -> record -> Maybe (SelectStruct qf)
+  toQueryFormatFilter :: forall qf. (QueryFormat qf) => Maybe SQLFilterOption -> record -> (SelectStruct qf -> SelectStruct qf)
   default toQueryFormatFilter :: forall qf. (
       QueryFormat qf, Generic record,
       GSQLFilter (Rep record)
     ) =>
-    Maybe SQLFilterOption -> record -> Maybe (SelectStruct qf)
-  toQueryFormatFilter options value = case gtoQueryFormatFilter @(Rep record) @qf options (from value) of
-    [] -> Nothing
-    nonEmptyList -> Just (filterConcat mempty nonEmptyList)
+    Maybe SQLFilterOption -> record -> (SelectStruct qf -> SelectStruct qf)
+  toQueryFormatFilter options value = reduced
+    where
+      reduced a = foldr' ($) a filterList
+      filterList = gtoQueryFormatFilter @(Rep record) @qf options (from value)
 
 class GSQLFilter f where
-  gtoQueryFormatFilter :: forall qf a. (QueryFormat qf) => Maybe SQLFilterOption -> f a -> [SelectStruct qf]
+  gtoQueryFormatFilter :: forall qf a. (QueryFormat qf) => Maybe SQLFilterOption -> f a -> [(SelectStruct qf -> SelectStruct qf)]
 
 instance GSQLFilter U1 where
   gtoQueryFormatFilter _ U1 = mempty
@@ -483,7 +485,7 @@ instance (
     Selector s,
     SQLFilterField filterType
   ) => GSQLFilter (M1 S s (K1 R filterType)) where
-  gtoQueryFormatFilter options (M1 (K1 val)) = maybeToList result
+  gtoQueryFormatFilter options (M1 (K1 val)) = maybeToList (const <$> result)
     where
       result = filterStruct options selector val 
       selector = fromString $ simpleSnakeCase $ selName (proxySelName :: M1 S s (K1 R t) ())
@@ -515,11 +517,12 @@ instance (
       actualFieldName = fromText $ getFilterFieldName selectorName options
 
 instance SQLFilter () where
-  toQueryFormatFilter _ _ = Nothing
+  toQueryFormatFilter _ _ = identity
 instance SQLFilterField () where
   filterStruct _ _ _ = Nothing
 instance (SQLFilter a) => SQLFilter (Maybe a) where
-  toQueryFormatFilter options val = toQueryFormatFilter options =<< val
+  toQueryFormatFilter _ Nothing = identity
+  toQueryFormatFilter options (Just val) = toQueryFormatFilter options val
 instance (
     SQLFilterField a
   ) => SQLFilterField (Maybe a) where
@@ -542,7 +545,7 @@ instance SQLFilterField Bool where
       actualFieldName = fromText $ getFilterFieldName selectorName options
 
 instance (SQLFilter a) => SQLFilter (Paginated a) where
-  toQueryFormatFilter opt val = Just $ paginatedFilterToSelectStruct opt val
+  toQueryFormatFilter opt val = paginatedFilterToSelectStruct opt val
 
 -- | This is just the asc/desc part of the equation.
 -- But it assumes the ordering yields something to which you can concatenate asc/desc.
@@ -572,7 +575,7 @@ compositeFieldFilter :: (
   Maybe SQLFilterOption ->
   Text ->
   filterT ->
-  Maybe (SelectStruct qf)
+  (SelectStruct qf -> SelectStruct qf)
 compositeFieldFilter options selectorName val = result
     where
       result = toQueryFormatFilter (transformOptions <$> options) val

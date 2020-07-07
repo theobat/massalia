@@ -39,7 +39,7 @@ import Massalia.SQLClass (SQLFilter)
 import Protolude
 import Data.Morpheus.Types (GQLType(description), KIND)
 import Data.Morpheus.Kind (INPUT)
-import Massalia.UtilsGQL (Paginated(filtered), defaultPaginated)
+import Massalia.UtilsGQL (Paginated(globalFilter), defaultPaginated)
 
 data PlantFilter
   = PlantFilter
@@ -66,12 +66,12 @@ plantFilterTest =
     { id = Nothing,
       name = Nothing,
       checkDate = pure filter,
-      truckList = Just defaultPaginated{filtered = pure testInstance},
+      truckList = Just defaultPaginated{globalFilter = pure testInstance},
       existsTruck = Just testInstance
     }
   where filter = defaultScalarFilter {
                   isBetween = Just defaultSimpleRange{
-                    start = case (traceShowId $ JSON.eitherDecode "\"1991-08-21\"") of
+                    start = case (JSON.eitherDecode "\"1991-08-21\"") of
                       Left _ -> Nothing
                       Right a -> Just a
                   }
