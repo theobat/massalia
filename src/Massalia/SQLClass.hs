@@ -15,6 +15,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE BangPatterns #-}
 
 -- |
 -- Module      : Massalia.SQLClass
@@ -109,7 +110,6 @@ import Massalia.SQLSelectStruct (
     selectStructToListSubquery,
     compositeToListDecoderTuple,
     compositeToDecoderTuple,
-    filterConcat,
     inlineAndUnion,
   )
 import qualified Massalia.UtilsGQL as Paginated
@@ -466,7 +466,7 @@ class SQLFilter record where
     Maybe SQLFilterOption -> record -> (SelectStruct qf -> SelectStruct qf)
   toQueryFormatFilter options value = reduced
     where
-      reduced a = foldr' ($) a filterList
+      reduced !a = foldl' (&) a filterList
       filterList = gtoQueryFormatFilter @(Rep record) @qf options (from value)
 
 class GSQLFilter f where
@@ -490,7 +490,7 @@ instance (
     Selector s,
     SQLFilterField filterType
   ) => GSQLFilter (M1 S s (K1 R filterType)) where
-  gtoQueryFormatFilter options (M1 (K1 val)) = maybeToList ((<>) <$> result)
+  gtoQueryFormatFilter options (M1 (K1 !val)) = maybeToList ((<>) <$> result)
     where
       result = filterStruct options selector val 
       selector = fromString $ simpleSnakeCase $ selName (proxySelName :: M1 S s (K1 R t) ())
@@ -558,7 +558,7 @@ instance (SQLFilterField a, Foldable contT) =>
   SQLFilterField (contT (OrderingBy a)) where
   filterStruct maybeOpt selection input = if null input then Nothing else result
     where
-      result = foldl' (\existingSQL y -> combine existingSQL $ fullName y) (Just mempty) input
+      result = foldl' (\existingSQL !y -> combine existingSQL $ fullName y) (Just mempty) input
       combine a Nothing = a
       combine Nothing b  = b
       combine (Just a) (Just b)  = Just (a <> b)
