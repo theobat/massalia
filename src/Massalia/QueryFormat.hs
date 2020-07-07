@@ -172,6 +172,15 @@ instance SQLEncoder Text where
 instance SQLEncoder [Text] where
   textEncode = collectionTextEncode
   binaryEncode = Snippet.param
+boolEncode :: IsString p => Bool -> p
+boolEncode True = "true" 
+boolEncode False = "false" 
+instance SQLEncoder Bool where
+  textEncode = boolEncode
+  binaryEncode = boolEncode
+instance SQLEncoder [Bool] where
+  textEncode = collectionTextEncode
+  binaryEncode = Snippet.param . collectionTextEncode
 instance SQLEncoder Int64 where
   textEncode = pack . show
   binaryEncode = Snippet.param
