@@ -22,9 +22,9 @@ module Massalia.SQLSelectStruct
     queryAndDecoderToSnippetAndResult,
     queryAndDecoderToStatement,
     queryAndDecoderToSession,
-    filterConcat,
     concatAnd,
     inlineAndUnion,
+    filterMerge,
   )
 where
 
@@ -227,13 +227,6 @@ filterMerge a b = mempty {
     _orderBy = _orderBy a <> _orderBy b,
     _having = concatMaybeSQL " AND " (_having a) (_having b)
   }
-
-filterConcat ::
-  (Foldable t, Semigroup queryFormat, IsString queryFormat) =>
-  SelectStruct queryFormat ->
-  t (SelectStruct queryFormat) ->
-  SelectStruct queryFormat
-filterConcat init nonEmptyList = foldr filterMerge init nonEmptyList
 
 inlineAndUnion :: (QueryFormat qf) => SelectStruct qf -> [SelectStruct qf] -> SelectStruct qf
 inlineAndUnion input [] = input
