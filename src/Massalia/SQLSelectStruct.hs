@@ -219,7 +219,7 @@ instance (Semigroup queryFormat) => Monoid (SelectStruct queryFormat) where
   }
 
 filterMerge :: (Semigroup queryFormat, IsString queryFormat) => SelectStruct queryFormat -> SelectStruct queryFormat -> SelectStruct queryFormat
-filterMerge a b = mempty {
+filterMerge a b = a {
     _rawPrefix = _rawPrefix a <> _rawPrefix b,
     _join = _join a <> _join b,
     _where = concatMaybeSQL " AND " (_where a) (_where b),
