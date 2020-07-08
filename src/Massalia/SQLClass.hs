@@ -111,6 +111,7 @@ import Massalia.SQLSelectStruct (
     compositeToListDecoderTuple,
     compositeToDecoderTuple,
     inlineAndUnion,
+    filterMerge
   )
 import qualified Massalia.UtilsGQL as Paginated
 import Massalia.UtilsGQL (OrderingBy(..), OrderByWay(..))
@@ -490,7 +491,7 @@ instance (
     Selector s,
     SQLFilterField filterType
   ) => GSQLFilter (M1 S s (K1 R filterType)) where
-  gtoQueryFormatFilter options (M1 (K1 !val)) = maybeToList ((<>) <$> result)
+  gtoQueryFormatFilter options (M1 (K1 !val)) = maybeToList (filterMerge <$> result)
     where
       result = filterStruct options selector val 
       selector = fromString $ simpleSnakeCase $ selName (proxySelName :: M1 S s (K1 R t) ())
