@@ -204,6 +204,11 @@ concatMaybeSQL sep a1 b1 = case (a1, b1) of
   (Just a, Nothing) -> Just a
   (Nothing, Just b) -> Just b
   (Nothing, Nothing) -> Nothing
+xorOrLeft :: Semigroup a => Maybe a -> Maybe a -> Maybe a
+xorOrLeft a1 b1 = case (a1, b1) of
+  (Just a, _) -> Just a
+  (Nothing, Just b) -> Just b
+  (Nothing, Nothing) -> Nothing
 
 instance (Semigroup queryFormat) => Monoid (SelectStruct queryFormat) where
   mempty = SelectStruct {
@@ -221,11 +226,14 @@ instance (Semigroup queryFormat) => Monoid (SelectStruct queryFormat) where
 filterMerge :: (Semigroup queryFormat, IsString queryFormat) => SelectStruct queryFormat -> SelectStruct queryFormat -> SelectStruct queryFormat
 filterMerge a b = a {
     _rawPrefix = _rawPrefix a <> _rawPrefix b,
+    _select = _select a <> _select b,
+    _from = xorOrLeft (_from a) (_from b),
     _join = _join a <> _join b,
     _where = concatMaybeSQL " AND " (_where a) (_where b),
     _groupBy = _groupBy a <> _groupBy b,
     _orderBy = _orderBy a <> _orderBy b,
-    _having = concatMaybeSQL " AND " (_having a) (_having b)
+    _having = concatMaybeSQL " AND " (_having a) (_having b),
+    _offsetLimit = xorOrLeft (_offsetLimit a) (_offsetLimit b)
   }
 
 inlineAndUnion :: (QueryFormat qf) => SelectStruct qf -> [SelectStruct qf] -> SelectStruct qf
