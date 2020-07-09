@@ -42,6 +42,7 @@ instance
   (Typeable filterType, GQLType filterType) =>
   GQLType (Paginated filterType)
   where
+  type KIND (Paginated filterType) = INPUT
   description = const (Just "A simple wrapper around any filter type to get pagination and OR filtered capabilities")
 
 data OrderByWay = ASC | DESC deriving (Eq, Show, Generic, GQLType)
