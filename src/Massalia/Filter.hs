@@ -166,7 +166,8 @@ filterFieldToMaybeContent prefixedFieldName (Just filterVal) = case filterVal of
       isIlike = isIlikeValue,
       isGT = isGTValue,
       isLT = isLTValue,
-      isBetween = isBetweenValue
+      isBetween = isBetweenValue,
+      isNull = isNullValue
     } -> case ( wrappedContent prefixedFieldName "!=" isNotEqValue ""
                   <> wrappedContent prefixedFieldName "=ANY(" isInValue ")"
                   <> wrappedContent prefixedFieldName "!=ALL(" isNotInValue ")"
@@ -175,6 +176,7 @@ filterFieldToMaybeContent prefixedFieldName (Just filterVal) = case filterVal of
                   <> wrappedContent prefixedFieldName ">" isGTValue ""
                   <> wrappedContent prefixedFieldName "<" isLTValue ""
                   <> wrappedContent prefixedFieldName "<@" isBetweenValue ""
+                  <> fromMaybe mempty (((pure . pure) $ prefixedFieldName <> " IS NOT NULL") <$> isNullValue)
               ) of
       [] -> Nothing
       filtList -> Just (MassaliaUtils.intercalate " AND " filtList)
