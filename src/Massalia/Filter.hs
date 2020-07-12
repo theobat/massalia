@@ -30,6 +30,7 @@ module Massalia.Filter
     GQLFilterDay,
     GQLFilterInt,
     GQLFilterLocalTime,
+    GQLFilterZonedTime,
     GQLScalarFilterCore(..),
     FilterConstraint,
     defaultScalarFilter,
@@ -46,7 +47,7 @@ import Massalia.QueryFormat (
   QueryFormat (sqlEncode),
   SQLEncoder (textEncode, binaryEncode),
   )
-import Massalia.Utils (Day, LocalTime, SimpleRange(..), Inclusivity(..))
+import Massalia.Utils (Day, UTCTime, LocalTime, ZonedTime, SimpleRange(..), Inclusivity(..))
 import qualified Massalia.Utils as MassaliaUtils (intercalate)
 import Data.Morpheus.Types (KIND, GQLType)
 import Data.Morpheus.Kind (INPUT)
@@ -117,6 +118,7 @@ type GQLFilterText = GQLScalarFilterText Text
 type GQLFilterInt = GQLScalarFilterOrd Int
 
 type GQLFilterLocalTime = GQLScalarFilterOrd LocalTime
+type GQLFilterZonedTime = GQLScalarFilterOrd ZonedTime
 
 type GQLFilterDay = GQLScalarFilterOrd Day
 
@@ -241,8 +243,12 @@ class PostgresRange a where
   postgresRangeName :: (IsString textFormat) => textFormat
 instance PostgresRange Int where
   postgresRangeName = "int8range"
-instance PostgresRange LocalTime where
+instance PostgresRange UTCTime where
   postgresRangeName = "tsrange"
+instance PostgresRange LocalTime where
+  postgresRangeName = "tstzrange"
+instance PostgresRange ZonedTime where
+  postgresRangeName = "tstzrange"
 instance PostgresRange Day where
   postgresRangeName = "daterange"
 instance PostgresRange Void where
