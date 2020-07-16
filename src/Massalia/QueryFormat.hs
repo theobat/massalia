@@ -152,6 +152,7 @@ instance (Show a, SQLEncoder a) => SQLEncoder (Maybe a) where
   binaryEncode = (wrapEncoding @a) . maybe "null" binaryEncode
 
 instance SQLEncoder UUID where
+  wrapEncoding a = "" <> a <> "::uuid"
   binaryEncode = Snippet.param
 instance SQLEncoder [UUID] where
   textEncode = collectionTextEncode
