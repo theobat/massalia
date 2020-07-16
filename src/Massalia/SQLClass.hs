@@ -58,7 +58,8 @@ module Massalia.SQLClass
     defaultWithQueryOption,
     InsertQueryOption(..),
     insertValuesQuery,
-    decoderFromSQLDefault
+    decoderFromSQLDefault,
+    noExistsFilterSimple,
   )
 where
 
@@ -78,7 +79,8 @@ import Massalia.QueryFormat
     decodeName,
     defaultDecodeTuple,
     inParens,
-    joinEq
+    joinEq,
+    simpleEq,
   )
 import Massalia.Filter (
     GQLScalarFilterCore,
@@ -111,7 +113,8 @@ import Massalia.SQLSelectStruct (
     compositeToListDecoderTuple,
     compositeToDecoderTuple,
     inlineAndUnion,
-    filterMerge
+    filterMerge,
+    selectStructToQueryFormat,
   )
 import qualified Massalia.UtilsGQL as Paginated
 import Massalia.UtilsGQL (OrderingBy(..), OrderByWay(..))
@@ -350,6 +353,34 @@ joinFilterField !joinFunction !opts _ !val = partialRes
         recordPart = toQueryFormatFilter updatedOpt val
         updatedOpt = updateFiltOpt <$> opts
         updateFiltOpt a = a{filterTableName = joiningName}
+
+noExistsFilterSimple :: (QueryFormat qf, SQLFilter record) => (Text, Text, Text) -> Maybe SQLFilterOption -> p -> record -> (SelectStruct qf)
+noExistsFilterSimple (tableName, tableCol, parentCol) = noExistsFilter condition
+  where
+    condition a = (simpleEq tableName tableCol a parentCol, tableName)
+
+noExistsFilter :: (
+  QueryFormat qf,
+  SQLFilter record,
+  FromText qf) =>
+  -- | The name of the table to filter.
+  (Text -> (Text, Text)) ->
+  Maybe SQLFilterOption -> p -> record -> (SelectStruct qf)
+noExistsFilter !joinFunction !opts _ !val = partialRes
+      where
+        partialRes = (mempty{
+          _where = Just $ "NOT EXISTS (" <> selectStructToQueryFormat innerQuery <> ")"
+          }) <> recordPart mempty
+        innerQuery = mempty {
+          _select = pure "1",
+          _from = Just $ fromText tableName,
+          _where = Just (fromText conditionRes)
+        }
+        (conditionRes, tableName) = joinFunction fatherTable
+        fatherTable = fromMaybe "" (filterTableName <$> opts)
+        recordPart = toQueryFormatFilter updatedOpt val
+        updatedOpt = updateFiltOpt <$> opts
+        updateFiltOpt a = a{filterTableName = tableName}
 
 -- | This class represents all the haskell types with a corresponding SQL
 -- name. It provides 2 functions: @sqlName@ and @tableName@. @sqlName@ is meant
