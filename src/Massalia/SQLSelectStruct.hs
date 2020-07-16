@@ -122,15 +122,15 @@ assembleSelectStruct wrapValueList struct = prefixCTERes <>
   fromRes <>
   joinRes <>
   whereRes <>
-  (if wasAggregated then "" else groupByRes) <> havingRes <>
-  orderByRes <>
+  groupByRes <> havingRes <>
+  (if wasAggregated then "" else orderByRes) <>
   offsetLimitRes
   where
     sectionSep = " "
     pref = (sectionSep <>)
     prefixCTERes = fromMaybe mempty $ (<> sectionSep) <$> _rawPrefix struct
     selectRes = "SELECT " <> selectPartialRes
-    (wasAggregated, selectPartialRes) = (wrapList wrapValueList groupByRes $ (False, intercalate ", " $ _select struct))
+    (wasAggregated, selectPartialRes) = (wrapList wrapValueList orderByRes $ (False, intercalate ", " $ _select struct))
     fromRes = fromMaybe mempty $ (pref "FROM " <>) <$> _from struct
     joinRes = intercalIfExists sectionSep sectionSep $ _join struct
     whereRes = fromMaybe mempty $ (pref "WHERE " <>) <$> _where struct
