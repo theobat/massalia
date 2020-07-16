@@ -197,8 +197,10 @@ basicDecodeListSubquery ::
   -- | The selection tree.
   treeNode ->
   (Text -> qf, DecodeTuple [childrenT])
-basicDecodeListSubquery contextSwitch joinFn parentContext selection = (listSubquery, newDecoder)
+basicDecodeListSubquery contextSwitch joinFn parentContext selection = (globalWrapper, newDecoder)
   where
+    -- | overall the subquery may return null
+    globalWrapper a = "coalesce(" <> listSubquery a <> ", '{}')"
     newDecoder = compositeToListDecoderTuple $ decoder subQueryRaw
     listSubquery name = selectStructToListSubquery $ query subQueryRaw <> joinFn decodedName
       where
