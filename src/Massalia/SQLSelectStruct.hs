@@ -6,6 +6,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 
 module Massalia.SQLSelectStruct
@@ -121,14 +122,15 @@ assembleSelectStruct wrapValueList struct = prefixCTERes <>
   fromRes <>
   joinRes <>
   whereRes <>
-  groupByRes <> havingRes <>
+  (if wasAggregated then "" else groupByRes) <> havingRes <>
   orderByRes <>
   offsetLimitRes
   where
     sectionSep = " "
     pref = (sectionSep <>)
     prefixCTERes = fromMaybe mempty $ (<> sectionSep) <$> _rawPrefix struct
-    selectRes = "SELECT " <> (wrapList wrapValueList $ intercalate ", " $ _select struct)
+    selectRes = "SELECT " <> selectPartialRes
+    (wasAggregated, selectPartialRes) = (wrapList wrapValueList groupByRes $ (False, intercalate ", " $ _select struct))
     fromRes = fromMaybe mempty $ (pref "FROM " <>) <$> _from struct
     joinRes = intercalIfExists sectionSep sectionSep $ _join struct
     whereRes = fromMaybe mempty $ (pref "WHERE " <>) <$> _where struct
@@ -140,14 +142,16 @@ assembleSelectStruct wrapValueList struct = prefixCTERes <>
       Just (Nothing, limitVal) -> (pref "LIMIT ") <> limitVal
       Just (Just offsetVal, limitVal) -> (pref "OFFSET ") <> offsetVal <> " LIMIT " <> limitVal 
 
-wrap :: (Semigroup a, IsString a) => SQLWrapper -> a -> a
-wrap Row q = "row(" <> q <> ")"
-wrap ArrayAgg q = "array_agg(" <> q <> ")"
-wrap CoalesceArr q = "coalesce(" <> q <> ", '{}')"
+wrap :: (Semigroup a, IsString a) => SQLWrapper -> a -> (Bool, a) -> (Bool, a)
+wrap Row _ (wasAggregated, selectVal) = (wasAggregated, "row(" <> selectVal <> ")")
+wrap ArrayAgg orderByVal (_, selectVal) = (True, "array_agg(" <> selectVal <> ") " <> orderByVal)
+wrap CoalesceArr _ (wasAggregated, selectVal) = (wasAggregated, "coalesce(" <> selectVal <> ", '{}')")
 
-wrapList :: (Semigroup t, IsString t) => [SQLWrapper] -> t -> t
-wrapList [] q = q 
-wrapList (x:xs) q =  wrap x (wrapList xs $ q)
+-- | The wrapping may involve an aggregation, in which case we have to provide the order By,
+--  at the select stage.
+wrapList :: (Semigroup t, IsString t) => [SQLWrapper] -> t -> (Bool, t) -> (Bool, t)
+wrapList [] _ q = q
+wrapList (!x:xs) odb !q = wrap x odb (wrapList xs odb $ q)
 
 intercalIfExists :: (QueryFormat queryFormat) => queryFormat -> queryFormat -> [queryFormat] -> queryFormat
 intercalIfExists _ _ [] = mempty
