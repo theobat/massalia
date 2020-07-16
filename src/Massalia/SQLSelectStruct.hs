@@ -144,7 +144,7 @@ assembleSelectStruct wrapValueList struct = prefixCTERes <>
 
 wrap :: (Semigroup a, IsString a) => SQLWrapper -> a -> (Bool, a) -> (Bool, a)
 wrap Row _ (wasAggregated, selectVal) = (wasAggregated, "row(" <> selectVal <> ")")
-wrap ArrayAgg orderByVal (_, selectVal) = (True, "array_agg(" <> selectVal <> ") " <> orderByVal)
+wrap ArrayAgg orderByVal (_, selectVal) = (True, "array_agg(" <> selectVal <> " " <> orderByVal <> ")")
 wrap CoalesceArr _ (wasAggregated, selectVal) = (wasAggregated, "coalesce(" <> selectVal <> ", '{}')")
 
 -- | The wrapping may involve an aggregation, in which case we have to provide the order By,
