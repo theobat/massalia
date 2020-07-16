@@ -25,6 +25,7 @@ module Massalia.SQLSelectStruct
     concatAnd,
     inlineAndUnion,
     filterMerge,
+    simpleWhereEq,
   )
 where
 
@@ -39,6 +40,10 @@ import Massalia.QueryFormat
   ( BinaryQuery,
     QueryFormat,
     DecodeTuple(DecodeTuple),
+    simpleEq,
+    fromText,
+    decodeNameInContext,
+    MassaliaContext,
   )
 import Massalia.Utils (intercalate, inParens)
 import Protolude hiding (intercalate)
@@ -245,3 +250,9 @@ inlineAndUnion input givenList = input{
     result = "((" <> foldMap identity unioned <> "))" <> (fromMaybe "" $ _from input)
     unioned = intersperse ") UNION (" inlined
     inlined = assembleSelectStruct [] <$> givenList
+
+simpleWhereEq :: (QueryFormat queryFormat, MassaliaContext a) => queryFormat -> Text -> queryFormat -> a -> queryFormat -> SelectStruct queryFormat
+simpleWhereEq lName tName rName context name = mempty
+          { _where = Just (simpleEq name lName decodedName rName)
+          }
+  where decodedName = fromText (decodeNameInContext context tName)  
