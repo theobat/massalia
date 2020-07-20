@@ -35,7 +35,7 @@ dependencies:
 - tasty-hunit
 - aeson
 - inflections
-- hasql
+- hasql == 1.4.4
 - hasql-pool
 - hasql-dynamic-statements
 - hasql-implicits

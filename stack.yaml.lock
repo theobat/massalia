@@ -33,6 +33,27 @@ packages:
   original:
     hackage: bug-1.0.1@sha256:a516df91c7330d350480a7d338af645f173d1e767450c5f94295020f11c8432c,1395
 - completed:
+    hackage: hasql-1.4.4@sha256:6ca06896147a31d379c74ca7b486f3d874cf5727cd7b18e4478bcbbe33ed281a,6581
+    pantry-tree:
+      size: 2567
+      sha256: 414d61a1342ad90adb415a45f2271b219bf9ebe7def5e5c0b4e83144f9688ca3
+  original:
+    hackage: hasql-1.4.4@sha256:6ca06896147a31d379c74ca7b486f3d874cf5727cd7b18e4478bcbbe33ed281a,6581
+- completed:
+    hackage: base-prelude-1.4@sha256:feea99326853023fa9f908308383a7f9802e40f2d241b83dac57b266b202bda6,1412
+    pantry-tree:
+      size: 271
+      sha256: 89c097b83439c4b044b6ae8e43e6cee790ac12ab51cd9f47273b38237fd69eea
+  original:
+    hackage: base-prelude-1.4@sha256:feea99326853023fa9f908308383a7f9802e40f2d241b83dac57b266b202bda6,1412
+- completed:
+    hackage: postgresql-binary-0.12.3@sha256:4d5e52e5ef171dae8dd3ce5f72da552c34fe92ae13ba55bb165e59f245349b4f,6057
+    pantry-tree:
+      size: 1666
+      sha256: 7d29fb2283dec17ac7c4a57155ed2b170fc7643f72b25fb4e00ec63b36f316e8
+  original:
+    hackage: postgresql-binary-0.12.3@sha256:4d5e52e5ef171dae8dd3ce5f72da552c34fe92ae13ba55bb165e59f245349b4f,6057
+- completed:
     hackage: morpheus-graphql-core-0.13.0@sha256:af4c0cc0f5c84cbcb85486329574f2ced98326be4fedd8a7fa116bf783d5a8b6,6774
     pantry-tree:
       size: 8516
@@ -47,9 +68,6 @@ packages:
   original:
     hackage: morpheus-graphql-0.13.0
 - completed:
-    cabal-file:
-      size: 1502
-      sha256: 422af001e4b892ea77f66a39cb93f69023461c88ecca4307ba71c990f881b23e
     name: hasql-url
     version: 0.1.0.0
     git: https://github.com/theobat/hasql-url.git
@@ -62,9 +80,6 @@ packages:
     commit: e41c9bc3179c36878e8c865685ff2be17a8ecef4
 - completed:
     subdir: .
-    cabal-file:
-      size: 2811
-      sha256: bb0745a76ec01154c4ee1b5efbd66510d027f66b822a222032eedb07b8119c94
     name: hasql-migration
     version: 0.3.0
     git: https://github.com/theobat/hasql-migration.git
