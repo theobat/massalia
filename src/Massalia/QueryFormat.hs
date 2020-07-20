@@ -174,8 +174,8 @@ instance SQLEncoder [Text] where
   textEncode = collectionTextEncode
   binaryEncode = Snippet.param
 boolEncode :: IsString p => Bool -> p
-boolEncode True = "true" 
-boolEncode False = "false" 
+boolEncode True = "true::bool" 
+boolEncode False = "false::bool" 
 instance SQLEncoder Bool where
   textEncode = boolEncode
   binaryEncode = boolEncode
