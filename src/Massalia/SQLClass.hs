@@ -752,7 +752,7 @@ selectValuesQuery (maybeCols) recordCollection = result
     result = selectWrapper name cols assembledRows
     name = fromText $ sqlName @recordType
     assembledRows = ("VALUES " <>) $ rowsAssembler " " listOfRows
-    listOfRows = (inParens . intercalate ",") <$> listOfListOfValues
+    listOfRows = (inParens . intercalate ", ") <$> listOfListOfValues
     listOfListOfValues = toSQLValues <$> recordCollection
     cols = fromMaybe (columnList @recordType) maybeCols
 
