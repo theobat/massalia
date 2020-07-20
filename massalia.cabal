@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8a161339ea6882024a132704e6797dd033a06e4772659dafc9fe4dbd5b508d00
+-- hash: 5744f4a810034a46153253bd1adf5e49e0414d153198602b1278b064da6c6c35
 
 name:           massalia
 version:        0.1.0.0
@@ -62,7 +62,7 @@ library
     , email-validate
     , filepath
     , filepattern
-    , hasql ==1.4.4
+    , hasql
     , hasql-dynamic-statements
     , hasql-implicits
     , hasql-migration
@@ -116,7 +116,7 @@ test-suite massalia-integration-test
     , email-validate
     , filepath
     , filepattern
-    , hasql ==1.4.4
+    , hasql
     , hasql-dynamic-statements
     , hasql-implicits
     , hasql-migration
@@ -171,7 +171,7 @@ test-suite massalia-unit-test
     , email-validate
     , filepath
     , filepattern
-    , hasql ==1.4.4
+    , hasql
     , hasql-dynamic-statements
     , hasql-implicits
     , hasql-migration
