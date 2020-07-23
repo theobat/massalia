@@ -27,7 +27,7 @@ listCase = [
     (
       "static query with aggregation and select subquery",
       selectStructToQueryFormat testAnotherQuery,
-      "SELECT work.id, (SELECT coalesce(array_agg(row(truck.id, truck.vehicle_id, truck.equipment)), '{}') FROM truck LEFT JOIN truck_plant ON truck_plant.truck_id=truck.id LEFT JOIN plant ON plant.id = truck_plant.plant_id WHERE truck.deleted_at > now() AND truck.deleted_at IS NOT NULL AND plant.id = projection.plant_id GROUP BY plant.id ORDER BY plant.created_at LIMIT 2) FROM work LEFT JOIN quotation ON quotation.work_id=work.id LEFT JOIN projection ON projection.quotation_id = quotation.id GROUP BY work.id, projection.plant_id ORDER BY work.created_at DESC OFFSET 10 LIMIT 10"
+      "SELECT work.id, (SELECT coalesce((array_agg(row(truck.id, truck.vehicle_id, truck.equipment)  ORDER BY plant.created_at))[0:2], '{}') FROM truck LEFT JOIN truck_plant ON truck_plant.truck_id=truck.id LEFT JOIN plant ON plant.id = truck_plant.plant_id WHERE truck.deleted_at > now() AND truck.deleted_at IS NOT NULL AND plant.id = projection.plant_id GROUP BY plant.id) FROM work LEFT JOIN quotation ON quotation.work_id=work.id LEFT JOIN projection ON projection.quotation_id = quotation.id GROUP BY work.id, projection.plant_id ORDER BY work.created_at DESC OFFSET 10 LIMIT 10"
     )
   ]
 
