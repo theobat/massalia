@@ -205,7 +205,7 @@ basicDecodeListSubquery contextSwitch joinFn parentContext selection = (globalWr
     -- | overall the subquery may return null
     globalWrapper a = "coalesce(" <> listSubquery a <> ", '{}')"
     newDecoder = compositeToListDecoderTuple $ decoder subQueryRaw
-    listSubquery name = selectStructToListSubquery $ query subQueryRaw <> joinFn decodedName
+    listSubquery name = selectStructToListSubquery $ filterMerge (query subQueryRaw) (joinFn decodedName)
       where
         decodedName = fromText $ decodeName decodeOpt name
         decodeOpt = fromMaybe mempty $ getDecodeOption parentContext
