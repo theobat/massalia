@@ -6,6 +6,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 
 module Massalia.SQLSelectStruct
@@ -25,6 +26,7 @@ module Massalia.SQLSelectStruct
     concatAnd,
     inlineAndUnion,
     filterMerge,
+    simpleWhereEq,
   )
 where
 
@@ -39,6 +41,10 @@ import Massalia.QueryFormat
   ( BinaryQuery,
     QueryFormat,
     DecodeTuple(DecodeTuple),
+    simpleEq,
+    fromText,
+    decodeNameInContext,
+    MassaliaContext,
   )
 import Massalia.Utils (intercalate, inParens)
 import Protolude hiding (intercalate)
@@ -117,34 +123,35 @@ assembleSelectStruct wrapValueList struct = prefixCTERes <>
   joinRes <>
   whereRes <>
   groupByRes <> havingRes <>
-  orderByRes <>
-  offsetLimitRes
+  (if wasAggregated then "" else orderByRes <> offsetLimitRes)
   where
     sectionSep = " "
     pref = (sectionSep <>)
     prefixCTERes = fromMaybe mempty $ (<> sectionSep) <$> _rawPrefix struct
-    selectRes = "SELECT " <> (wrapList wrapValueList $ intercalate ", " $ _select struct)
+    selectRes = "SELECT " <> selectPartialRes
+    (wasAggregated, selectPartialRes) = (wrapList wrapValueList (orderByRes, offsetLimitResAg) $ (False, intercalate ", " $ _select struct))
     fromRes = fromMaybe mempty $ (pref "FROM " <>) <$> _from struct
     joinRes = intercalIfExists sectionSep sectionSep $ _join struct
     whereRes = fromMaybe mempty $ (pref "WHERE " <>) <$> _where struct
     groupByRes = intercalIfExists (pref "GROUP BY ") ", " (_groupBy struct)
     havingRes = fromMaybe mempty $ (pref "HAVING " <>) <$> _having struct
     orderByRes = intercalIfExists (pref "ORDER BY ") ", " (_orderBy struct)
-    offsetLimitRes = case _offsetLimit struct of
-      Nothing -> mempty
-      Just (Nothing, limitVal) -> (pref "LIMIT ") <> limitVal
-      Just (Just offsetVal, limitVal) -> (pref "OFFSET ") <> offsetVal <> " LIMIT " <> limitVal 
+    offsetLimitResAg = offsetLimitToQF Array pref ofsetLimitVal
+    offsetLimitRes = offsetLimitToQF Plain pref ofsetLimitVal
+    ofsetLimitVal = _offsetLimit struct
 
-wrap :: (Semigroup a, IsString a) => SQLWrapper -> a -> a
-wrap Row q = "row(" <> q <> ")"
-wrap ArrayAgg q = "array_agg(" <> q <> ")"
-wrap CoalesceArr q = "coalesce(" <> q <> ", '{}')"
+wrap :: (Semigroup a, IsString a) => SQLWrapper -> (a, a) -> (Bool, a) -> (Bool, a)
+wrap Row _ (wasAggregated, selectVal) = (wasAggregated, "row(" <> selectVal <> ")")
+wrap ArrayAgg (orderByVal, offsetLimit) (_, selectVal) = (True, "(array_agg(" <> selectVal <> " " <> orderByVal <> "))" <> offsetLimit)
+wrap CoalesceArr _ (wasAggregated, selectVal) = (wasAggregated, "coalesce(" <> selectVal <> ", '{}')")
 
-wrapList :: (Semigroup t, IsString t) => [SQLWrapper] -> t -> t
-wrapList [] q = q 
-wrapList (x:xs) q =  wrap x (wrapList xs $ q)
+-- | The wrapping may involve an aggregation, in which case we have to provide the order By,
+--  at the select stage.
+wrapList :: (Semigroup t, IsString t) => [SQLWrapper] -> (t, t) -> (Bool, t) -> (Bool, t)
+wrapList [] _ q = q
+wrapList (!x:xs) odb !q = wrap x odb (wrapList xs odb $ q)
 
-intercalIfExists :: (QueryFormat queryFormat) => queryFormat -> queryFormat -> [queryFormat] -> queryFormat
+intercalIfExists :: (QueryFormat qf) => qf -> qf -> [qf] -> qf
 intercalIfExists _ _ [] = mempty
 intercalIfExists prefix sep givenList = prefix <> intercalate sep givenList
 
@@ -245,3 +252,30 @@ inlineAndUnion input givenList = input{
     result = "((" <> foldMap identity unioned <> "))" <> (fromMaybe "" $ _from input)
     unioned = intersperse ") UNION (" inlined
     inlined = assembleSelectStruct [] <$> givenList
+
+simpleWhereEq :: (QueryFormat queryFormat, MassaliaContext a) => queryFormat -> Text -> queryFormat -> a -> queryFormat -> SelectStruct queryFormat
+simpleWhereEq lName tName rName context name = mempty
+          { _where = Just (simpleEq name lName decodedName rName)
+          }
+  where decodedName = fromText (decodeNameInContext context tName)  
+
+data PaginQueryFormat
+  -- | The plain query format is the classic Offset Limit tuple at the end of a select query.
+  = Plain 
+  -- | The array query format is a limit offset logic for array_aggregated values 
+  -- it's a simple array accessor tuple such as @[offsetValue, limitValue]@
+  | Array
+  deriving (Eq)
+
+offsetLimitToQF ::
+  (QueryFormat qf) =>
+  PaginQueryFormat ->
+  (qf -> qf) ->
+  (Maybe (Maybe qf, qf)) ->
+  qf
+offsetLimitToQF formatType pref ol = case ol of
+  Nothing -> mempty
+  Just val -> case (val, formatType) of
+    ((Nothing, limitVal), Plain) -> (pref "LIMIT ") <> limitVal
+    ((Just offsetVal, limitVal), Plain) -> (pref "OFFSET ") <> offsetVal <> " LIMIT " <> limitVal
+    ((offsetVal, limitVal), Array) -> "[" <> fromMaybe "0" offsetVal <> ":" <> limitVal <> "]"

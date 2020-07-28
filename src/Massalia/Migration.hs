@@ -29,7 +29,7 @@ import Hasql.Migration
 import qualified Hasql.Transaction as Tx
 import qualified Hasql.Transaction.Sessions as Txs
 import Massalia.HasqlConnection as Connection
-import Massalia.HasqlExec (QueryError, run)
+import Massalia.HasqlExec (QueryError(QueryError), run, CommandError(ResultError), ResultError(UnexpectedResult))
 import Massalia.Utils (uuidV4, intercalate)
 import Protolude hiding (intercalate)
 import System.FilePath.Posix (splitFileName, (</>))
@@ -141,8 +141,18 @@ executionScheme maybeSchemaOption register dbCo = do
   let liftedTrans = sequence <$> allTransactions
   let schemaTransaction = Right <$> (fromMaybe mempty (schemaTransactions <$> maybeSchemaOption))
   let finalTransaction = schemaTransaction >> liftedTrans
-  let final = join <$> first HasqlQueryError <$> runTx dbCo finalTransaction
+  let restrictedErr = saveAndLogEmpty =<< runTx dbCo finalTransaction
+  let final = join <$> first HasqlQueryError <$> restrictedErr
   const dbCo <$> (ExceptT final)
+
+saveAndLogEmpty :: Applicative m => Either QueryError (m [()]) -> IO (Either QueryError (m [()]))
+saveAndLogEmpty res = do
+        case res of
+          Left (
+            QueryError _ _
+              (ResultError (UnexpectedResult "Unexpected result status: EmptyQuery"))
+            ) -> pure $ pure $ pure [()]
+          _ -> pure res
 
 schemaTransactions :: DBSchemaOption -> Tx.Transaction ()
 schemaTransactions DBSchemaOption{

@@ -152,6 +152,7 @@ instance (Show a, SQLEncoder a) => SQLEncoder (Maybe a) where
   binaryEncode = (wrapEncoding @a) . maybe "null" binaryEncode
 
 instance SQLEncoder UUID where
+  wrapEncoding a = "" <> a <> "::uuid"
   binaryEncode = Snippet.param
 instance SQLEncoder [UUID] where
   textEncode = collectionTextEncode
@@ -173,8 +174,8 @@ instance SQLEncoder [Text] where
   textEncode = collectionTextEncode
   binaryEncode = Snippet.param
 boolEncode :: IsString p => Bool -> p
-boolEncode True = "true" 
-boolEncode False = "false" 
+boolEncode True = "true::bool" 
+boolEncode False = "false::bool" 
 instance SQLEncoder Bool where
   textEncode = boolEncode
   binaryEncode = boolEncode
