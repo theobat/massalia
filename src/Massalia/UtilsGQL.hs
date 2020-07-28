@@ -26,6 +26,8 @@ import Protolude
 data Paginated filterType = Paginated
   { -- | A filter applied __before__ globalFilter.
     unionFilter :: Maybe [filterType],
+-- | A filter applied __before__ globalFilter.
+    unionFilterPaginated :: Maybe [Paginated filterType],
     -- | A filter applied __around__ the union of unionFilter effects
     globalFilter :: Maybe filterType,
     -- | The limit in the query
@@ -36,7 +38,7 @@ data Paginated filterType = Paginated
   deriving (Eq, Show, Generic, FromJSON, ToJSON)
 
 defaultPaginated :: Paginated filterType
-defaultPaginated = Paginated Nothing Nothing Nothing Nothing
+defaultPaginated = Paginated Nothing Nothing Nothing Nothing Nothing
 
 instance
   (Typeable filterType, GQLType filterType) =>

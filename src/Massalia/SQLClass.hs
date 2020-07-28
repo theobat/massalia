@@ -310,22 +310,26 @@ paginatedFilterToSelectStruct :: (
   Maybe SQLFilterOption -> Paginated filterT -> (SelectStruct qf -> SelectStruct qf)
 paginatedFilterToSelectStruct filterOption filterValue = limitOffsetEffect . globalFilterEffect . unionEffect
   where
-    unionEffect !baseQ = case Paginated.unionFilter filterValue of
-      Nothing -> baseQ
-      Just [] -> baseQ
-      Just !nonEmptyList -> inlineAndUnion baseQ standaloneFilterList
+    unionEffect !baseQ = case (Paginated.unionFilter filterValue, Paginated.unionFilterPaginated filterValue) of
+      (Nothing, Nothing) -> baseQ
+      (Just [], Just []) -> baseQ
+      (Just !nonEmptyList, Just !nonEmptyPlist) ->
+          inlineAndUnion baseQ finalFilterList
         where
+          finalFilterList = standalonePFilterList <> standaloneFilterList
           standaloneFilterList = fmap ($ simpleBase) (toQueryFormatFilter filterOption <$> nonEmptyList)
           simpleBase = mempty{_from = (_from baseQ), _select = simpleSelect name}
+          standalonePFilterList = (simplePApplication <$> nonEmptyPlist)
+          simplePApplication pval = toQueryFormatFilter filterOption pval simpleBase <> offsetLimitQy pval
           name = _from baseQ
           simpleSelect Nothing = ["*"]
           simpleSelect (Just quotedName) = [quotedName <> ".*"]
     globalFilterEffect a = toQueryFormatFilter filterOption (Paginated.globalFilter filterValue) a
-    limitOffsetEffect baseQ = baseQ <> offsetLimitQy
-    offsetLimitQy = mempty {
-        _offsetLimit = Just $ offsetLimitFn
+    limitOffsetEffect baseQ = baseQ <> offsetLimitQy filterValue
+    offsetLimitQy pval = mempty {
+        _offsetLimit = Just $ offsetLimitFn pval
       }
-    offsetLimitFn = (sqlEncode <$> Paginated.offset filterValue, sqlEncode $ fromMaybe 10000 $ Paginated.first filterValue)
+    offsetLimitFn pval = (sqlEncode <$> Paginated.offset pval, sqlEncode $ fromMaybe 10000 $ Paginated.first pval)
 
 joinFilterFieldSimple :: (QueryFormat qf, SQLFilter record) => (Text, Text, Text) -> Maybe SQLFilterOption -> p -> record -> (SelectStruct qf)
 joinFilterFieldSimple (tableName, tableCol, parentCol) = joinFilterField joinRes
