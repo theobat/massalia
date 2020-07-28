@@ -45,7 +45,7 @@ import MassaliaSchema.Industry.TruckFilter (TruckFilter)
 import Data.Morpheus.Types (unsafeInternalContext)
 import Massalia.Utils (LocalTime, Day)
 import Massalia.UtilsGQL (Paginated, defaultPaginated)
-import qualified Massalia.UtilsGQL as Paginated(first, offset, globalFilter)
+import qualified Massalia.UtilsGQL as Paginated
 import Massalia.SQLClass (
     SQLRecord,
     SQLSelect(toSelectQuery),

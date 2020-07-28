@@ -315,17 +315,18 @@ paginatedFilterToSelectStruct filterOption filterValue = limitOffsetEffect . glo
     unionEffect !baseQ = case (Paginated.unionFilter filterValue, Paginated.unionFilterPaginated filterValue) of
       (Nothing, Nothing) -> baseQ
       (Just [], Just []) -> baseQ
-      (Just !nonEmptyList, Just !nonEmptyPlist) ->
-          inlineAndUnion baseQ finalFilterList
-        where
-          finalFilterList = standalonePFilterList <> standaloneFilterList
-          standaloneFilterList = fmap ($ simpleBase) (toQueryFormatFilter filterOption <$> nonEmptyList)
-          simpleBase = mempty{_from = (_from baseQ), _select = simpleSelect name}
-          standalonePFilterList = (simplePApplication <$> nonEmptyPlist)
-          simplePApplication pval = toQueryFormatFilter filterOption pval simpleBase <> offsetLimitQy pval
-          name = _from baseQ
-          simpleSelect Nothing = ["*"]
-          simpleSelect (Just quotedName) = [quotedName <> ".*"]
+      (Nothing, Just !nonEmptyPlist) -> inlineAndUnion baseQ $ standalonePFilterList nonEmptyPlist
+      (Just !nonEmptyList, Nothing) -> inlineAndUnion baseQ $ standaloneFilterList nonEmptyList
+      (Just !nonEmptyList, Just !nonEmptyPlist) -> inlineAndUnion baseQ $ finalFilterList (nonEmptyList, nonEmptyPlist)
+      where
+        finalFilterList (a, b) = standaloneFilterList a <> standalonePFilterList b
+        standaloneFilterList a = fmap ($ simpleBase) (toQueryFormatFilter filterOption <$> a)
+        simpleBase = mempty{_from = (_from baseQ), _select = simpleSelect name}
+        standalonePFilterList b = (simplePApplication <$> b)
+        simplePApplication pval = toQueryFormatFilter filterOption (Paginated.globalFilter pval) simpleBase <> offsetLimitQy pval
+        name = _from baseQ
+        simpleSelect Nothing = ["*"]
+        simpleSelect (Just quotedName) = [quotedName <> ".*"]
     globalFilterEffect a = toQueryFormatFilter filterOption (Paginated.globalFilter filterValue) a
     limitOffsetEffect baseQ = baseQ <> offsetLimitQy filterValue
     offsetLimitQy pval = mempty {
@@ -589,6 +590,10 @@ instance SQLFilterField Bool where
 
 instance (SQLFilter a) => SQLFilter (Paginated a) where
   toQueryFormatFilter opt val = paginatedFilterToSelectStruct opt val
+-- instance (SQLFilter a) => SQLFilter (PaginatedT a Void) where
+--   toQueryFormatFilter opt val = paginatedFilterToSelectStruct opt val
+instance SQLFilter Void where
+  toQueryFormatFilter _ _ = identity
 
 -- | This is just the asc/desc part of the equation.
 -- But it assumes the ordering yields something to which you can concatenate asc/desc.

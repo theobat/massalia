@@ -39,7 +39,7 @@ import Massalia.SQLClass (SQLFilter)
 import Protolude
 import Data.Morpheus.Types (GQLType(description), KIND)
 import Data.Morpheus.Kind (INPUT)
-import Massalia.UtilsGQL (Paginated(globalFilter), defaultPaginated)
+import Massalia.UtilsGQL (Paginated, defaultPaginated, globalFilter)
 
 data PlantFilter
   = PlantFilter

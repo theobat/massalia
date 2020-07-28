@@ -3,13 +3,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 -- |
 -- Module      : Massalia.UtilsGQL
 -- Description : A standard interface for query arguments (including pagination).
 module Massalia.UtilsGQL
   ( -- TEXT
-    Paginated (..),
+    Paginated(..),
     defaultPaginated,
     OrderByWay (..),
     OrderingBy (..),
