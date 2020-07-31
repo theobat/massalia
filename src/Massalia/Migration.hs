@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE BangPatterns #-}
 
 -- |
 -- Module      : Massalia.HasqlConnection
@@ -29,7 +30,7 @@ import Hasql.Migration
 import qualified Hasql.Transaction as Tx
 import qualified Hasql.Transaction.Sessions as Txs
 import Massalia.HasqlConnection as Connection
-import Massalia.HasqlExec (QueryError(QueryError), run, CommandError(ResultError), ResultError(UnexpectedResult))
+import Massalia.HasqlExec (QueryError(QueryError), run, CommandError(ResultError), ResultError(UnexpectedResult), sql)
 import Massalia.Utils (uuidV4, intercalate)
 import Protolude hiding (intercalate)
 import System.FilePath.Posix (splitFileName, (</>))
@@ -69,21 +70,21 @@ data MigrationExecutionError
 -- | A set of options to create/change the execution of the migration process.
 data MigrationPattern
   = MigrationPattern
-      { initMigrationPrefix :: String,
-        revisionMigrationPrefix :: String,
-        seedMigrationPrefix :: Maybe String,
-        migrationPatternList :: [FilePattern],
-        basePath :: FilePath,
-        dbSchemaOption :: Maybe DBSchemaOption,
+      { initMigrationPrefix :: !String,
+        revisionMigrationPrefix :: !String,
+        seedMigrationPrefix :: !(Maybe String),
+        migrationPatternList :: ![FilePattern],
+        basePath :: !FilePath,
+        dbSchemaOption :: !(Maybe DBSchemaOption),
         migrationOrder :: Maybe (MigrationArgs -> MigrationArgs -> Ordering)
       }
 -- | Options to operate the migration(s) within a given schema.
 -- This is only if you want to change the overall default schema,
 -- otherwise you can specify a schema in a migration file directly.
 data DBSchemaOption = DBSchemaOption {
-  withinSchema :: ByteString,
-  setSearchPathTo :: [ByteString],
-  commandBeforeEverything :: Maybe ByteString
+  withinSchema :: !ByteString,
+  setSearchPathTo :: ![ByteString],
+  commandBeforeEverything :: !(Maybe ByteString)
 } deriving (Show)
 defaultDBSchemaOption :: DBSchemaOption
 defaultDBSchemaOption = DBSchemaOption {
@@ -134,25 +135,17 @@ executionScheme ::
   ExceptT MigrationExecutionError IO Connection
 executionScheme maybeSchemaOption register dbCo = do
   let prepareInitTransaction = migrationCommandToTransaction MigrationInitialization
+  liftIO (runTx dbCo prepareInitTransaction)
   initAndRevListOfTransaction <- liftIO $ (sequence $ loadInitAndRevTransaction <$> (initRevList register))
   let initAndRevTransaction = sequence initAndRevListOfTransaction
   seedTransactionList <- liftIO $ sequence <$> (sequence $ migrationArgsToTransaction <$> seedList register)
-  let allTransactions = prepareInitTransaction >> initAndRevTransaction >> seedTransactionList
+  let allTransactions = initAndRevTransaction >> seedTransactionList
   let liftedTrans = sequence <$> allTransactions
   let schemaTransaction = Right <$> (fromMaybe mempty (schemaTransactions <$> maybeSchemaOption))
   let finalTransaction = schemaTransaction >> liftedTrans
-  let restrictedErr = saveAndLogEmpty =<< runTx dbCo finalTransaction
-  let final = join <$> first HasqlQueryError <$> restrictedErr
-  const dbCo <$> (ExceptT final)
-
-saveAndLogEmpty :: Applicative m => Either QueryError (m [()]) -> IO (Either QueryError (m [()]))
-saveAndLogEmpty res = do
-        case res of
-          Left (
-            QueryError _ _
-              (ResultError (UnexpectedResult "Unexpected result status: EmptyQuery"))
-            ) -> pure $ pure $ pure [()]
-          _ -> pure res
+  restrictedErr <- liftIO $ runTx dbCo finalTransaction
+  let final = join $ (first HasqlQueryError restrictedErr)
+  const dbCo <$> (ExceptT $ pure final)
 
 schemaTransactions :: DBSchemaOption -> Tx.Transaction ()
 schemaTransactions DBSchemaOption{
@@ -160,7 +153,7 @@ schemaTransactions DBSchemaOption{
     setSearchPathTo=searchPathList,
     commandBeforeEverything=commandValue
   } =
-   Tx.sql (fromMaybe "" commandValue) >>
+   (fromMaybe (pure ()) (Tx.sql <$> commandValue)) >>
    Tx.sql ("CREATE SCHEMA IF NOT EXISTS \""<> schemaName <> "\";") >>
    Tx.sql ("SET search_path TO " <> intercalate "," searchPathList <> ";")
 
@@ -317,21 +310,22 @@ loadInitAndRevTransaction ::
 loadInitAndRevTransaction tuple = case tuple of
   JustInit initMigrationArg -> do
     initMigrationCommand <- loadMigrationArgs initMigrationArg
-    pure (rewritePureInitError <$> migrationCommandToTransaction initMigrationCommand)
+    pure (rewritePureInitError <$> migrationCommandToTransaction (initMigrationCommand))
   InitAndRev initVal revVal -> do
     initMigrationCommand <- loadMigrationArgs initVal
     let initTransaction = migrationCommandToTransaction initMigrationCommand
     revMigrationCommand <- loadAndRenameRev revVal
     let revTransaction = migrationCommandToTransaction revMigrationCommand
-    let initAndRevOnFileChange = initAndRevFileChanged (revTransaction >> (updateChecksumIfPossible initMigrationCommand)) <$> initTransaction
-    pure (join initAndRevOnFileChange)
+    pure (do
+      initRes <- initTransaction
+      case initRes of
+        Left (HasqlMigrationError (ScriptChanged _)) -> revTransaction >> (updateChecksumIfPossible initMigrationCommand)
+        _ -> pure initRes
+      )
   where
     rewritePureInitError res = case res of
       Left (HasqlMigrationError (ScriptChanged filePathVal)) -> Left $ InitFileChangeWihtoutRev filePathVal
       r -> r
-    initAndRevFileChanged nextActions res = case res of
-      Left (HasqlMigrationError (ScriptChanged _)) -> nextActions
-      r -> pure (r)
     updateChecksumIfPossible migrationCom = case migrationCom of
       MigrationScript name content -> Right <$> (updateChecksum name content)
       _ -> panic "Partial pattern match OK here because 'rawInitMigration' is built this way"
@@ -349,11 +343,17 @@ migrationArgsToTransaction args = migrationCommandToTransaction <$> loadMigratio
 migrationCommandToTransaction ::
   MigrationCommand ->
   Tx.Transaction (Either MigrationExecutionError ())
-migrationCommandToTransaction migrationCommand =
-  first HasqlMigrationError <$> (maybeToLeft () <$> runMigration migrationCommand)
+migrationCommandToTransaction input =
+  first HasqlMigrationError <$> (maybeToLeft () <$> ingestCommand runMigration input)
+  where
+    ingestCommand _ !(MigrationScript _ "") = pure Nothing
+    ingestCommand fn !(MigrationScript name content) = fn (MigrationScript name (" -- " <> fromString name <> fromString "\n SELECT 1; \n" <> content))
+    ingestCommand fn !a = fn a
 
 runTx :: Connection.Connection -> Tx.Transaction a -> IO (Either QueryError a)
 runTx con act = run (Txs.transaction Txs.ReadCommitted Txs.Write act) con
 
 loadMigrationArgs :: MigrationArgs -> IO MigrationCommand
-loadMigrationArgs MigrationArgs{scriptName=sn, path=scriptPath} = loadMigrationFromFile sn scriptPath
+loadMigrationArgs MigrationArgs{scriptName=sn, path=scriptPath} = do
+  putLText $ "Load content of " <> (show sn)
+  loadMigrationFromFile sn scriptPath
