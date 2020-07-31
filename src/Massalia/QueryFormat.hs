@@ -199,6 +199,11 @@ instance SQLEncoder ZonedTime where
 instance SQLEncoder [ZonedTime] where
   textEncode = collectionTextEncode
   binaryEncode = Snippet.param . (zonedTimeToUTC <$>)
+instance SQLEncoder UTCTime where
+  binaryEncode = Snippet.param
+instance SQLEncoder [UTCTime] where
+  textEncode = collectionTextEncode
+  binaryEncode = Snippet.param
 instance SQLEncoder EmailAddress where
   textEncode = inSingleQuote . emailToText
   binaryEncode = Snippet.param . emailToText 
