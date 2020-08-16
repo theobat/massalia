@@ -16,12 +16,11 @@ module Massalia.Migration where
 
 -- CheckScriptResult(ScriptOk, ScriptModified, ScriptNotExecuted)
 
-import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.String
 import Hasql.Migration
   ( MigrationCommand (MigrationInitialization, MigrationScript),
-    MigrationError(ScriptChanged, NotInitialised, ScriptMissing, ChecksumMismatch),
+    MigrationError(ScriptChanged),
     ScriptName,
     loadMigrationFromFile,
     runMigration,
@@ -30,7 +29,7 @@ import Hasql.Migration
 import qualified Hasql.Transaction as Tx
 import qualified Hasql.Transaction.Sessions as Txs
 import Massalia.HasqlConnection as Connection
-import Massalia.HasqlExec (QueryError(QueryError), run, CommandError(ResultError), ResultError(UnexpectedResult), sql)
+import Massalia.HasqlExec (QueryError, run)
 import Massalia.Utils (uuidV4, intercalate)
 import Protolude hiding (intercalate)
 import System.FilePath.Posix (splitFileName, (</>))
@@ -284,7 +283,7 @@ handleInitRev input mapp = case input of
     (_, result) -> Right result
   where
     insertRev (key, value) = Map.updateLookupWithKey (adjustInit value) key
-    adjustInit revMig key (JustInit initMig) = Just $ InitAndRev initMig revMig
+    adjustInit revMig _ (JustInit initMig) = Just $ InitAndRev initMig revMig
     adjustInit _ _ _ = Nothing
     insertJustInit (key, value) = Map.insert key (JustInit value)
     prepareMigration prefix migrationArgs =
