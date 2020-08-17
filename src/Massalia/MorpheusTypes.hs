@@ -3,6 +3,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
 
 -- |
@@ -20,7 +22,7 @@ import Data.Morpheus.Types (GQLType(description), KIND, GQLScalar(..))
 import Data.Morpheus.Kind (SCALAR, INPUT)
 import qualified Data.Morpheus.Types as GQLT
 import Massalia.Utils (
-  EmailAddress, LocalTime, ZonedTime, UUID, Day,
+  EmailAddress, LocalTime, ZonedTime, ZonedTimeEq(ZonedTimeEq), UUID, Day,
   SimpleRange, Inclusivity (..),
   emailToByteString, emailValidate, stringToText, uuidFromText, uuidToText
   )
