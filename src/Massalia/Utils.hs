@@ -185,4 +185,6 @@ instance Eq ZonedTimeEq where
 toZonedTime :: ZonedTimeEq -> ZonedTime
 toZonedTime (ZonedTimeEq a) = a
 deriving via ZonedTime instance Show ZonedTimeEq
+deriving via ZonedTime instance FromJSON ZonedTimeEq
+deriving via ZonedTime instance ToJSON ZonedTimeEq
 
