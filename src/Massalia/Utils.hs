@@ -41,6 +41,7 @@ module Massalia.Utils
     ZonedTime,
     ZonedTimeEq(ZonedTimeEq),
     toZonedTime,
+    zonedTimeEqToUTC,
     Day,
     TimeOfDay,
     TimeZone,
@@ -181,10 +182,11 @@ defaultSimpleRange = SimpleRange { start = Nothing, end = Nothing, inclusivity =
 newtype ZonedTimeEq = ZonedTimeEq ZonedTime deriving (Generic)
 
 instance Eq ZonedTimeEq where
-  (==) a b = getVal a == getVal b
-    where getVal = zonedTimeToUTC . toZonedTime
+  (==) a b = zonedTimeEqToUTC a == zonedTimeEqToUTC b
 toZonedTime :: ZonedTimeEq -> ZonedTime
 toZonedTime (ZonedTimeEq a) = a
+zonedTimeEqToUTC :: ZonedTimeEq -> UTCTime
+zonedTimeEqToUTC = zonedTimeToUTC . toZonedTime
 deriving via ZonedTime instance Show ZonedTimeEq
 deriving via ZonedTime instance FromJSON ZonedTimeEq
 deriving via ZonedTime instance ToJSON ZonedTimeEq
