@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleInstances #-}
 
 -- |
