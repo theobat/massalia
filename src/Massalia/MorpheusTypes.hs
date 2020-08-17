@@ -49,6 +49,9 @@ instance GQLScalar ZonedTime where
 instance GQLType ZonedTime where
   type KIND ZonedTime = SCALAR
 
+deriving via ZonedTime instance GQLScalar ZonedTimeEq
+deriving via ZonedTime instance GQLType ZonedTimeEq
+
 instance GQLScalar Day where
   parseValue (GQLT.String x) = first stringToText $ JSON.eitherDecode $ JSON.encode x
   serialize = GQLT.String . (fromMaybe "" . JSON.decode . JSON.encode)
@@ -95,4 +98,6 @@ instance GQLScalar Inclusivity where
 
 instance GQLType Inclusivity where
   type KIND Inclusivity = SCALAR
+
+
 
