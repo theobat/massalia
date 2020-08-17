@@ -1,25 +1,25 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE PartialTypeSignatures #-}
 
 -- |
 -- Module      : Massalia.Filter
@@ -31,49 +31,56 @@ module Massalia.Filter
     GQLFilterInt,
     GQLFilterLocalTime,
     GQLFilterZonedTime,
-    GQLScalarFilterCore(..),
+    GQLFilterZonedTimeEq,
+    GQLScalarFilterCore (..),
     FilterConstraint,
     defaultScalarFilter,
     filterFieldToMaybeContent,
-    PostgresRange(postgresRangeName),
+    PostgresRange (postgresRangeName),
   )
 where
 
--- import Hasql.Encoders
-
 import Data.Aeson (FromJSON, ToJSON)
-import Data.UUID
-import Massalia.QueryFormat (
-  QueryFormat (sqlEncode),
-  SQLEncoder (textEncode, binaryEncode),
-  )
-import Massalia.Utils (Day, UTCTime, LocalTime, ZonedTime, SimpleRange(..), Inclusivity(..))
-import qualified Massalia.Utils as MassaliaUtils (intercalate)
-import Data.Morpheus.Types (KIND, GQLType)
 import Data.Morpheus.Kind (INPUT)
+import Data.Morpheus.Types (GQLType, KIND)
+import Data.UUID ( UUID )
+import Massalia.QueryFormat
+  ( PostgresRange (postgresRangeName),
+    QueryFormat (sqlEncode),
+    SQLEncoder,
+  )
+import Massalia.Utils
+  ( Day,
+    LocalTime,
+    SimpleRange (..),
+    ZonedTime,
+    ZonedTimeEq,
+  )
+import qualified Massalia.Utils as MassaliaUtils (intercalate)
 import Protolude
 
 type GQLScalarFilterEq filterType =
   (GQLScalarFilterCore filterType Void Void)
+
 type GQLScalarFilterOrd filterType =
   (GQLScalarFilterCore filterType Void filterType)
+
 type GQLScalarFilterText filterType =
   (GQLScalarFilterCore filterType filterType Void)
 
-data GQLScalarFilterCore eqScalarType likeScalarType ordScalarType
-  = GQLScalarFilter
-      { isEq :: Maybe eqScalarType,
-        isNotEq :: Maybe eqScalarType,
-        isIn :: Maybe [eqScalarType],
-        isNotIn :: Maybe [eqScalarType],
-        isNull :: Maybe Bool,
-        isLike :: Maybe likeScalarType,
-        isIlike :: Maybe likeScalarType,
-        -- The Ord class
-        isGT :: Maybe ordScalarType, -- is greater than
-        isLT :: Maybe ordScalarType, -- is lesser than
-        isBetween :: Maybe (SimpleRange ordScalarType)
-      }
+data GQLScalarFilterCore eqScalarType likeScalarType ordScalarType = GQLScalarFilter
+  { isEq :: Maybe eqScalarType,
+    isNotEq :: Maybe eqScalarType,
+    isIn :: Maybe [eqScalarType],
+    isNotIn :: Maybe [eqScalarType],
+    isNull :: Maybe Bool,
+    isLike :: Maybe likeScalarType,
+    isIlike :: Maybe likeScalarType,
+    -- The Ord class
+    isGT :: Maybe ordScalarType, -- is greater than
+    isLT :: Maybe ordScalarType, -- is lesser than
+    isBetween :: Maybe (SimpleRange ordScalarType)
+  }
   deriving (Eq, Show, Generic) -- JSON instances below
 
 deriving instance
@@ -93,11 +100,15 @@ deriving instance
 --   ToJSON (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))
 
 instance
-  (
-    Typeable eqScalarType, Typeable likeScalarType, Typeable ordScalarType,
-    GQLType eqScalarType, GQLType likeScalarType, GQLType ordScalarType
+  ( Typeable eqScalarType,
+    Typeable likeScalarType,
+    Typeable ordScalarType,
+    GQLType eqScalarType,
+    GQLType likeScalarType,
+    GQLType ordScalarType
   ) =>
-  GQLType (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) where
+  GQLType (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)
+  where
   type KIND (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) = INPUT
 
 -- deriving via (NamedFilter (Maybe (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))) instance
@@ -106,7 +117,7 @@ instance
 --       Typeable eqScalarType, Typeable likeScalarType, Typeable ordScalarType,
 --       GQLType eqScalarType, GQLType likeScalarType, GQLType ordScalarType
 --   ) => GQLType (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))
-  -- type CUSTOM (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)) = 'False
+-- type CUSTOM (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)) = 'False
 
 -- eq
 type GQLFilterUUID = GQLScalarFilterEq UUID
@@ -118,14 +129,20 @@ type GQLFilterText = GQLScalarFilterText Text
 type GQLFilterInt = GQLScalarFilterOrd Int
 
 type GQLFilterLocalTime = GQLScalarFilterOrd LocalTime
+
 type GQLFilterZonedTime = GQLScalarFilterOrd ZonedTime
+
+type GQLFilterZonedTimeEq = GQLScalarFilterOrd ZonedTimeEq
 
 type GQLFilterDay = GQLScalarFilterOrd Day
 
 -- | Filter with no effect
 -- defaultScalarFilter :: GQLScalarFilterCore eqScalarType likeScalarType ordScalarType
-defaultScalarFilter :: GQLScalarFilterCore
-  eqScalarType likeScalarType ordScalarType
+defaultScalarFilter ::
+  GQLScalarFilterCore
+    eqScalarType
+    likeScalarType
+    ordScalarType
 defaultScalarFilter =
   GQLScalarFilter
     { isEq = Nothing,
@@ -140,8 +157,8 @@ defaultScalarFilter =
       isBetween = Nothing
     }
 
-type FilterConstraint a b c = (
-    SQLEncoder a,
+type FilterConstraint a b c =
+  ( SQLEncoder a,
     SQLEncoder [a],
     Show a,
     SQLEncoder b,
@@ -184,7 +201,8 @@ filterFieldToMaybeContent prefixedFieldName (Just filterVal) = case filterVal of
       filtList -> Just (MassaliaUtils.intercalate " AND " filtList)
 
 snippetContent ::
-  forall qf a. (SQLEncoder a, QueryFormat qf) =>
+  forall qf a.
+  (SQLEncoder a, QueryFormat qf) =>
   qf ->
   qf ->
   Maybe a ->
@@ -194,9 +212,11 @@ snippetContent fieldName op maybeVal = effectFunc <$> maybeVal
     effectFunc parameterVal = fieldName <> " " <> op <> " " <> sqlEncode parameterVal
 
 wrappedContent ::
-  forall qf. (QueryFormat qf) =>
+  forall qf.
+  (QueryFormat qf) =>
   qf ->
-  ( forall filterValue. (SQLEncoder filterValue) =>
+  ( forall filterValue.
+    (SQLEncoder filterValue) =>
     qf ->
     Maybe filterValue ->
     qf ->
@@ -206,53 +226,3 @@ wrappedContent _ _ Nothing _ = []
 wrappedContent fieldName op (Just a) suffix =
   [ fieldName <> " " <> op <> " " <> sqlEncode a <> suffix
   ]
-
--- int4range — Range of integer
--- int8range — Range of bigint
--- numrange — Range of numeric
--- tsrange — Range of timestamp without time zone
--- tstzrange — Range of timestamp with time zone
--- daterange — Range of date
-
-instance (
-    PostgresRange a,
-    SQLEncoder a
-  ) => SQLEncoder (SimpleRange a) where
-  textEncode = encodeRange
-  binaryEncode = encodeRange
-
--- | test
--- >>> (sqlEncode $ SimpleRange (Just 1::Int) Nothing Nothing) :: Text
--- 
-encodeRange :: forall qf dataT. (
-  QueryFormat qf, SQLEncoder dataT, PostgresRange dataT) => SimpleRange dataT -> qf
-encodeRange value = postgresRangeName @dataT <> "(" <> startValue <> "," <> endValue <> bounds <> ")"
-    where
-      startValue = getBoundary start
-      endValue = getBoundary end
-      bounds = (case inclusivity value of
-          Nothing -> ""
-          Just II -> ", []"
-          Just IE -> ", [)"
-          Just EI -> ", (]"
-          Just EE -> ", ()"
-        )
-      getBoundary accessor = fromMaybe "null" $ (sqlEncode <$> accessor value)
-
-class PostgresRange a where
-  postgresRangeName :: (IsString textFormat) => textFormat
-instance PostgresRange Int where
-  postgresRangeName = "int8range"
-instance PostgresRange UTCTime where
-  postgresRangeName = "tsrange"
-instance PostgresRange LocalTime where
-  postgresRangeName = "tstzrange"
-instance PostgresRange ZonedTime where
-  postgresRangeName = "tstzrange"
-instance PostgresRange Day where
-  postgresRangeName = "daterange"
-instance PostgresRange Void where
-  postgresRangeName = panic "in theory cannot happen, (PostgresRange Void)"
-
--- newtype ViewF filterT = ViewF filterT
--- newtype ExistF filterT = ExistF filterT

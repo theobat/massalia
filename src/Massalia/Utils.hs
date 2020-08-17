@@ -3,6 +3,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 -- |
@@ -37,6 +39,7 @@ module Massalia.Utils
     -- Time/Date
     LocalTime,
     ZonedTime,
+    ZonedTimeEq(ZonedTimeEq),
     Day,
     TimeOfDay,
     TimeZone,
@@ -73,7 +76,7 @@ import PostgreSQL.Binary.Data (
     UTCTime,
     Scientific
   )
-import Data.Time (ZonedTime)
+import Data.Time (ZonedTime, zonedTimeToUTC)
 import Data.Time.LocalTime (LocalTime(LocalTime), midnight)
 import Data.Time.Calendar (Day(ModifiedJulianDay))
 import Protolude hiding (intercalate)
@@ -85,7 +88,7 @@ import Text.Inflections (toUnderscore)
 import Text.Pretty.Simple (pPrint)
 
 -- Legacy String
-import Data.String (String, IsString(fromString))
+import Data.String (String)
 import Data.Char (isUpper, toLower)
 
 
@@ -101,9 +104,11 @@ intercalateMap mapper separator currentList = case currentList of
 
 
 toCSVInParens :: (IsString a, Monoid a) => [a] -> a
-toCSVInParens list = inParens $ intercalate "," list
+toCSVInParens input = inParens $ intercalate "," input
 
+inParens :: (Semigroup a, IsString a) => a -> a
 inParens a = "(" <> a <> ")"
+stringToText :: String -> Text
 stringToText = pack
 
 -- --------------- UUID
@@ -134,7 +139,7 @@ dayDefault = (ModifiedJulianDay 0)
 
 unsafeSnakeCaseT :: Text -> Text
 unsafeSnakeCaseT t = case toUnderscore t of
-  Left err -> t
+  Left _ -> t
   Right r -> r
 
 -- | A very simple snake_case converter. It's using 'String' so
@@ -164,3 +169,20 @@ data Inclusivity = II | IE | EI | EE deriving (Eq, Show, Generic, FromJSON, ToJS
 -- | A very simple, JSON oriented, representation for a range.
 defaultSimpleRange :: SimpleRange a
 defaultSimpleRange = SimpleRange { start = Nothing, end = Nothing, inclusivity = Nothing }
+
+-- | A simple wrapper around 'ZonedTime' with a utc centric notion of equality
+-- (that is, we ignore the timezones to check for equality).
+--
+-- >>> let ex1 = ZonedTimeEq <$> readMaybe "2002-12-12 12:12:12+0000"
+-- >>> let ex2 = ZonedTimeEq <$> readMaybe "2002-12-12 02:12:12-1000"
+-- >>> (ex1, ex2, ex1 == ex2)
+-- (Just 2002-12-12 12:12:12 +0000,Just 2002-12-12 02:12:12 -1000,True)
+newtype ZonedTimeEq = ZonedTimeEq ZonedTime deriving (Generic)
+
+instance Eq ZonedTimeEq where
+  (==) a b = getVal a == getVal b
+    where getVal = zonedTimeToUTC . toZonedTime
+toZonedTime :: ZonedTimeEq -> ZonedTime
+toZonedTime (ZonedTimeEq a) = a
+deriving via ZonedTime instance Show ZonedTimeEq
+
