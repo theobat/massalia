@@ -40,6 +40,7 @@ module Massalia.Utils
     LocalTime,
     ZonedTime,
     ZonedTimeEq(ZonedTimeEq),
+    toZonedTime,
     Day,
     TimeOfDay,
     TimeZone,
@@ -187,4 +188,4 @@ toZonedTime (ZonedTimeEq a) = a
 deriving via ZonedTime instance Show ZonedTimeEq
 deriving via ZonedTime instance FromJSON ZonedTimeEq
 deriving via ZonedTime instance ToJSON ZonedTimeEq
-
+  
