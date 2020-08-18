@@ -85,12 +85,12 @@ packages:
     git: https://github.com/theobat/hasql-migration.git
     pantry-tree:
       size: 795
-      sha256: ce36dc65455030f626e48155f2615e062fe7434db80d47cda90355385db78325
-    commit: 81b1aaaff38a31cd5a74933380027ab9c6dc2efb
+      sha256: d4de5a0db86db50aff7f9c2e094a1d977b1a43ffc62d57ffe4e6e8dd6b670852
+    commit: a85fddce1be310ce40e2861ee4ebcc3e045a120a
   original:
     subdir: .
     git: https://github.com/theobat/hasql-migration.git
-    commit: 81b1aaaff38a31cd5a74933380027ab9c6dc2efb
+    commit: a85fddce1be310ce40e2861ee4ebcc3e045a120a
 snapshots:
 - completed:
     size: 532380

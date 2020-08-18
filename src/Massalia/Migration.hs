@@ -346,7 +346,7 @@ migrationCommandToTransaction input =
   first HasqlMigrationError <$> (maybeToLeft () <$> ingestCommand runMigration input)
   where
     ingestCommand _ !(MigrationScript _ "") = pure Nothing
-    ingestCommand fn !(MigrationScript name content) = fn (MigrationScript name (" -- " <> fromString name <> fromString "\n SELECT 1; \n" <> content))
+    ingestCommand fn !(MigrationScript name content) = fn (MigrationScript name (" -- coming from: " <> fromString name <> fromString "\n\n" <> content))
     ingestCommand fn !a = fn a
 
 runTx :: Connection.Connection -> Tx.Transaction a -> IO (Either QueryError a)

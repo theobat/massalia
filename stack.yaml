@@ -83,7 +83,7 @@ extra-deps:
   - git: https://github.com/theobat/hasql-url.git
     commit: e41c9bc3179c36878e8c865685ff2be17a8ecef4
   - git: https://github.com/theobat/hasql-migration.git
-    commit: 81b1aaaff38a31cd5a74933380027ab9c6dc2efb
+    commit: a85fddce1be310ce40e2861ee4ebcc3e045a120a
     subdirs:
       - .
   
