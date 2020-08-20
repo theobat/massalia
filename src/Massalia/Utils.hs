@@ -6,6 +6,7 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# OPTIONS_GHC -Wno-missing-signatures #-}
 
 -- |
 -- Module      : Massalia.Utils
@@ -91,7 +92,6 @@ import Text.Pretty.Simple (pPrint)
 
 -- Legacy String
 import Data.String (String)
-import Data.Char (isUpper, toLower)
 
 
 -- --------------- TEXT
