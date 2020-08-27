@@ -92,6 +92,7 @@ import Text.Pretty.Simple (pPrint)
 
 -- Legacy String
 import Data.String (String)
+import Data.Char (toLower)
 
 
 -- --------------- TEXT
