@@ -42,4 +42,4 @@ safeSettingsToConnection maybeSettings = case maybeSettings of
 releasePotentialConnection :: Either a Connection -> IO (Either a ())
 releasePotentialConnection conn = case conn of
   Left err -> pure $ Left err
-  Right conn -> Right <$> Connection.release conn
+  Right currentConn -> Right <$> Connection.release currentConn
