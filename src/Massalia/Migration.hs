@@ -134,14 +134,13 @@ executionScheme ::
   ExceptT MigrationExecutionError IO Connection
 executionScheme maybeSchemaOption register dbCo = do
   let prepareInitTransaction = migrationCommandToTransaction MigrationInitialization
-  liftIO (runTx dbCo prepareInitTransaction)
   initAndRevListOfTransaction <- liftIO $ (sequence $ loadInitAndRevTransaction <$> (initRevList register))
   let initAndRevTransaction = sequence initAndRevListOfTransaction
   seedTransactionList <- liftIO $ sequence <$> (sequence $ migrationArgsToTransaction <$> seedList register)
   let allTransactions = initAndRevTransaction >> seedTransactionList
   let liftedTrans = sequence <$> allTransactions
   let schemaTransaction = Right <$> (fromMaybe mempty (schemaTransactions <$> maybeSchemaOption))
-  let finalTransaction = schemaTransaction >> liftedTrans
+  let finalTransaction = schemaTransaction >> prepareInitTransaction >> liftedTrans
   restrictedErr <- liftIO $ runTx dbCo finalTransaction
   let final = join $ (first HasqlQueryError restrictedErr)
   const dbCo <$> (ExceptT $ pure final)
