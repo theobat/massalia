@@ -92,8 +92,7 @@ import Text.Pretty.Simple (pPrint)
 
 -- Legacy String
 import Data.String (String)
-import Data.Char (toLower)
-
+import Data.Char (toLower, isUpper)
 
 -- --------------- TEXT
 intercalate :: Monoid a => a -> [a] -> a
