@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 5744f4a810034a46153253bd1adf5e49e0414d153198602b1278b064da6c6c35
+-- hash: 2102d36e28fedab443d6cfa946880a05f0faa74448eab78dd6d608590224e3e7
 
 name:           massalia
 version:        0.1.0.0
@@ -126,6 +126,7 @@ test-suite massalia-integration-test
     , inflections
     , jwt
     , massalia
+    , massalia-migration
     , morpheus-graphql ==0.13.0
     , morpheus-graphql-core ==0.13.0
     , mtl

@@ -84,8 +84,10 @@ import Massalia.QueryFormat
   )
 import Massalia.Filter (
     GQLScalarFilterCore,
+    GQLCollectionFilterCore,
     FilterConstraint,
-    filterFieldToMaybeContent
+    filterFieldToMaybeContent,
+    filterFieldCollectionToMaybeContent
   )
 import Massalia.UtilsGQL (Paginated)
 import Massalia.Utils (unsafeSnakeCaseT)
@@ -364,6 +366,7 @@ noExistsFilterSimple (tableName, tableCol, parentCol) = noExistsFilter condition
   where
     condition a = (simpleEq tableName tableCol a parentCol, tableName)
 
+-- | TODO : exists filter or not.
 noExistsFilter :: (
   QueryFormat qf,
   SQLFilter record,
@@ -556,6 +559,19 @@ instance (
           _where = Just $ "("<> whClause <> ")"
         }
       filterBitResult = filterFieldToMaybeContent prefixedField (Just val)
+      prefixedField = formattedColName (fromMaybe TableName $ (filterFieldType <$> options)) prefix actualFieldName
+      prefix = (fromText . filterTableName) <$> options
+      actualFieldName = fromText $ getFilterFieldName selectorName options
+
+instance (
+    SQLEncoder [b]
+  ) => SQLFilterField (GQLCollectionFilterCore b) where
+  filterStruct options selectorName val = result <$> filterBitResult
+    where
+      result whClause = mempty {
+          _where = Just $ "("<> whClause <> ")"
+        }
+      filterBitResult = filterFieldCollectionToMaybeContent prefixedField (Just val)
       prefixedField = formattedColName (fromMaybe TableName $ (filterFieldType <$> options)) prefix actualFieldName
       prefix = (fromText . filterTableName) <$> options
       actualFieldName = fromText $ getFilterFieldName selectorName options

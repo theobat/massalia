@@ -81,7 +81,9 @@ extra-deps:
   - morpheus-graphql-core-0.13.0
   - morpheus-graphql-0.13.0
   - git: https://github.com/theobat/hasql-url.git
-    commit: e41c9bc3179c36878e8c865685ff2be17a8ecef4
+    commit: 77e2616d5d33dfaa58eb4d9b643dcf710c2e5745
+  - git: https://github.com/theobat/massalia-migration.git
+    commit: 8c0058909086a5a65f604283975ae7ed92137c8c
   - git: https://github.com/theobat/hasql-migration.git
     commit: a85fddce1be310ce40e2861ee4ebcc3e045a120a
     subdirs:

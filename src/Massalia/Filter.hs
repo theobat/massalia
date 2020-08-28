@@ -32,10 +32,13 @@ module Massalia.Filter
     GQLFilterLocalTime,
     GQLFilterZonedTime,
     GQLFilterZonedTimeEq,
+    GQLCollectionFilterEq,
     GQLScalarFilterCore (..),
+    GQLCollectionFilterCore (..),
     FilterConstraint,
     defaultScalarFilter,
     filterFieldToMaybeContent,
+    filterFieldCollectionToMaybeContent,
     PostgresRange (postgresRangeName),
   )
 where
@@ -68,6 +71,9 @@ type GQLScalarFilterOrd filterType =
 type GQLScalarFilterText filterType =
   (GQLScalarFilterCore filterType filterType Void)
 
+type GQLCollectionFilterEq filterType =
+  (GQLCollectionFilterCore filterType)
+
 data GQLScalarFilterCore eqScalarType likeScalarType ordScalarType = GQLScalarFilter
   { isEq :: Maybe eqScalarType,
     isNotEq :: Maybe eqScalarType,
@@ -83,9 +89,22 @@ data GQLScalarFilterCore eqScalarType likeScalarType ordScalarType = GQLScalarFi
   }
   deriving (Eq, Show, Generic) -- JSON instances below
 
+data GQLCollectionFilterCore eqScalarType = GQLCollectionFilterCore
+  { doesContain :: Maybe [eqScalarType],
+    doesNotContain :: Maybe [eqScalarType],
+    isContainedBy :: Maybe [eqScalarType],
+    isNotContainedBy :: Maybe [eqScalarType],
+    hasLength :: Maybe Int
+  }
+  deriving (Eq, Show, Generic)
+
 deriving instance
   (FromJSON eqScalarType, FromJSON likeScalarType, FromJSON ordScalarType, Ord ordScalarType) =>
   FromJSON (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)
+
+deriving instance
+  (FromJSON eqScalarType) =>
+  FromJSON (GQLCollectionFilterCore eqScalarType)
 
 -- deriving newtype instance
 --   (FromJSON eqScalarType, FromJSON likeScalarType, FromJSON ordScalarType, Ord ordScalarType) =>
@@ -94,6 +113,10 @@ deriving instance
 deriving instance
   (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType, Ord ordScalarType) =>
   ToJSON (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)
+
+deriving instance
+  (ToJSON eqScalarType) =>
+  ToJSON (GQLCollectionFilterCore eqScalarType)
 
 -- deriving newtype instance
 --   (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType, Ord ordScalarType) =>
@@ -110,6 +133,13 @@ instance
   GQLType (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)
   where
   type KIND (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) = INPUT
+instance
+  ( Typeable eqScalarType,
+    GQLType eqScalarType
+  ) =>
+  GQLType (GQLCollectionFilterCore eqScalarType)
+  where
+  type KIND (GQLCollectionFilterCore eqScalarType) = INPUT
 
 -- deriving via (NamedFilter (Maybe (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))) instance
 --     (
@@ -139,6 +169,7 @@ type GQLFilterDay = GQLScalarFilterOrd Day
 -- | Filter with no effect
 -- defaultScalarFilter :: GQLScalarFilterCore eqScalarType likeScalarType ordScalarType
 defaultScalarFilter ::
+  forall eqScalarType likeScalarType ordScalarType.
   GQLScalarFilterCore
     eqScalarType
     likeScalarType
@@ -167,6 +198,16 @@ type FilterConstraint a b c =
     -- QueryFormat qf
   )
 
+-- | Takes a prefixedFieldName and a filter of type 'GQLScalarFilterCore'
+-- and transforms the whole into a (maybe) query format bit.
+--
+-- Examples:
+-- The nothing case:
+-- >>> filterFieldToMaybeContent @Text "foo.bar" (Just defaultScalarFilter :: Maybe GQLFilterText)
+-- Nothing
+-- The classical case:
+-- >>> filterFieldToMaybeContent @Text "foo.bar" (Just defaultScalarFilter{isEq = Just "Kanso"} :: Maybe GQLFilterText)
+-- Just "foo.bar = 'Kanso'"
 filterFieldToMaybeContent ::
   forall qf eqScalarType likeScalarType ordScalarType.
   (QueryFormat qf, FilterConstraint eqScalarType likeScalarType ordScalarType) =>
@@ -187,42 +228,71 @@ filterFieldToMaybeContent prefixedFieldName (Just filterVal) = case filterVal of
       isLT = isLTValue,
       isBetween = isBetweenValue,
       isNull = isNullValue
-    } -> case ( wrappedContent prefixedFieldName "!=" isNotEqValue ""
-                  <> wrappedContent prefixedFieldName "=ANY(" isInValue ")"
-                  <> wrappedContent prefixedFieldName "!=ALL(" isNotInValue ")"
-                  <> wrappedContent prefixedFieldName "like" isLikeValue ""
-                  <> wrappedContent prefixedFieldName "ilike" isIlikeValue ""
-                  <> wrappedContent prefixedFieldName ">" isGTValue ""
-                  <> wrappedContent prefixedFieldName "<" isLTValue ""
-                  <> wrappedContent prefixedFieldName "<@" isBetweenValue ""
+    } -> case ( wrappedContentInList prefixedFieldName "!=" isNotEqValue ""
+                  <> wrappedContentInList prefixedFieldName "=ANY(" isInValue ")"
+                  <> wrappedContentInList prefixedFieldName "!=ALL(" isNotInValue ")"
+                  <> wrappedContentInList prefixedFieldName "like" isLikeValue ""
+                  <> wrappedContentInList prefixedFieldName "ilike" isIlikeValue ""
+                  <> wrappedContentInList prefixedFieldName ">" isGTValue ""
+                  <> wrappedContentInList prefixedFieldName "<" isLTValue ""
+                  <> wrappedContentInList prefixedFieldName "<@" isBetweenValue ""
                   <> fromMaybe mempty (((pure . pure) $ prefixedFieldName <> " IS NOT NULL") <$> isNullValue)
               ) of
       [] -> Nothing
       filtList -> Just (MassaliaUtils.intercalate " AND " filtList)
 
-snippetContent ::
-  forall qf a.
-  (SQLEncoder a, QueryFormat qf) =>
+-- | Takes a prefixedFieldName and a filter of type 'GQLScalarFilterCore'
+-- and transforms the whole into a (maybe) query format bit.
+--
+-- Examples:
+-- The nothing case:
+-- >>> filterFieldToMaybeContent @Text "foo.bar" (Just defaultScalarFilter :: Maybe GQLFilterText)
+-- Nothing
+-- The classical case:
+-- >>> filterFieldToMaybeContent @Text "foo.bar" (Just defaultScalarFilter{isEq = Just "Kanso"} :: Maybe GQLFilterText)
+-- Just "foo.bar = 'Kanso'"
+filterFieldCollectionToMaybeContent ::
+  forall qf eqScalarType.
+  (QueryFormat qf, SQLEncoder [eqScalarType]) =>
   qf ->
-  qf ->
-  Maybe a ->
+  Maybe (GQLCollectionFilterCore eqScalarType) ->
   Maybe qf
-snippetContent fieldName op maybeVal = effectFunc <$> maybeVal
-  where
-    effectFunc parameterVal = fieldName <> " " <> op <> " " <> sqlEncode parameterVal
+filterFieldCollectionToMaybeContent _ Nothing = Nothing
+filterFieldCollectionToMaybeContent prefixedFieldName (Just filterVal) = case filterVal of
+  GQLCollectionFilterCore
+    { doesContain = doesContainValue,
+      doesNotContain = doesNotContainValue,
+      isContainedBy = isContainedByValue,      
+      isNotContainedBy = isNotContainedByValue,
+      hasLength = hasLengthValue
+    } -> case ( wrappedContentInList prefixedFieldName "@>" doesContainValue ""
+                  <> wrappedContentInList ("NOT (" <> prefixedFieldName) "@>" doesNotContainValue ")"
+                  <> wrappedContentInList prefixedFieldName "<@" isContainedByValue ""
+                  <> wrappedContentInList ("NOT (" <> prefixedFieldName) "<@" isNotContainedByValue ")"
+                  <> wrappedContentInList ("array_length(" <> prefixedFieldName <> ", 1) ") "=" hasLengthValue ""
+              ) of
+      [] -> Nothing
+      filtList -> Just (MassaliaUtils.intercalate " AND " filtList)
 
-wrappedContent ::
-  forall qf.
-  (QueryFormat qf) =>
-  qf ->
-  ( forall filterValue.
-    (SQLEncoder filterValue) =>
-    qf ->
-    Maybe filterValue ->
-    qf ->
-    [qf]
+-- | Similar to 'wrappedContent' but with an empty suffix.
+-- Equals @wrappedContent fieldName op maybeVal ""@
+-- Example:
+-- >>> snippetContent @Text @Int "foo.bar" "=" (Just 1)
+-- Just "foo.bar = 1"
+snippetContent :: (QueryFormat a, SQLEncoder filterValue) => a -> a -> Maybe filterValue -> Maybe a
+snippetContent fieldName op maybeVal = wrappedContent fieldName op maybeVal ""
+
+wrappedContentInList :: (QueryFormat qf, SQLEncoder valueType) => qf -> qf -> Maybe valueType -> qf -> [qf]
+wrappedContentInList fieldName op maybeVal = maybeToList . wrappedContent fieldName op maybeVal
+
+-- | Inner function to format an sql @a op b postop@ type of expression.
+-- Example:
+-- >>> wrappedContent @Text @Int "foo.bar" "=" (Just 1) ""
+-- Just "foo.bar = 1"
+-- >>> wrappedContent @Text @[Int] "foo.bar" "=ANY(" (Just [1, 2, 3]) ")"
+-- Just "foo.bar =ANY( '{3,2,1}')"
+wrappedContent :: (QueryFormat qf, SQLEncoder valueType) => qf -> qf -> Maybe valueType -> qf -> Maybe qf
+wrappedContent _ _ Nothing _ = Nothing
+wrappedContent fieldName op (Just a) suffix = Just
+  ( fieldName <> " " <> op <> " " <> sqlEncode a <> suffix
   )
-wrappedContent _ _ Nothing _ = []
-wrappedContent fieldName op (Just a) suffix =
-  [ fieldName <> " " <> op <> " " <> sqlEncode a <> suffix
-  ]

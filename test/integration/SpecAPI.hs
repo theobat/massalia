@@ -7,19 +7,14 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 
 import Data.Morpheus.Types (GQLRequest (..))
-import qualified Hasql.Connection as Connection
-import Hasql.DynamicStatements.Session (dynamicallyParameterizedStatement)
-import Hasql.Migration (MigrationCommand (MigrationInitialization), loadMigrationFromFile, runMigration)
-import Massalia.Migration (
-    GlobalMigrationError,
-    findAndRunAllMigration, MigrationPattern(..), defaultMigrationPattern
-  ) 
+import MassaliaMigration (findAndRunAllMigration, defaultMigrationPattern, GlobalMigrationError)
+import MigrationTypes (
+  MigrationPattern(..)
+  )
 import MassaliaSchema.TestAPI (api, apiWithoutDB)
 import Protolude
-import qualified SpecGraphQLSelect
-import qualified SpecStaticSelect
-import Test.Tasty
-import Test.Tasty.HUnit
+import Test.Tasty ()
+import Test.Tasty.HUnit ()
 import Text.Pretty.Simple (pPrint)
 import Massalia.HasqlExec (poolFromURLString, release)
 import Massalia.HasqlConnection (URLError)
