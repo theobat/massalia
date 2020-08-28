@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2102d36e28fedab443d6cfa946880a05f0faa74448eab78dd6d608590224e3e7
+-- hash: 0aab79276cecc0dbee0e96f648c666c934046777e5008779a5f63a29ad685903
 
 name:           massalia
 version:        0.1.0.0
@@ -36,7 +36,6 @@ library
       Massalia.HasqlEnc
       Massalia.HasqlExec
       Massalia.MainError
-      Massalia.Migration
       Massalia.Morpheus
       Massalia.MorpheusServer
       Massalia.MorpheusTypes
