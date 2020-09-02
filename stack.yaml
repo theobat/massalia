@@ -83,7 +83,7 @@ extra-deps:
   - git: https://github.com/theobat/hasql-url.git
     commit: 77e2616d5d33dfaa58eb4d9b643dcf710c2e5745
   - git: https://github.com/theobat/massalia-migration.git
-    commit: 8c0058909086a5a65f604283975ae7ed92137c8c
+    commit: f248e405f764853881a0df117c047d1fa81f03dc
   - git: https://github.com/theobat/hasql-migration.git
     commit: a85fddce1be310ce40e2861ee4ebcc3e045a120a
     subdirs:
