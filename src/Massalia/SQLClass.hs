@@ -60,6 +60,8 @@ module Massalia.SQLClass
     insertValuesQuery,
     decoderFromSQLDefault,
     noExistsFilterSimple,
+    existsOrNotFilter,
+    existsOrNotPrimitive,
   )
 where
 
@@ -169,6 +171,7 @@ basicDecodeRecordSubquery ::
   -- | The context switch between parent and child.
   (parentContextT -> childrenContextT) ->
   -- | The function which performs the join between parents and child.
+  -- Its argument is the parent's table name (query formatted).
   (qf -> SelectStruct qf) ->
   -- | The given parent context.
   parentContextT ->
@@ -364,27 +367,60 @@ joinFilterField !joinFunction !opts _ !val = partialRes
 noExistsFilterSimple :: (QueryFormat qf, SQLFilter record) => (Text, Text, Text) -> Maybe SQLFilterOption -> p -> record -> (SelectStruct qf)
 noExistsFilterSimple (tableName, tableCol, parentCol) = noExistsFilter condition
   where
-    condition a = (simpleEq tableName tableCol a parentCol, tableName)
+    condition fatherTableName = (simpleEq tableName tableCol fatherTableName parentCol, tableName)
 
--- | TODO : exists filter or not.
 noExistsFilter :: (
   QueryFormat qf,
   SQLFilter record,
   FromText qf) =>
-  -- | The name of the table to filter.
+  -- | A function taking the parent table name as argument
+  --  and returning a tuple made of the resulting expression used as 
+  --  the where condition and the 
   (Text -> (Text, Text)) ->
   Maybe SQLFilterOption -> p -> record -> (SelectStruct qf)
-noExistsFilter !joinFunction !opts _ !val = partialRes
+noExistsFilter = existsOrNotFilter False
+
+type IsExists = Bool
+existsOrNotFilter :: (
+  QueryFormat qf,
+  SQLFilter record,
+  FromText qf) =>
+  -- | True for exists, False for non exists
+  IsExists ->
+  -- | A function taking the parent table name as argument
+  --  and returning a tuple made of the resulting expression used as 
+  --  the where condition and the 
+  (Text -> (Text, Text)) ->
+  Maybe SQLFilterOption -> p -> record ->
+  -- | The end result is the query formatted @[NOT] EXISTS@ within a _where in SQL. 
+  (SelectStruct qf)
+existsOrNotFilter !isExists !joinFunction opts = existsOrNotPrimitive isExists innerQuery opts
       where
-        partialRes = (mempty{
-          _where = Just $ "NOT EXISTS (" <> selectStructToQueryFormat innerQuery <> ")"
-          }) <> recordPart mempty
-        innerQuery = mempty {
+        innerQuery fatherTable = (mempty {
           _select = pure "1",
           _from = Just $ fromText tableName,
           _where = Just (fromText conditionRes)
-        }
-        (conditionRes, tableName) = joinFunction fatherTable
+        }, fatherTable)
+          where
+            (conditionRes, tableName) = joinFunction fatherTable
+
+existsOrNotPrimitive :: (SQLFilter record, QueryFormat p1) =>
+  IsExists ->
+  -- |A function taking the parent table name as argument
+  -- and returning a tuple made of the resulting sql bit and
+  -- the children tablename.
+  (Text -> (SelectStruct p1, Text)) ->
+  Maybe SQLFilterOption ->
+  p2 ->
+  record ->
+  SelectStruct p1
+existsOrNotPrimitive !isExists !sqlExprFunction !opts _ !val = partialRes
+      where
+        partialRes = (mempty{
+          _where = Just $ prefix <> "EXISTS (" <> selectStructToQueryFormat innerQuery <> ")"
+          }) <> recordPart mempty
+        (innerQuery, tableName) = sqlExprFunction fatherTable
+        prefix = if isExists then "NOT " else ""
         fatherTable = fromMaybe "" (filterTableName <$> opts)
         recordPart = toQueryFormatFilter updatedOpt val
         updatedOpt = updateFiltOpt <$> opts

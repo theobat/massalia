@@ -84,11 +84,11 @@ packages:
     git: https://github.com/theobat/massalia-migration.git
     pantry-tree:
       size: 1175
-      sha256: d3905c3b8afca1315673aaa266e4e0c764a5a1a00186845d9ef4c01a0fff04a3
-    commit: 8c0058909086a5a65f604283975ae7ed92137c8c
+      sha256: 6e4ec97e62dab399480ba0d2ba93e71402c7b76076adf91b89f8daab5654fb80
+    commit: 248721f57beae14e70dd65b6ea0a300655196cc4
   original:
     git: https://github.com/theobat/massalia-migration.git
-    commit: 8c0058909086a5a65f604283975ae7ed92137c8c
+    commit: 248721f57beae14e70dd65b6ea0a300655196cc4
 - completed:
     subdir: .
     name: hasql-migration
