@@ -109,7 +109,7 @@ import Massalia.SelectionTree(MassaliaNode, MassaliaTree, getName, leaf, over)
 import qualified Massalia.SelectionTree as MassaliaTree
 import qualified Hasql.Decoders as Decoders 
 import Protolude hiding (intercalate)
-import Massalia.SQLSelectStruct (
+import Massalia.SQLSelectStruct (concatAnd, 
     SelectStruct(..),
     QueryAndDecoder(..),
     selectStructToRecordSubquery,
@@ -394,7 +394,7 @@ existsOrNotFilter :: (
   Maybe SQLFilterOption -> p -> record ->
   -- | The end result is the query formatted @[NOT] EXISTS@ within a _where in SQL. 
   (SelectStruct qf)
-existsOrNotFilter !isExists !joinFunction opts = existsOrNotPrimitive isExists innerQuery opts
+existsOrNotFilter !isExists !joinFunction opts = existsOrNotPrimitive isExists False innerQuery opts
       where
         innerQuery fatherTable = (mempty {
           _select = pure "1",
@@ -405,7 +405,11 @@ existsOrNotFilter !isExists !joinFunction opts = existsOrNotPrimitive isExists i
             (conditionRes, tableName) = joinFunction fatherTable
 
 existsOrNotPrimitive :: (SQLFilter record, QueryFormat p1) =>
+  -- | True means @EXISTS@, False means @NOT EXISTS@ 
   IsExists ->
+  -- | True means the filter is applied within the EXISTS clause.
+  -- False means outside.
+  Bool ->
   -- |A function taking the parent table name as argument
   -- and returning a tuple made of the resulting sql bit and
   -- the children tablename.
@@ -414,13 +418,16 @@ existsOrNotPrimitive :: (SQLFilter record, QueryFormat p1) =>
   p2 ->
   record ->
   SelectStruct p1
-existsOrNotPrimitive !isExists !sqlExprFunction !opts _ !val = partialRes
+existsOrNotPrimitive !isExists !filterInside !sqlExprFunction !opts _ !val = finalRes
       where
-        partialRes = (mempty{
-          _where = Just $ prefix <> "EXISTS (" <> selectStructToQueryFormat innerQuery <> ")"
-          }) <> recordPart mempty
+        finalRes = case filterInside of
+          True -> partialRes $ (selectStructToQueryFormat $ innerQuery `concatAnd` recordPart mempty)
+          False -> (partialRes $ selectStructToQueryFormat innerQuery) `concatAnd` recordPart mempty
+        partialRes insdeQuery = (mempty{
+          _where = Just $ prefix <> "EXISTS (" <> insdeQuery <> ")"
+          }) `concatAnd` recordPart mempty
         (innerQuery, tableName) = sqlExprFunction fatherTable
-        prefix = if isExists then "NOT " else ""
+        prefix = if isExists then "" else "NOT "
         fatherTable = fromMaybe "" (filterTableName <$> opts)
         recordPart = toQueryFormatFilter updatedOpt val
         updatedOpt = updateFiltOpt <$> opts
