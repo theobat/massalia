@@ -278,4 +278,5 @@ offsetLimitToQF formatType pref ol = case ol of
   Just val -> case (val, formatType) of
     ((Nothing, limitVal), Plain) -> (pref "LIMIT ") <> limitVal
     ((Just offsetVal, limitVal), Plain) -> (pref "OFFSET ") <> offsetVal <> " LIMIT " <> limitVal
-    ((offsetVal, limitVal), Array) -> "[" <> fromMaybe "0" offsetVal <> ":" <> limitVal <> "]"
+    ((offsetVal, limitVal), Array) -> "[" <> offsetValReal <> "+ 1" <> ":" <> (limitVal <> "+" <> offsetValReal) <> "]"
+      where offsetValReal = fromMaybe "0" offsetVal
