@@ -13,7 +13,7 @@ where
 import Data.Morpheus.Core (SelectionTree)
 import qualified Data.Morpheus.Core as MorpheusTree (SelectionTree(..))
 import Data.Morpheus.Types (
-    Context (Context, currentSelection),
+    ResolverContext (ResolverContext, currentSelection),
   )
 import qualified Data.Map as Map
 import Data.Morpheus.Types.Internal.AST (FieldName(readName))
@@ -53,9 +53,8 @@ overAll parent child = parent{
 nodeOver :: Text -> [MassaliaNode] -> MassaliaNode
 nodeOver key childList = leaf key `overAll` childList
 
-
-fromMorpheusContext :: Context -> MassaliaNode
-fromMorpheusContext Context{currentSelection = input} = morpheusNodeToMassaliaNode input
+fromMorpheusContext :: ResolverContext -> MassaliaNode
+fromMorpheusContext ResolverContext{currentSelection = input} = morpheusNodeToMassaliaNode input
 
 morpheusNodeToMassaliaNode :: (SelectionTree a) => a -> MassaliaNode
 morpheusNodeToMassaliaNode input
