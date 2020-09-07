@@ -78,8 +78,8 @@ extra-deps:
   - bug-1.0.1@sha256:a516df91c7330d350480a7d338af645f173d1e767450c5f94295020f11c8432c,1395
   - base-prelude-1.4@sha256:feea99326853023fa9f908308383a7f9802e40f2d241b83dac57b266b202bda6,1412
   - postgresql-binary-0.12.3@sha256:4d5e52e5ef171dae8dd3ce5f72da552c34fe92ae13ba55bb165e59f245349b4f,6057
-  - morpheus-graphql-core-0.13.0
-  - morpheus-graphql-0.13.0
+  - morpheus-graphql-core-0.14.1
+  - morpheus-graphql-0.14.1
   - git: https://github.com/theobat/hasql-url.git
     commit: 77e2616d5d33dfaa58eb4d9b643dcf710c2e5745
   - git: https://github.com/theobat/massalia-migration.git
