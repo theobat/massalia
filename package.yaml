@@ -53,8 +53,8 @@ dependencies:
 - filepattern
 - filepath
 - time
-- morpheus-graphql == 0.13.0
-- morpheus-graphql-core == 0.13.0
+- morpheus-graphql
+- morpheus-graphql-core
 
 library:
   source-dirs: src

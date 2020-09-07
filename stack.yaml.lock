@@ -54,19 +54,19 @@ packages:
   original:
     hackage: postgresql-binary-0.12.3@sha256:4d5e52e5ef171dae8dd3ce5f72da552c34fe92ae13ba55bb165e59f245349b4f,6057
 - completed:
-    hackage: morpheus-graphql-core-0.13.0@sha256:af4c0cc0f5c84cbcb85486329574f2ced98326be4fedd8a7fa116bf783d5a8b6,6774
+    hackage: morpheus-graphql-core-0.14.1@sha256:851571665e7d8452394c2b8d4a5745f439a054b63c0bacb6210406f1787dd13a,12318
     pantry-tree:
-      size: 8516
-      sha256: f0155c18930d61ebb6b1f5d81321bdf49f41dffbab3f9b07a6cc3785c540ac9b
+      size: 16723
+      sha256: fdd291b61274be24a8fd2c8bb1aa829fc76bcdaafdd69da8b667269d9a1d1ebf
   original:
-    hackage: morpheus-graphql-core-0.13.0
+    hackage: morpheus-graphql-core-0.14.1
 - completed:
-    hackage: morpheus-graphql-0.13.0@sha256:d8173116f630ecf264747bf31a823126452f144e1802d236b64efcf8677289cb,28007
+    hackage: morpheus-graphql-0.14.1@sha256:305ce340e9439c1f35124788938c1760eb79691c05627a66cdeaf64368eb9b2e,28836
     pantry-tree:
-      size: 40014
-      sha256: 5b390bba65d00644b0c99d7cbda308d1ff0706a33c90523d6cfcdd5005cab90d
+      size: 41329
+      sha256: d913ebe4a1196775e8bf5ababf042db4486832b90a89a40ccd0d22dbf7dbe919
   original:
-    hackage: morpheus-graphql-0.13.0
+    hackage: morpheus-graphql-0.14.1
 - completed:
     name: hasql-url
     version: 0.1.0.0
