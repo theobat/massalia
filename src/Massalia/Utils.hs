@@ -55,6 +55,7 @@ module Massalia.Utils
     pPrint,
     -- String
     simpleSnakeCase,
+    simpleSnakeCaseT,
     unsafeSnakeCaseT,
     inParens
   )
@@ -93,6 +94,7 @@ import Text.Pretty.Simple (pPrint)
 -- Legacy String
 import Data.String (String)
 import Data.Char (toLower, isUpper)
+import qualified Data.Text as Text
 
 -- --------------- TEXT
 intercalate :: Monoid a => a -> [a] -> a
@@ -156,6 +158,15 @@ simpleSnakeCase = foldl' iterator baseCase
     iterator name c
       | isUpper c = name ++ "_" ++ [toLower c]
       | otherwise = name ++ [toLower c]
+
+-- | A very simple snake_case converter.
+simpleSnakeCaseT :: Text -> Text
+simpleSnakeCaseT = Text.concatMap iterator
+  where
+    iterator c
+      | isUpper c = "_" <> lowerChar c
+      | otherwise = lowerChar c
+    lowerChar c = Text.singleton $ toLower c
 
 -- | A very simple, JSON oriented, representation for a range.
 -- A null @start@ means @-infinity@ and a null end means @+infinity@.

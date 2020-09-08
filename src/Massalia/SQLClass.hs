@@ -67,7 +67,7 @@ where
 
 import qualified Data.Map as Map
 import Massalia.QueryFormat
-  (
+  (fieldRename, 
     QueryFormat(sqlEncode),
     (°),
     formattedColName,
@@ -92,7 +92,7 @@ import Massalia.Filter (
     filterFieldCollectionToMaybeContent
   )
 import Massalia.UtilsGQL (Paginated)
-import Massalia.Utils (unsafeSnakeCaseT)
+import Massalia.Utils (simpleSnakeCaseT, unsafeSnakeCaseT)
 import Massalia.SQLUtils (insertIntoWrapper, selectWrapper, rowsAssembler)
 import Massalia.GenericUtils (proxySelName, GTypeName(gtypename), GSelectors(selectors))
 import Data.String (IsString(fromString))
@@ -578,7 +578,8 @@ instance (
   gtoQueryFormatFilter options (M1 (K1 !val)) = maybeToList (filterMerge <$> result)
     where
       result = filterStruct options selector val 
-      selector = fromString $ simpleSnakeCase $ selName (proxySelName :: M1 S s (K1 R t) ())
+      selector = simpleSnakeCaseT selectorString
+      selectorString = fromString $ selName (proxySelName :: M1 S s (K1 R t) ())
 
 class SQLFilterField fieldType where
   filterStruct ::
@@ -604,7 +605,7 @@ instance (
       filterBitResult = filterFieldToMaybeContent prefixedField (Just val)
       prefixedField = formattedColName (fromMaybe TableName $ (filterFieldType <$> options)) prefix actualFieldName
       prefix = (fromText . filterTableName) <$> options
-      actualFieldName = fromText $ getFilterFieldName selectorName options
+      actualFieldName = fromText $ getFilterFieldName (fieldRename @b selectorName) options
 
 instance (
     SQLEncoder [b]
@@ -617,7 +618,7 @@ instance (
       filterBitResult = filterFieldCollectionToMaybeContent prefixedField (Just val)
       prefixedField = formattedColName (fromMaybe TableName $ (filterFieldType <$> options)) prefix actualFieldName
       prefix = (fromText . filterTableName) <$> options
-      actualFieldName = fromText $ getFilterFieldName selectorName options
+      actualFieldName = fromText $ getFilterFieldName (fieldRename @[b] selectorName) options
 
 instance SQLFilter () where
   toQueryFormatFilter _ _ = identity
@@ -649,8 +650,7 @@ instance SQLFilterField Bool where
 
 instance (SQLFilter a) => SQLFilter (Paginated a) where
   toQueryFormatFilter opt val = paginatedFilterToSelectStruct opt val
--- instance (SQLFilter a) => SQLFilter (PaginatedT a Void) where
---   toQueryFormatFilter opt val = paginatedFilterToSelectStruct opt val
+
 instance SQLFilter Void where
   toQueryFormatFilter _ _ = identity
 

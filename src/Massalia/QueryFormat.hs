@@ -28,7 +28,7 @@
 module Massalia.QueryFormat
   ( QueryFormat (sqlEncode),
     formattedColName,
-    SQLEncoder (wrapEncoding, ignoreInGenericInstance, textEncode, binaryEncode),
+    SQLEncoder (wrapEncoding, ignoreInGenericInstance, textEncode, binaryEncode, fieldRename),
     SQLDecoder (sqlDecoder, sqlExpr),
     fmapList,
     fmapVector,
@@ -161,6 +161,8 @@ class SQLEncoder dataT where
   default textEncode :: (Show dataT) => dataT -> TextQuery
   textEncode = inSingleQuote . pack . show
   binaryEncode :: dataT -> BinaryQuery
+  fieldRename :: Text -> Text
+  fieldRename = identity
 
 voidMessage :: Text
 voidMessage = " from void cannot happen because Void has no inhabitant and sqlEncode expect Void -> queryFormat"
@@ -507,8 +509,12 @@ instance
   binaryEncode = encodeRange
 
 -- | test
+-- >>> import Massalia.Utils (SimpleRange(SimpleRange))
 -- >>> (sqlEncode $ SimpleRange (Just 1 :: Maybe Int) Nothing Nothing) :: Text
--- "int8range(1,null)"
+-- "int4range(1,null)"
+-- >>> import Massalia.Utils (SimpleRange(SimpleRange))
+-- >>> (sqlEncode $ SimpleRange (Just 1 :: Maybe Int) (Nothing :: Maybe Int) (Just EE)) :: Text
+-- "int4range(1,null, '()')"
 encodeRange ::
   forall qf dataT.
   ( QueryFormat qf,
@@ -524,10 +530,10 @@ encodeRange value = postgresRangeName @dataT <> "(" <> startValue <> "," <> endV
     bounds =
       ( case inclusivity value of
           Nothing -> ""
-          Just II -> ", []"
-          Just IE -> ", [)"
-          Just EI -> ", (]"
-          Just EE -> ", ()"
+          Just II -> ", '[]'"
+          Just IE -> ", '[)'"
+          Just EI -> ", '(]'"
+          Just EE -> ", '()'"
       )
     getBoundary accessor = fromMaybe "null" $ (sqlEncode <$> accessor value)
 
