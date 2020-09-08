@@ -404,6 +404,10 @@ existsOrNotFilter !isExists !joinFunction opts = existsOrNotPrimitive isExists F
           where
             (conditionRes, tableName) = joinFunction fatherTable
 
+
+-- |
+-- >>> existsOrNotPrimitive True True mempty Nothing "selection" () :: SelectStruct Text
+-- SelectStruct {_rawPrefix = Nothing, _select = [], _from = Nothing, _join = [], _where = Just "EXISTS (SELECT )", _groupBy = [], _having = Nothing, _orderBy = [], _offsetLimit = Nothing}
 existsOrNotPrimitive :: (SQLFilter record, QueryFormat p1) =>
   -- | True means @EXISTS@, False means @NOT EXISTS@ 
   IsExists ->
@@ -415,7 +419,7 @@ existsOrNotPrimitive :: (SQLFilter record, QueryFormat p1) =>
   -- the children tablename.
   (Text -> (SelectStruct p1, Text)) ->
   Maybe SQLFilterOption ->
-  p2 ->
+  selectionSet ->
   record ->
   SelectStruct p1
 existsOrNotPrimitive !isExists !filterInside !sqlExprFunction !opts _ !val = finalRes
@@ -425,7 +429,7 @@ existsOrNotPrimitive !isExists !filterInside !sqlExprFunction !opts _ !val = fin
           False -> (partialRes $ selectStructToQueryFormat innerQuery) `concatAnd` recordPart mempty
         partialRes insdeQuery = (mempty{
           _where = Just $ prefix <> "EXISTS (" <> insdeQuery <> ")"
-          }) `concatAnd` recordPart mempty
+          })
         (innerQuery, tableName) = sqlExprFunction fatherTable
         prefix = if isExists then "" else "NOT "
         fatherTable = fromMaybe "" (filterTableName <$> opts)
