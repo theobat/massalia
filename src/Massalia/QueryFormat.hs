@@ -56,6 +56,7 @@ module Massalia.QueryFormat
     decodeNameInContext,
     collectionTextEncode,
     PostgresRange (postgresRangeName),
+    decodeTupleToHasql,
   )
 where
 
@@ -300,6 +301,8 @@ defaultDecodeExpr context input = firstRes
     colName = fromText $ unsafeSnakeCaseT $ getName input
     decOption = fromMaybe mempty (getDecodeOption context)
 
+-- | A data structure to enable a functor instance
+-- This is meant to simplify the handling of nullability, and the composition of decoders.
 data DecodeTuple decodedT = DecodeTuple
   { decValue :: Decoders.Value decodedT,
     decNValue :: Decoders.Value decodedT -> Decoders.NullableOrNot Decoders.Value decodedT
@@ -311,6 +314,10 @@ defaultDecodeTuple value =
     { decValue = value,
       decNValue = Decoders.nonNullable
     }
+
+-- | Turns a 'DecodeTuple' into a hasql decoder.
+decodeTupleToHasql :: DecodeTuple decodedT -> Decoders.NullableOrNot Decoders.Value decodedT
+decodeTupleToHasql input = (decNValue input) $ decValue input
 
 refineDecoder :: (a -> Either Text b) -> DecodeTuple a -> DecodeTuple b
 refineDecoder refiner (DecodeTuple dec _) = result
