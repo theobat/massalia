@@ -11,7 +11,8 @@ module Massalia.Auth
     JWTEncodedString (JWTEncodedString),
     defaultCheckJWT,
     checkJWT,
-    JWTError(..)
+    JWTError(..),
+    unsafeJWTClaims
   )
 where
 
@@ -106,3 +107,8 @@ checkNotBefore shouldFailOnNothing now claimSet = case nbf claimSet of
     if now < secondsSinceEpoch val
       then Left NotValidYet
       else Right claimSet
+
+-- | This function unsafely retreives jwt claims,
+-- **WITHOUT CHECKING JWT's integrity**
+unsafeJWTClaims :: JWTEncodedString -> Maybe JWTClaimsSet
+unsafeJWTClaims (JWTEncodedString input) = claims <$> (decode input)
