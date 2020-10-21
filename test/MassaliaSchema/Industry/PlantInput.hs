@@ -7,6 +7,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE TypeApplications #-}
 
 module MassaliaSchema.Industry.PlantInput
   ( PlantInput (..),
@@ -27,7 +28,8 @@ import Massalia.QueryFormat
   )
 import Massalia.SQLClass (
     DBContext(toWithQuery), SQLName, SQLColumns, SQLValues,
-    defaultWithQueryOption
+    defaultWithQueryOption, DBContextSubquery(withSubqueryFromCollection), 
+    insertDBContextSubquery
   )
 import MassaliaSchema.Industry.TruckInput (TruckInput)
 
@@ -41,6 +43,8 @@ data PlantInput
     Eq, Show, Generic, JSON.FromJSON,
     SQLName, SQLColumns, SQLValues
     )
+instance DBContextSubquery c PlantInput where
+  withSubqueryFromCollection a b = insertDBContextSubquery a b
 
 data PlantListInput container
   = PlantListInput

@@ -11,6 +11,7 @@
 module Massalia.SQLUtils where
 
 import Protolude
+import Massalia.QueryFormat (inParens)
 
 rowsAssembler ::
   (Foldable collection, Semigroup queryFormat, IsString queryFormat) =>
@@ -33,3 +34,26 @@ selectWrapper name assembledColList valueRows = "SELECT * FROM (" <> valueRows <
 data NodeUtils = NodeUtils {
   tableNames :: Map Text Text
 }
+
+data SQLWith queryFormat = SQLWith {
+  withName :: queryFormat,
+  withBody :: queryFormat
+} deriving (Show, Eq)
+
+-- | Inlines a struct of WITH query parts:
+--
+-- Example:
+--
+-- >>> inlineWith Nothing []
+-- "WITH "
+-- >>> inlineWith Nothing [SQLWith "test" "select 1"]
+-- "WITH \"test\" AS (select 1)"
+inlineWith :: (Foldable collection, Semigroup queryFormat, IsString queryFormat) =>
+  -- | potential future options 
+  Maybe () ->
+  collection (SQLWith queryFormat) ->
+  queryFormat
+inlineWith _ input = foldr' assembler "WITH " input
+  where
+    assembler (SQLWith nameV bodyV) existing = existing <> ("\"" <> nameV <> "\"" <> " AS " <> (inParens bodyV))
+

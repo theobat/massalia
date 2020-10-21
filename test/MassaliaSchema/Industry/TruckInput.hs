@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -8,6 +9,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 
 module MassaliaSchema.Industry.TruckInput
   ( TruckInput (..),
@@ -26,7 +28,7 @@ import Massalia.QueryFormat
     FromText(fromText),
     SQLEncoder(textEncode, binaryEncode)
   )
-import Massalia.SQLClass (SQLName, SQLColumns, SQLValues)
+import Massalia.SQLClass (SQLName, SQLColumns, SQLValues, DBContextSubquery(..), insertDBContextSubquery)
 import Protolude
 
 data TruckInput
@@ -39,6 +41,9 @@ data TruckInput
     Eq, Show, Generic,
     JSON.FromJSON,
     SQLName, SQLColumns, SQLValues)
+
+instance DBContextSubquery TruckInput where
+  withSubqueryFromCollection a b = insertDBContextSubquery a b
 
 data Chassis = C8x4 | C6x4 | C4x4 | C4x2 | CUnknown
   deriving (Eq, Show, Generic, JSON.FromJSON)

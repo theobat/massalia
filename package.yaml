@@ -55,6 +55,7 @@ dependencies:
 - time
 - morpheus-graphql
 - morpheus-graphql-core
+- these
 
 library:
   source-dirs: src
