@@ -30,6 +30,8 @@ module Massalia.SQLClass
   ( SQLName (..),
     SQLColumns (..),
     SQLValues (..),
+    goToValues,
+    SQLValuesOption (..),
     DBContext (..),
     DBContextSubquery (..),
     WithQueryOption (..),
