@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
@@ -11,6 +10,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -31,7 +31,7 @@ module Massalia.SQLClass
     SQLColumns (..),
     SQLValues (..),
     DBContext (..),
-    DBContextSubquery(..),
+    DBContextSubquery (..),
     WithQueryOption (..),
     SQLFilter (toQueryFormatFilter),
     SQLFilterField (filterStruct),
@@ -63,7 +63,8 @@ module Massalia.SQLClass
     noExistsFilterSimple,
     existsOrNotFilter,
     existsOrNotPrimitive,
-    insertDBContextSubquery)
+    insertDBContextSubquery,
+  )
 where
 
 import qualified Data.Map as Map
@@ -115,13 +116,19 @@ import Massalia.SQLSelectStruct
     selectStructToQueryFormat,
     selectStructToRecordSubquery,
   )
-import Massalia.SQLUtils (SQLWith(SQLWith), inlineWith, insertIntoWrapper, rowsAssembler, selectWrapper)
+import Massalia.SQLUtils (SQLWith (SQLWith), inlineWith, insertIntoWrapper, selectWrapper)
 import Massalia.SelectionTree (MassaliaNode, MassaliaTree, getName, leaf, over)
 import qualified Massalia.SelectionTree as MassaliaTree
 import Massalia.Utils (intercalate, simpleSnakeCase, simpleSnakeCaseT, toCSVInParens, unsafeSnakeCaseT)
 import Massalia.UtilsGQL (OrderByWay (..), OrderingBy (..), Paginated)
 import qualified Massalia.UtilsGQL as Paginated
 import Protolude hiding (intercalate)
+
+-- This is for doctest only:
+
+-- $setup
+-- >>> :set -XNoImplicitPrelude
+-- >>> :set -XTypeApplications
 
 type SubSelectConstraint qf contextT subNodeT =
   ( QueryFormat qf,
@@ -521,6 +528,24 @@ gsqlColumns = snakeTypename
 columnList :: forall a queryFormat. (QueryFormat queryFormat, SQLColumns a) => queryFormat
 columnList = fromString $ toCSVInParens (sqlColumns @a)
 
+data SQLValuesOption = SQLValuesOption
+  { -- | Beware this should respect SQLColumn's order.
+    additionalValueList :: [Text]
+  }
+  deriving (Show, Eq)
+
+instance Semigroup SQLValuesOption where
+  (<>) a b =
+    a
+      { additionalValueList = additionalValueList a <> additionalValueList b
+      }
+
+instance Monoid SQLValuesOption where
+  mempty =
+    SQLValuesOption
+      { additionalValueList = mempty
+      }
+
 -- | This class represents all the haskell types with a corresponding 'toSQLValues'
 -- function. It's a function meant to encode a haskell record as an SQL comma separated
 -- list of parametrized values.
@@ -533,9 +558,9 @@ columnList = fromString $ toCSVInParens (sqlColumns @a)
 -- Would yield something like @(?, ?, ?)@ with @["some text", 1234, "really ?"]@ parameters.
 -- Or @ ("some text", 1234, "really ?") @ if the 'queryFormat' is 'Text'.
 class SQLValues a where
-  toSQLValues :: (QueryFormat queryFormat) => a -> [queryFormat]
-  default toSQLValues :: (QueryFormat queryFormat, Generic a, GValues (Rep a)) => a -> [queryFormat]
-  toSQLValues value = goToValues (from value)
+  toSQLValues :: (QueryFormat queryFormat) => Maybe SQLValuesOption -> a -> [queryFormat]
+  default toSQLValues :: (QueryFormat queryFormat, Generic a, GValues (Rep a)) => Maybe SQLValuesOption -> a -> [queryFormat]
+  toSQLValues _ value = goToValues (from value)
 
 class GValues f where
   goToValues :: forall queryFormat a. (QueryFormat queryFormat) => f a -> [queryFormat]
@@ -685,6 +710,8 @@ instance SQLFilter () where
 
 instance SQLFilterField () where
   filterStruct _ _ _ = Nothing
+instance SQLFilterField Void where
+  filterStruct _ _ _ = Nothing
 
 instance (SQLFilter a) => SQLFilter (Maybe a) where
   toQueryFormatFilter _ Nothing = identity
@@ -769,10 +796,16 @@ compositeFieldFilter options selectorName val = result
 ----------------------------------------------------------------------------
 ---------------------------- DBContext queries
 ----------------------------------------------------------------------------
--- | This is the instance called for each part of the WITH query built by a 
--- DBContext class.
+
+-- |  This is the instance called for each part of the WITH query built by a
+--  DBContext class.
 class DBContextSubquery record where
-  withSubqueryFromCollection :: forall collection queryFormat. Maybe WithQueryOption -> collection record -> [(SQLWith queryFormat)]
+  withSubqueryFromCollection ::
+    forall collection queryFormat.
+    (Foldable collection, QueryFormat queryFormat) =>
+    Maybe WithQueryOption ->
+    collection record ->
+    [(SQLWith queryFormat)]
 
 -- | A type to specify which type of query should be generated in
 -- 'Default' is an insert query statement with values wrapped in
@@ -781,14 +814,17 @@ data WithQueryOption = WithQueryOption
   { -- | The default options in case none is found in withShape map
     defaultShape :: InsertQueryOption,
     -- | 'sqlName' indexed options.
-    withShape :: Map Text InsertQueryOption
+    withShape :: Map Text InsertQueryOption,
+    -- | arbitrary value passing
+    sqlValueOption :: SQLValuesOption
   }
 
 defaultWithQueryOption :: WithQueryOption
 defaultWithQueryOption =
   WithQueryOption
     { defaultShape = Insert True False,
-      withShape = mempty
+      withShape = mempty,
+      sqlValueOption = mempty
     }
 
 data InsertQueryOption
@@ -837,9 +873,6 @@ instance (GDBContext a) => GDBContext (M1 C c a) where
 
 instance
   ( Foldable collection,
-    Functor collection,
-    Eq (collection recordT),
-    Monoid (collection recordT),
     DBContextSubquery recordT
   ) =>
   GDBContext (K1 i (collection recordT))
@@ -849,13 +882,14 @@ instance
 insertDBContextSubquery ::
   forall collectionIn recordT queryFormat.
   ( Foldable collectionIn,
-    Monoid (collectionIn recordT),
-    Functor collectionIn,
     SQLName recordT,
     SQLColumns recordT,
     SQLValues recordT,
     QueryFormat queryFormat
-  ) => Maybe WithQueryOption -> collectionIn recordT -> [(SQLWith queryFormat)]
+  ) =>
+  Maybe WithQueryOption ->
+  collectionIn recordT ->
+  [(SQLWith queryFormat)]
 insertDBContextSubquery options val = result
   where
     result
@@ -865,62 +899,68 @@ insertDBContextSubquery options val = result
     optionVal = fromMaybe defaultWithQueryOption options
     insertOpt = Map.lookup (sqlName @recordT) (withShape optionVal)
     pureSelectArgs = (fromText $ sqlName @recordT, columnList @recordT)
+    value = toSQLValues @recordT $ sqlValueOption <$> options
     selectInstance = case (fromMaybe (defaultShape optionVal) insertOpt) of
-      PureSelect -> selectValuesQuery (toSQLValues @recordT) pureSelectArgs val
-      res@Insert {} -> insertValuesQuery res val
+      PureSelect -> selectValuesQuery value pureSelectArgs val
+      res@Insert {} -> insertValuesQuery res value (fromText $ sqlTable @recordT) (sqlColumns @recordT) val
 
+-- |
+--
+-- >>> insertValuesQuery @[] @Int @Text PureSelect (pure . Protolude.show @Int) "tablename" ["ok"] [1, 2, 3]
+-- "INSERT INTO \"tablename\" (ok)\nSELECT * FROM (VALUES (1), (2), (3)) as tablename (ok)\n"
 insertValuesQuery ::
   forall collection recordType queryFormat.
   ( Foldable collection,
-    Functor collection,
-    FromText queryFormat,
-    QueryFormat queryFormat,
-    SQLValues recordType,
-    SQLColumns recordType,
-    SQLName recordType
+    QueryFormat queryFormat
   ) =>
   InsertQueryOption ->
+  (recordType -> [queryFormat]) ->
+  -- | Table name
+  queryFormat ->
+  -- | raw column list
+  [queryFormat] ->
   collection recordType ->
   queryFormat
-insertValuesQuery opt recordCollection =
+insertValuesQuery opt getValues qfSQLTable rawColList recordCollection =
   insertHeader <> "\n" <> selectBody <> "\n" <> suffix
   where
     suffix = case opt of
-      Insert True True -> onConflictUpdateExcluded @recordType <> "\n RETURNING *"
+      Insert True True -> (onConflictUpdateExcluded rawColList) <> "\n RETURNING *"
       Insert True False -> "RETURNING *"
-      Insert False True -> onConflictUpdateExcluded @recordType
+      Insert False True -> onConflictUpdateExcluded rawColList
       _ -> ""
-    qfSQLTable = fromText $ sqlTable @recordType
     insertHeader = insertIntoWrapper qfSQLTable (columnListVal)
-    selectBuildArgs = (fromText $ sqlName @recordType, columnListVal)
-    selectBody = selectValuesQuery @_ @recordType @queryFormat toSQLValues selectBuildArgs recordCollection
-    columnListVal = columnList @recordType
+    selectBuildArgs = (qfSQLTable, columnListVal)
+    selectBody = selectValuesQuery @_ @recordType @queryFormat getValues selectBuildArgs recordCollection
+    columnListVal = toCSVInParens rawColList
 
 -- | This assumes the entity has an id column in SQL.
 -- The idea is that any dedupe should happen **beforehand** not in the
 --  on conflict resolver (because here we assume the dupe id has been
 -- retrieved and solved).
+--
+--
+-- >>> onConflictUpdateExcluded ["colA"] :: Text
+-- " ON CONFLICT (id) DO UPDATE SET colA= EXCLUDED.colA"
 onConflictUpdateExcluded ::
-  forall recordT qf.
-  (SQLColumns recordT, QueryFormat qf) =>
+  forall qf.
+  (QueryFormat qf) =>
+  -- | the SQL column list
+  [qf] ->
   qf
-onConflictUpdateExcluded = core
+onConflictUpdateExcluded colList = core
   where
     core = " ON CONFLICT (id) DO UPDATE SET " <> foldedSet
     foldedSet = intercalate "," (exclSet <$> colList)
     exclSet vn = vn <> "= EXCLUDED." <> vn
-    colList = sqlColumns @recordT
-
 
 -- | selecting values
--- 
--- >>> selectValuesQuery (pure . Protolude.show) ("a", "(b, c, d)") [1, 2, 3] :: String
--- "SELECT * FROM (VALUES  (3), (2), (1)) as a (b, c, d)"
 --
+-- >>> selectValuesQuery (pure . Protolude.show) ("a", "(b, c, d)") [1, 2, 3] :: String
+-- "SELECT * FROM (VALUES (1), (2), (3)) as a (b, c, d)"
 selectValuesQuery ::
   forall collection recordType queryFormat.
   ( Foldable collection,
-    Functor collection,
     QueryFormat queryFormat
   ) =>
   (recordType -> [queryFormat]) ->
@@ -930,10 +970,9 @@ selectValuesQuery ::
   queryFormat
 selectValuesQuery sqlRowEncoder (name, colAssembledList) recordCollection = result
   where
-    result = selectWrapper name colAssembledList assembledRows
-    assembledRows = ("VALUES " <>) $ rowsAssembler " " listOfRows
-    listOfRows = (inParens . intercalate ", ") <$> listOfListOfValues
-    listOfListOfValues = sqlRowEncoder <$> recordCollection
+    result = selectWrapper name colAssembledList test
+    test = "VALUES " <> (intercalate ", " (transformer <$> toList recordCollection))
+    transformer = inParens . intercalate ", " . sqlRowEncoder
 
 ---------------------- SQLSelect test
 

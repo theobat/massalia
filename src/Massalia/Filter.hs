@@ -62,6 +62,11 @@ import Massalia.Utils
 import qualified Massalia.Utils as MassaliaUtils (intercalate)
 import Protolude
 
+-- This is for doctest only:
+-- $setup
+-- >>> :set -XOverloadedStrings
+-- >>> :set -XTypeApplications
+
 type GQLScalarFilterEq filterType =
   (GQLScalarFilterCore filterType Void Void)
 
@@ -202,10 +207,12 @@ type FilterConstraint a b c =
 -- and transforms the whole into a (maybe) query format bit.
 --
 -- Examples:
--- The nothing case:
--- >>> filterFieldToMaybeContent @Text "foo.bar" (Just defaultScalarFilter :: Maybe GQLFilterText)
+-- 
+-- >>> -- The nothing case:
+-- >>> let filter = (Just defaultScalarFilter :: Maybe GQLFilterText)
+-- >>> filterFieldToMaybeContent @Text "" filter 
 -- Nothing
--- The classical case:
+-- >>> -- The classical case:
 -- >>> filterFieldToMaybeContent @Text "foo.bar" (Just defaultScalarFilter{isEq = Just "Kanso"} :: Maybe GQLFilterText)
 -- Just "foo.bar = 'Kanso'"
 filterFieldToMaybeContent ::
@@ -245,12 +252,13 @@ filterFieldToMaybeContent prefixedFieldName (Just filterVal) = case filterVal of
 -- and transforms the whole into a (maybe) query format bit.
 --
 -- Examples:
--- The nothing case:
--- >>> filterFieldToMaybeContent @Text "foo.bar" (Just defaultScalarFilter :: Maybe GQLFilterText)
+-- 
+-- >>> -- The nothing case:
+-- >>> filterFieldToMaybeContent "foo.bar" (Just defaultScalarFilter :: Maybe GQLFilterText) :: Maybe Text
 -- Nothing
--- The classical case:
--- >>> filterFieldToMaybeContent @Text "foo.bar" (Just defaultScalarFilter{isEq = Just "Kanso"} :: Maybe GQLFilterText)
+-- >>> filterFieldToMaybeContent "foo.bar" (Just defaultScalarFilter{isEq = Just "Kanso"} :: Maybe GQLFilterText) :: Maybe Text
 -- Just "foo.bar = 'Kanso'"
+--
 filterFieldCollectionToMaybeContent ::
   forall qf eqScalarType.
   (QueryFormat qf, SQLEncoder [eqScalarType]) =>

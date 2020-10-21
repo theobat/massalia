@@ -43,8 +43,8 @@ data PlantInput
     Eq, Show, Generic, JSON.FromJSON,
     SQLName, SQLColumns, SQLValues
     )
-instance DBContextSubquery c PlantInput where
-  withSubqueryFromCollection a b = insertDBContextSubquery a b
+instance DBContextSubquery PlantInput where
+  withSubqueryFromCollection = insertDBContextSubquery
 
 data PlantListInput container
   = PlantListInput
