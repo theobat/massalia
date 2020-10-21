@@ -47,13 +47,13 @@ instance SQLEncoder Chassis where
   textEncode = chassisToQueryFormat
   binaryEncode = fromText . chassisToQueryFormat
 
-chassisFromTuple :: (Int, Int) -> Chassis
-chassisFromTuple value = case value of
-  (8, 4) -> C8x4
-  (6, 4) -> C6x4
-  (4, 4) -> C4x4
-  (4, 2) -> C4x2
-  _ -> CUnknown
+-- chassisFromTuple :: (Int, Int) -> Chassis
+-- chassisFromTuple value = case value of
+--   (8, 4) -> C8x4
+--   (6, 4) -> C6x4
+--   (4, 4) -> C4x4
+--   (4, 2) -> C4x2
+--   _ -> CUnknown
 
 chassisToTuple :: Chassis -> (Int, Int)
 chassisToTuple value = case value of

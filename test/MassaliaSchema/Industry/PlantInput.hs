@@ -1,3 +1,4 @@
+{-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -23,7 +24,6 @@ import Massalia.Utils (Day)
 import GHC.Generics (Generic)
 import Massalia.QueryFormat
   (
-    BinaryQuery,
     QueryFormat,
   )
 import Massalia.SQLClass (

@@ -13,11 +13,13 @@ import Massalia.SQLSelectStruct (
 import Test.Tasty
 import Test.Tasty.HUnit
 
+unitTests :: TestTree
 unitTests =
   testGroup
     "SQL select queries (no params)"
     ((\(title, res, expected) -> testCase title $ assertEqual "" expected res) <$> listCase)
 
+listCase :: [(TestName, Text, Text)]
 listCase = [
     (
       "static query with aggregation and where condition",

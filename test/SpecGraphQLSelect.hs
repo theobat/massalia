@@ -18,9 +18,6 @@ import Massalia.SQLClass
   ( SQLSelect (toSelectQuery),
     SQLRecord (fullTopSelection)
   )
-import Massalia.QueryFormat (
-    TextQuery,
-  )
 import Massalia.SQLSelectStruct (QueryAndDecoder (query), selectStructToQueryFormat)
 import Massalia.UtilsGQL (Paginated, defaultPaginated, globalFilter, unionFilter)
 import MassaliaSchema.Industry.Plant (Plant)
