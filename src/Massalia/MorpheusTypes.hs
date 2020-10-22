@@ -21,7 +21,7 @@ import qualified Data.Aeson as JSON
 import Data.Morpheus.Types (GQLType(description), KIND, GQLScalar(..))
 import Data.Morpheus.Kind (SCALAR, INPUT)
 import qualified Data.Morpheus.Types as GQLT
-import Massalia.Utils (
+import Massalia.Utils (UTCTime, 
   EmailAddress, LocalTime, ZonedTime, ZonedTimeEq(ZonedTimeEq), UUID, Day,
   SimpleRange, Inclusivity (..),
   emailToByteString, emailValidate, stringToText, uuidFromText, uuidToText
@@ -37,6 +37,13 @@ instance GQLScalar UUID where
 
 instance GQLType UUID where
   type KIND UUID = SCALAR
+
+instance GQLScalar UTCTime where
+  parseValue (GQLT.String x) = first stringToText $ JSON.eitherDecode $ JSON.encode x
+  serialize = GQLT.String . (fromMaybe "" . JSON.decode . JSON.encode)
+
+instance GQLType UTCTime where
+  type KIND UTCTime = SCALAR
 
 instance GQLScalar LocalTime where
   parseValue (GQLT.String x) = first stringToText $ JSON.eitherDecode $ JSON.encode x

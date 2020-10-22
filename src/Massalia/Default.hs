@@ -19,11 +19,14 @@ import Massalia.Utils (
     emailDefault,
     localTimeDefault,
     dayDefault,
+    utcTimeDefault,
   )
 
 uuid = uuidNil
 email = emailDefault
 timestamptz = localTimeDefault
+localTime = localTimeDefault
+utc = utcTimeDefault
 date = dayDefault
 int = 0
 

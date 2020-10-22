@@ -48,6 +48,7 @@ module Massalia.Utils
     TimeZone,
     UTCTime,
     localTimeDefault,
+    utcTimeDefault,
     dayDefault,
     -- postgres numbers
     Scientific,
@@ -80,7 +81,7 @@ import PostgreSQL.Binary.Data (
     UTCTime,
     Scientific
   )
-import Data.Time (ZonedTime, zonedTimeToUTC)
+import Data.Time (ZonedTime, zonedTimeToUTC, UTCTime(UTCTime), secondsToDiffTime)
 import Data.Time.LocalTime (LocalTime(LocalTime), midnight)
 import Data.Time.Calendar (Day(ModifiedJulianDay))
 import Protolude hiding (intercalate)
@@ -140,6 +141,7 @@ emailDefault = [email|default@default.com|]
 localTimeDefault = LocalTime dayDefault midnight  
 dayDefault = (ModifiedJulianDay 0)  
 
+utcTimeDefault = UTCTime dayDefault (secondsToDiffTime 0)  
 
 unsafeSnakeCaseT :: Text -> Text
 unsafeSnakeCaseT t = case toUnderscore t of
@@ -201,4 +203,3 @@ zonedTimeEqToUTC = zonedTimeToUTC . toZonedTime
 deriving via ZonedTime instance Show ZonedTimeEq
 deriving via ZonedTime instance FromJSON ZonedTimeEq
 deriving via ZonedTime instance ToJSON ZonedTimeEq
-  
