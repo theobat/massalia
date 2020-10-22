@@ -1,3 +1,4 @@
+{-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -23,7 +24,6 @@ import Massalia.Utils (Day)
 import GHC.Generics (Generic)
 import Massalia.QueryFormat
   (
-    BinaryQuery,
     QueryFormat,
   )
 import Massalia.SQLClass (
@@ -43,8 +43,8 @@ data PlantInput
     Eq, Show, Generic, JSON.FromJSON,
     SQLName, SQLColumns, SQLValues
     )
-instance DBContextSubquery c PlantInput where
-  withSubqueryFromCollection a b = insertDBContextSubquery a b
+instance DBContextSubquery PlantInput where
+  withSubqueryFromCollection = insertDBContextSubquery
 
 data PlantListInput container
   = PlantListInput

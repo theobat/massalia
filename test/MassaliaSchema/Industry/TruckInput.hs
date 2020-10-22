@@ -17,15 +17,10 @@ module MassaliaSchema.Industry.TruckInput
 where
 
 import qualified Data.Aeson as JSON
-import Data.Data (Data)
-import Data.Text (Text, pack)
+import Data.Text (pack)
 import Data.UUID (UUID)
-import GHC.Generics (Generic)
-import qualified Hasql.Encoders as Encoders
-import qualified Massalia.HasqlDec as Decoders
 import Massalia.QueryFormat
-  ( BinaryQuery,
-    FromText(fromText),
+  ( FromText(fromText),
     SQLEncoder(textEncode, binaryEncode)
   )
 import Massalia.SQLClass (SQLName, SQLColumns, SQLValues, DBContextSubquery(..), insertDBContextSubquery)
@@ -43,7 +38,7 @@ data TruckInput
     SQLName, SQLColumns, SQLValues)
 
 instance DBContextSubquery TruckInput where
-  withSubqueryFromCollection a b = insertDBContextSubquery a b
+  withSubqueryFromCollection = insertDBContextSubquery
 
 data Chassis = C8x4 | C6x4 | C4x4 | C4x2 | CUnknown
   deriving (Eq, Show, Generic, JSON.FromJSON)
@@ -52,13 +47,13 @@ instance SQLEncoder Chassis where
   textEncode = chassisToQueryFormat
   binaryEncode = fromText . chassisToQueryFormat
 
-chassisFromTuple :: (Int, Int) -> Chassis
-chassisFromTuple value = case value of
-  (8, 4) -> C8x4
-  (6, 4) -> C6x4
-  (4, 4) -> C4x4
-  (4, 2) -> C4x2
-  _ -> CUnknown
+-- chassisFromTuple :: (Int, Int) -> Chassis
+-- chassisFromTuple value = case value of
+--   (8, 4) -> C8x4
+--   (6, 4) -> C6x4
+--   (4, 4) -> C4x4
+--   (4, 2) -> C4x2
+--   _ -> CUnknown
 
 chassisToTuple :: Chassis -> (Int, Int)
 chassisToTuple value = case value of

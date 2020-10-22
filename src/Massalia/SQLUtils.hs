@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -31,10 +32,6 @@ selectWrapper ::
   (Monoid queryFormat, IsString queryFormat) => queryFormat -> queryFormat -> queryFormat -> queryFormat
 selectWrapper name assembledColList valueRows = "SELECT * FROM (" <> valueRows <> ") as " <> name <> " " <> assembledColList
 
-data NodeUtils = NodeUtils {
-  tableNames :: Map Text Text
-}
-
 data SQLWith queryFormat = SQLWith {
   withName :: queryFormat,
   withBody :: queryFormat
@@ -48,12 +45,24 @@ data SQLWith queryFormat = SQLWith {
 -- "WITH "
 -- >>> inlineWith Nothing [SQLWith "test" "select 1"]
 -- "WITH \"test\" AS (select 1)"
-inlineWith :: (Foldable collection, Semigroup queryFormat, IsString queryFormat) =>
+--
+-- >>> inlineWith Nothing [SQLWith "test" "select 1", SQLWith "test2" "select 2"]
+-- "WITH \"test\" AS (select 1), \"test2\" AS (select 2)"
+-- >>> inlineWith Nothing [SQLWith "a" "select a", SQLWith "b" "select b", SQLWith "c" "select c"]
+-- parse error on input ‘,’
+inlineWith :: (Foldable collection, Monoid queryFormat, IsString queryFormat) =>
   -- | potential future options 
   Maybe () ->
   collection (SQLWith queryFormat) ->
   queryFormat
-inlineWith _ input = foldr' assembler "WITH " input
+inlineWith _ input = "WITH " <> (fst $ foldr' assembler ("", 0::Int) input)
   where
-    assembler (SQLWith nameV bodyV) existing = existing <> ("\"" <> nameV <> "\"" <> " AS " <> (inParens bodyV))
+    assembler (SQLWith !nameV !bodyV) (!existing, !index) = (
+        ("\"" <> nameV <> "\"" <> " AS " <> (inParens bodyV) <> sep <> existing),
+        index + 1
+        )
+      where
+        sep
+          | index == 0 = ""
+          | otherwise = ", "
 

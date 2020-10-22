@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstrainedClassMethods #-}
 {-# LANGUAGE ConstraintKinds #-}
@@ -264,7 +265,7 @@ inSingleQuote :: (Semigroup a, IsString a) => a -> a
 inSingleQuote a = "'" <> a <> "'"
 
 inParens :: (Semigroup a, IsString a) => a -> a
-inParens a = "(" <> a <> ")"
+inParens !a = "(" <> a <> ")"
 
 commaSepInParens :: [[Char]] -> [Char]
 commaSepInParens = inParens . (intercalate ",")
