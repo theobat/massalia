@@ -31,10 +31,6 @@ selectWrapper ::
   (Monoid queryFormat, IsString queryFormat) => queryFormat -> queryFormat -> queryFormat -> queryFormat
 selectWrapper name assembledColList valueRows = "SELECT * FROM (" <> valueRows <> ") as " <> name <> " " <> assembledColList
 
-data NodeUtils = NodeUtils {
-  tableNames :: Map Text Text
-}
-
 data SQLWith queryFormat = SQLWith {
   withName :: queryFormat,
   withBody :: queryFormat
