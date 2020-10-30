@@ -28,6 +28,7 @@ module Massalia.SQLSelectStruct
     inlineAndUnion,
     filterMerge,
     simpleWhereEq,
+    compositeToResult,
   )
 where
 
@@ -95,6 +96,8 @@ compositeToListDecoderTuple :: Decoders.Composite decoder -> DecodeTuple [decode
 compositeToListDecoderTuple input = DecodeTuple (compositeToListArray input) Decoders.nonNullable
 compositeToDecoderTuple :: Decoders.Composite decoder -> DecodeTuple decoder
 compositeToDecoderTuple input = DecodeTuple (Decoders.composite input) Decoders.nonNullable
+compositeToResult :: Decoders.Composite decoder -> Decoders.Result decoder
+compositeToResult = Decoders.singleRow . Decoders.column . Decoders.nonNullable . Decoders.composite
 decoderToListSubdecoder :: DecodeTuple decoder -> DecodeTuple [decoder]
 decoderToListSubdecoder (DecodeTuple dec _) = DecodeTuple (valueToListArray dec) Decoders.nonNullable
 
