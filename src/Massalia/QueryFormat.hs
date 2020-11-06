@@ -95,7 +95,7 @@ import Protolude hiding (intercalate, replace)
 -- and printing queries.
 type TextQuery = Text
 
--- | The binary query format is the internal query representation in Hasql.
+-- | The binary query format is the internal query representation in 'Hasql'.
 -- It's called 'Snippet' and it's defined in "Hasql.DynamicStatements.Snippet".
 -- It enables the representation of a query alongside it's parametrized values.
 -- It has no instance of show, which explains the presence of its 'TextQuery' counterpart.
@@ -105,6 +105,7 @@ type BinaryQuery = Snippet
 -- yields their escaped combination.
 --
 -- Examples:
+--
 -- >>> "foo" ° "bar"
 -- "\"foo\".\"bar\""
 (°) :: (Semigroup a, IsString a) => a -> a -> a
@@ -421,7 +422,7 @@ instance SQLDecoder contextT (Vector EmailAddress) where
   sqlDecoder = fmapVector
 
 instance SQLDecoder contextT Int64 where
-  sqlDecoder = defaultDecodeTuple $ Decoders.int8
+  sqlDecoder = defaultDecodeTuple Decoders.int8
 
 instance SQLDecoder contextT [Int64] where
   sqlDecoder = fmapList
@@ -536,14 +537,13 @@ encodeRange value = postgresRangeName @dataT <> "(" <> startValue <> "," <> endV
     startValue = getBoundary start
     endValue = getBoundary end
     bounds =
-      ( case inclusivity value of
+       case inclusivity value of
           Nothing -> ""
           Just II -> ", '[]'"
           Just IE -> ", '[)'"
           Just EI -> ", '(]'"
           Just EE -> ", '()'"
-      )
-    getBoundary accessor = fromMaybe "null" $ (sqlEncode <$> accessor value)
+    getBoundary accessor = maybe "null" sqlEncode (accessor value)
 
 class PostgresRange a where
   postgresRangeName :: (IsString textFormat) => textFormat

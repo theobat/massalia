@@ -87,7 +87,7 @@ queryAndDecoderToListSubquery struct = (assembled, DecodeTuple newDecoder Decode
   where
     assembled = selectStructToListSubquery (query struct)
     newDecoder = compositeToListArray $ decoder struct
- 
+
 compositeToListArray :: Decoders.Composite element -> Decoders.Value [element]
 compositeToListArray = valueToListArray . Decoders.composite
 valueToListArray :: Decoders.Value element -> Decoders.Value [element]
@@ -101,16 +101,19 @@ compositeToResult = Decoders.singleRow . Decoders.column . Decoders.nonNullable 
 decoderToListSubdecoder :: DecodeTuple decoder -> DecodeTuple [decoder]
 decoderToListSubdecoder (DecodeTuple dec _) = DecodeTuple (valueToListArray dec) Decoders.nonNullable
 
-
+-- | Format a 'SelectStruct' to a list subquery using the array_agg ('ArrayAgg') operation.
 selectStructToListSubquery ::
   QueryFormat queryFormat =>
   SelectStruct queryFormat -> queryFormat
-selectStructToListSubquery = inParens . (assembleSelectStruct [CoalesceArr, ArrayAgg, Row])
+selectStructToListSubquery = inParens . assembleSelectStruct [CoalesceArr, ArrayAgg, Row]
+
+-- | Format a 'SelectStruct' to a record subquery using the row ('Row') operation.
 selectStructToRecordSubquery ::
   QueryFormat queryFormat =>
   SelectStruct queryFormat -> queryFormat
-selectStructToRecordSubquery = inParens . (assembleSelectStruct [Row])
+selectStructToRecordSubquery = inParens . assembleSelectStruct [Row]
 
+-- | Format a 'SelectStruct' to a simple query.
 selectStructToQueryFormat :: (QueryFormat queryFormat) =>
   SelectStruct queryFormat ->
   queryFormat
@@ -119,8 +122,12 @@ selectStructToQueryFormat = assembleSelectStruct []
 -- | A simple assembler function to turn the SelectStruct struct into a proper query string.
 --
 -- Example:
--- >>> assembleSelectStruct $ mempty{_select = [1] }
--- SELECT 1
+-- >>> assembleSelectStruct [] mempty{_select = ["1"] } :: Text
+-- "SELECT 1"
+-- >>>
+-- >>> let struct = mempty{_select = ["foo.bar"], _from = Just "foo" } :: SelectStruct Text
+-- >>> assembleSelectStruct [ArrayAgg, Row] struct :: Text
+-- "SELECT (array_agg(row(foo.bar) )) FROM foo"
 assembleSelectStruct :: (QueryFormat queryFormat) =>
   [SQLWrapper] ->
   SelectStruct queryFormat ->
@@ -135,35 +142,50 @@ assembleSelectStruct wrapValueList struct = prefixCTERes <>
   where
     sectionSep = " "
     pref = (sectionSep <>)
-    prefixCTERes = fromMaybe mempty $ (<> sectionSep) <$> _rawPrefix struct
+    prefixCTERes = maybe mempty (<> sectionSep) $ _rawPrefix struct
     selectRes = "SELECT " <> selectPartialRes
-    (wasAggregated, selectPartialRes) = (wrapList wrapValueList (orderByRes, offsetLimitResAg) $ (False, intercalate ", " $ _select struct))
-    fromRes = fromMaybe mempty $ (pref "FROM " <>) <$> _from struct
+    (wasAggregated, selectPartialRes) = wrapList wrapValueList (orderByRes, offsetLimitResAg) (False, intercalate ", " $ _select struct)
+    fromRes = maybe mempty (pref "FROM " <>) $ _from struct
     joinRes = intercalIfExists sectionSep sectionSep $ _join struct
-    whereRes = fromMaybe mempty $ (pref "WHERE " <>) <$> _where struct
+    whereRes = maybe mempty (pref "WHERE " <>) $ _where struct
     groupByRes = intercalIfExists (pref "GROUP BY ") ", " (_groupBy struct)
-    havingRes = fromMaybe mempty $ (pref "HAVING " <>) <$> _having struct
+    havingRes = maybe mempty (pref "HAVING " <>) $ _having struct
     orderByRes = intercalIfExists (pref "ORDER BY ") ", " (_orderBy struct)
     offsetLimitResAg = offsetLimitToQF Array pref ofsetLimitVal
     offsetLimitRes = offsetLimitToQF Plain pref ofsetLimitVal
     ofsetLimitVal = _offsetLimit struct
 
+-- | A function to wrap the behaviour of 
 wrap :: (Semigroup a, IsString a) => SQLWrapper -> (a, a) -> (Bool, a) -> (Bool, a)
 wrap Row _ (wasAggregated, selectVal) = (wasAggregated, "row(" <> selectVal <> ")")
 wrap ArrayAgg (orderByVal, offsetLimit) (_, selectVal) = (True, "(array_agg(" <> selectVal <> " " <> orderByVal <> "))" <> offsetLimit)
 wrap CoalesceArr _ (wasAggregated, selectVal) = (wasAggregated, "coalesce(" <> selectVal <> ", '{}')")
 
 -- | The wrapping may involve an aggregation, in which case we have to provide the order By,
---  at the select stage.
+--  at the select stage (see the second example down here).
+-- The boolean tracks whether the resulting select query wasAggregated or not.
+-- 
+-- >>> wrapList [Row] ("", "") (False, "")
+-- (False,"row()")
+-- >>>
+-- >>> wrapList [ArrayAgg, Row] ("", "") (False, "")
+-- (True,"(array_agg(row() ))")
 wrapList :: (Semigroup t, IsString t) => [SQLWrapper] -> (t, t) -> (Bool, t) -> (Bool, t)
-wrapList [] _ q = q
-wrapList (!x:xs) odb !q = wrap x odb (wrapList xs odb $ q)
+wrapList !wrapperList !odb !q = foldr' (`wrap` odb) q wrapperList
 
 intercalIfExists :: (QueryFormat qf) => qf -> qf -> [qf] -> qf
 intercalIfExists _ _ [] = mempty
 intercalIfExists prefix sep givenList = prefix <> intercalate sep givenList
 
-data SQLWrapper = CoalesceArr | Row | ArrayAgg
+-- | SQL Operators for query building in massalia.
+-- They are wrappers around a list of fields/a field.
+data SQLWrapper
+  -- | An array_agg with a coalesce around (in case a subquery is null, and we still want an array out of it)
+  = CoalesceArr
+  -- | The row constructor in postgres.
+  | Row
+  -- | A simple array_agg, usually employed around a Row.
+  | ArrayAgg
 
 -- | This is a very simple struct object meant to
 -- simplify query building (it's not meant to bring safety).
@@ -251,13 +273,19 @@ filterMerge a b = a {
     _offsetLimit = xorOrLeft (_offsetLimit a) (_offsetLimit b)
   }
 
+-- | Takes an sql query struct and a list of SQL query structs and set the from
+-- clause in the former as the union of the latter. 
+-- Maybe a 'Set' data structure would be more approriate instead of a list ?
+--
+-- >>> _from $ inlineAndUnion mempty{_select=["1"]} [mempty{_select=["1"]}, mempty{_select=["2"]}] :: Maybe Text
+-- Just "((SELECT 1) UNION (SELECT 2))"
 inlineAndUnion :: (QueryFormat qf) => SelectStruct qf -> [SelectStruct qf] -> SelectStruct qf
 inlineAndUnion input [] = input
 inlineAndUnion input givenList = input{
     _from = Just result
   }
   where
-    result = "((" <> foldMap identity unioned <> "))" <> (fromMaybe "" $ _from input)
+    result = "((" <> foldMap identity unioned <> "))" <> fromMaybe "" (_from input)
     unioned = intersperse ") UNION (" inlined
     inlined = assembleSelectStruct [] <$> givenList
 
@@ -265,26 +293,27 @@ simpleWhereEq :: (QueryFormat queryFormat, MassaliaContext a) => queryFormat -> 
 simpleWhereEq lName tName rName context name = mempty
           { _where = Just (simpleEq name lName decodedName rName)
           }
-  where decodedName = fromText (decodeNameInContext context tName)  
+  where decodedName = fromText (decodeNameInContext context tName)
 
 data PaginQueryFormat
   -- | The plain query format is the classic Offset Limit tuple at the end of a select query.
-  = Plain 
+  = Plain
   -- | The array query format is a limit offset logic for array_aggregated values 
   -- it's a simple array accessor tuple such as @[offsetValue, limitValue]@
   | Array
   deriving (Eq)
 
+-- | Formatting the offset limit tuple.
 offsetLimitToQF ::
   (QueryFormat qf) =>
   PaginQueryFormat ->
   (qf -> qf) ->
-  (Maybe (Maybe qf, qf)) ->
+  Maybe (Maybe qf, qf) ->
   qf
 offsetLimitToQF formatType pref ol = case ol of
   Nothing -> mempty
   Just val -> case (val, formatType) of
-    ((Nothing, limitVal), Plain) -> (pref "LIMIT ") <> limitVal
-    ((Just offsetVal, limitVal), Plain) -> (pref "OFFSET ") <> offsetVal <> " LIMIT " <> limitVal
+    ((Nothing, limitVal), Plain) -> pref "LIMIT " <> limitVal
+    ((Just offsetVal, limitVal), Plain) -> pref "OFFSET " <> offsetVal <> " LIMIT " <> limitVal
     ((offsetVal, limitVal), Array) -> "[" <> offsetValReal <> "+ 1" <> ":" <> (limitVal <> "+" <> offsetValReal) <> "]"
       where offsetValReal = fromMaybe "0" offsetVal

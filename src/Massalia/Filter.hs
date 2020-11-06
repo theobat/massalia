@@ -2,7 +2,6 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia #-}
@@ -33,6 +32,8 @@ module Massalia.Filter
     GQLFilterZonedTime,
     GQLFilterZonedTimeEq,
     GQLCollectionFilterEq,
+    GQLScalarFilterEq,
+    GQLScalarFilterOrd,
     GQLScalarFilterCore (..),
     GQLCollectionFilterCore (..),
     FilterConstraint,
@@ -235,7 +236,7 @@ filterFieldToMaybeContent prefixedFieldName (Just filterVal) = case filterVal of
       isLT = isLTValue,
       isBetween = isBetweenValue,
       isNull = isNullValue
-    } -> case ( wrappedContentInList prefixedFieldName "!=" isNotEqValue ""
+    } -> case wrappedContentInList prefixedFieldName "!=" isNotEqValue ""
                   <> wrappedContentInList prefixedFieldName "=ANY(" isInValue ")"
                   <> wrappedContentInList prefixedFieldName "!=ALL(" isNotInValue ")"
                   <> wrappedContentInList prefixedFieldName "like" isLikeValue ""
@@ -243,8 +244,8 @@ filterFieldToMaybeContent prefixedFieldName (Just filterVal) = case filterVal of
                   <> wrappedContentInList prefixedFieldName ">" isGTValue ""
                   <> wrappedContentInList prefixedFieldName "<" isLTValue ""
                   <> wrappedContentInList prefixedFieldName "<@" isBetweenValue ""
-                  <> fromMaybe mempty (((pure . pure) $ prefixedFieldName <> " IS NOT NULL") <$> isNullValue)
-              ) of
+                  <> maybe mempty (pure . pure $ prefixedFieldName <> " IS NOT NULL") isNullValue
+              of
       [] -> Nothing
       filtList -> Just (MassaliaUtils.intercalate " AND " filtList)
 
@@ -273,12 +274,12 @@ filterFieldCollectionToMaybeContent prefixedFieldName (Just filterVal) = case fi
       isContainedBy = isContainedByValue,      
       isNotContainedBy = isNotContainedByValue,
       hasLength = hasLengthValue
-    } -> case ( wrappedContentInList prefixedFieldName "@>" doesContainValue ""
+    } -> case wrappedContentInList prefixedFieldName "@>" doesContainValue ""
                   <> wrappedContentInList ("NOT (" <> prefixedFieldName) "@>" doesNotContainValue ")"
                   <> wrappedContentInList prefixedFieldName "<@" isContainedByValue ""
                   <> wrappedContentInList ("NOT (" <> prefixedFieldName) "<@" isNotContainedByValue ")"
                   <> wrappedContentInList ("array_length(" <> prefixedFieldName <> ", 1) ") "=" hasLengthValue ""
-              ) of
+              of
       [] -> Nothing
       filtList -> Just (MassaliaUtils.intercalate " AND " filtList)
 
@@ -294,10 +295,13 @@ wrappedContentInList :: (QueryFormat qf, SQLEncoder valueType) => qf -> qf -> Ma
 wrappedContentInList fieldName op maybeVal = maybeToList . wrappedContent fieldName op maybeVal
 
 -- | Inner function to format an sql @a op b postop@ type of expression.
+-- 
 -- Example:
--- >>> wrappedContent @Text @Int "foo.bar" "=" (Just 1) ""
+--
+-- >>> wrappedContent @Text "foo.bar" "=" (Just @Int 1) ""
 -- Just "foo.bar = 1"
--- >>> wrappedContent @Text @[Int] "foo.bar" "=ANY(" (Just [1, 2, 3]) ")"
+-- >>>
+-- >>> wrappedContent @Text "foo.bar" "=ANY(" (Just @[Int] [1, 2, 3]) ")"
 -- Just "foo.bar =ANY( '{3,2,1}')"
 wrappedContent :: (QueryFormat qf, SQLEncoder valueType) => qf -> qf -> Maybe valueType -> qf -> Maybe qf
 wrappedContent _ _ Nothing _ = Nothing
