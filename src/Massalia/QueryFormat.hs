@@ -269,7 +269,7 @@ inParens :: (Semigroup a, IsString a) => a -> a
 inParens !a = "(" <> a <> ")"
 
 commaSepInParens :: [[Char]] -> [Char]
-commaSepInParens = inParens . (intercalate ",")
+commaSepInParens = inParens . intercalate ","
 
 collectionTextEncode ::
   (Foldable collection, SQLEncoder dataT, Show dataT) =>
@@ -319,7 +319,7 @@ defaultDecodeTuple value =
 
 -- | Turns a 'DecodeTuple' into a hasql decoder.
 decodeTupleToHasql :: DecodeTuple decodedT -> Decoders.NullableOrNot Decoders.Value decodedT
-decodeTupleToHasql input = (decNValue input) $ decValue input
+decodeTupleToHasql input = decNValue input $ decValue input
 
 refineDecoder :: (a -> Either Text b) -> DecodeTuple a -> DecodeTuple b
 refineDecoder refiner (DecodeTuple dec _) = result
@@ -486,7 +486,7 @@ instance
 action :: DecodeTuple a -> DecodeTuple (Maybe a)
 action (DecodeTuple decoder _) =
   DecodeTuple
-    (const Nothing <$> decoder)
+    (Nothing <$ decoder)
     (const $ Decoders.nullable decoder)
 
 -- | This gives the ability to pass, for instance, user roles, user data,
