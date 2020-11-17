@@ -59,7 +59,7 @@ data QueryAndDecoder queryFormat decoder
 
 -- | select query to a HASQL Statement, which can be executed in a Session.
 queryAndDecoderToStatement :: QueryAndDecoder BinaryQuery decoder -> Statement () [decoder]
-queryAndDecoderToStatement selectSt = dynamicallyParameterized snippet result
+queryAndDecoderToStatement selectSt = dynamicallyParameterized snippet result True
   where
     (snippet, result) = queryAndDecoderToSnippetAndResult selectSt
 
@@ -69,7 +69,7 @@ queryAndDecoderToQueryFormat = selectStructToQueryFormat . query
 
 -- | select query to a HASQL Statement, which can be executed in a Session.
 queryAndDecoderToSession :: QueryAndDecoder BinaryQuery decoder -> Session [decoder]
-queryAndDecoderToSession selectSt = dynamicallyParameterizedStatement snippet result
+queryAndDecoderToSession selectSt = dynamicallyParameterizedStatement snippet result True
   where
     (snippet, result) = queryAndDecoderToSnippetAndResult selectSt
 

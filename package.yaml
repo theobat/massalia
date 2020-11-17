@@ -90,8 +90,6 @@ tests:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
-    extensions:
-    - TypeApplications
     dependencies:
     - massalia
     - doctest

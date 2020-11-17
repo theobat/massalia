@@ -18,7 +18,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: nightly-2020-08-25
+resolver: nightly-2020-11-17
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -71,15 +71,15 @@ extra-include-dirs:
 # Allow a newer minor version of GHC than the snapshot specifies
 # compiler-check: newer-minor
 extra-deps:
-  - hasql-dynamic-statements-0.2.0.2
+  - hasql-dynamic-statements-0.3.1
   - hasql-1.4.4.2
   - hasql-implicits-0.1.0.1@sha256:93581bf006dbb2641930c41c647b5a42c87064aa6a4feaa7dee6af8e58ccd7af,1388
   - ptr-0.16.7.2@sha256:4a91e1342db8e627435a002798d65329a0c09c8632b2e415461b9928785327f9,2686
   - bug-1.0.1@sha256:a516df91c7330d350480a7d338af645f173d1e767450c5f94295020f11c8432c,1395
   - base-prelude-1.4@sha256:feea99326853023fa9f908308383a7f9802e40f2d241b83dac57b266b202bda6,1412
   - postgresql-binary-0.12.3@sha256:4d5e52e5ef171dae8dd3ce5f72da552c34fe92ae13ba55bb165e59f245349b4f,6057
-  - morpheus-graphql-core-0.14.1
-  - morpheus-graphql-0.14.1
+  - morpheus-graphql-core-0.16.0
+  - morpheus-graphql-0.16.0
   - git: https://github.com/theobat/hasql-url.git
     commit: 77e2616d5d33dfaa58eb4d9b643dcf710c2e5745
   - git: https://github.com/theobat/massalia-migration.git

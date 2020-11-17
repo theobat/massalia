@@ -16,7 +16,7 @@ module MassaliaSchema.Industry.Plant
 where
 
 import Data.UUID (UUID, nil)
-import Massalia.HasqlExec (dynamicallyParameterizedStatement)
+import Massalia.HasqlExec (dynamicallyParameterizedStatement, use)
 import Massalia.SelectionTree (fromMorpheusContext)
 import Massalia.MorpheusTypes
   (
@@ -35,11 +35,25 @@ import Massalia.SQLSelectStruct (
   SelectStruct(..),
   queryAndDecoderToSnippetAndResult
   )
-import Massalia.HasqlExec (use)
 import MassaliaSchema.Industry.PlantInput (queryTest)
 import MassaliaSchema.Industry.Truck (Truck)
-import Protolude hiding (first)
-import qualified MassaliaSchema.Industry.PlantFilter as PlantFilter
+import Protolude
+    ( ($),
+      Show,
+      Applicative(pure),
+      Generic,
+      Semigroup((<>)),
+      Monoid(mempty),
+      Bool(True),
+      Maybe(..),
+      Either(Right, Left),
+      Text,
+      (.),
+      (=<<),
+      lift,
+      show,
+      undefined,
+      panic )
 import MassaliaSchema.Industry.PlantFilter (PlantFilter, plantFilterTest)
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
 import Data.Morpheus.Types (unsafeInternalContext)
@@ -50,8 +64,6 @@ import Massalia.SQLClass (
     SQLRecord,
     SQLSelect(toSelectQuery),
     SQLDefault(getDefault),
-    SQLRecordConfig(..),
-    SQLFilter,
     basicDecodeListSubquery,
     basicQueryAndDecoder,
     basicEntityQuery
@@ -101,10 +113,10 @@ plantListQuery maybePool queryArgs = do
     exec pool validSel = do
       let (snippet, result) = queryAndDecoderToSnippetAndResult $ initialSnippet validSel
       let fullSnippet = queryTest <> " " <> snippet
-      let session = dynamicallyParameterizedStatement fullSnippet result
+      let session = dynamicallyParameterizedStatement fullSnippet result True
       res <- use pool session
       case res of
-        Left e -> (panic $ show e)
+        Left e -> panic $ show e
         Right listRes -> pure listRes
     -- statement validSel = queryAndDecoderToSession $ initialSnippet validSel
     initialSnippet selSet = toSelectQuery selSet arg

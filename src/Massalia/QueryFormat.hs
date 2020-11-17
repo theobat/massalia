@@ -69,7 +69,7 @@ import Data.Time.LocalTime (zonedTimeToUTC)
 import Data.UUID hiding (fromString, fromText)
 import Data.Vector (Vector)
 import qualified Hasql.Decoders as Decoders
-import Hasql.DynamicStatements.Snippet (Snippet)
+import Hasql.DynamicStatements.Snippet (Snippet, sql)
 import qualified Hasql.DynamicStatements.Snippet as Snippet
 import Hasql.Implicits.Encoders (DefaultParamEncoder ())
 import Massalia.SelectionTree (MassaliaTree (getName))
@@ -153,7 +153,7 @@ instance FromText String where
   fromText = unpack
 
 instance FromText Snippet where
-  fromText = String.fromString . unpack
+  fromText = sql . encodeUtf8
 
 class SQLEncoder dataT where
   ignoreInGenericInstance :: Bool

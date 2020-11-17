@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -192,7 +193,8 @@ defaultSimpleRange = SimpleRange { start = Nothing, end = Nothing, inclusivity =
 -- >>> let ex2 = ZonedTimeEq <$> readMaybe "2002-12-12 02:12:12-1000"
 -- >>> (ex1, ex2, ex1 == ex2)
 -- (Just 2002-12-12 12:12:12 +0000,Just 2002-12-12 02:12:12 -1000,True)
-newtype ZonedTimeEq = ZonedTimeEq ZonedTime deriving (Generic)
+newtype ZonedTimeEq = ZonedTimeEq ZonedTime
+  deriving stock (Generic)
 
 instance Eq ZonedTimeEq where
   (==) a b = zonedTimeEqToUTC a == zonedTimeEqToUTC b

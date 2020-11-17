@@ -8,9 +8,6 @@ module Massalia.SQLWith
   )
 where
 
-import Massalia.QueryFormat
-  ( BinaryQuery
-  )
 import Massalia.GenericUtils (GTypeName(gtypename))
 import Data.String (String, IsString(fromString))
 import GHC.Generics (

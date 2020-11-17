@@ -4,7 +4,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
 
 -- |
@@ -22,7 +21,7 @@ import Data.Morpheus.Types (GQLType(description), KIND, GQLScalar(..))
 import Data.Morpheus.Kind (SCALAR, INPUT)
 import qualified Data.Morpheus.Types as GQLT
 import Massalia.Utils (UTCTime, 
-  EmailAddress, LocalTime, ZonedTime, ZonedTimeEq(ZonedTimeEq), UUID, Day,
+  EmailAddress, LocalTime, ZonedTime, ZonedTimeEq, UUID, Day,
   SimpleRange, Inclusivity (..),
   emailToByteString, emailValidate, stringToText, uuidFromText, uuidToText
   )
@@ -33,6 +32,7 @@ instance GQLScalar UUID where
   parseValue (GQLT.String x) = case uuidFromText x of
     Nothing -> Left $ "The given value = " <> x <> " is not a correct UUID"
     Just iid -> pure iid
+  parseValue _ = Left "The given value is not a string"
   serialize = GQLT.String . uuidToText
 
 instance GQLType UUID where
@@ -40,6 +40,7 @@ instance GQLType UUID where
 
 instance GQLScalar UTCTime where
   parseValue (GQLT.String x) = first stringToText $ JSON.eitherDecode $ JSON.encode x
+  parseValue _ = Left "UTCTime can only be String"
   serialize = GQLT.String . (fromMaybe "" . JSON.decode . JSON.encode)
 
 instance GQLType UTCTime where
@@ -47,6 +48,7 @@ instance GQLType UTCTime where
 
 instance GQLScalar LocalTime where
   parseValue (GQLT.String x) = first stringToText $ JSON.eitherDecode $ JSON.encode x
+  parseValue _ = Left "LocalTime can only be String"
   serialize = GQLT.String . (fromMaybe "" . JSON.decode . JSON.encode)
 
 instance GQLType LocalTime where
@@ -54,16 +56,23 @@ instance GQLType LocalTime where
 
 instance GQLScalar ZonedTime where
   parseValue (GQLT.String x) = first stringToText $ JSON.eitherDecode $ JSON.encode x
+  parseValue _ = Left "ZonedTime can only be String"
   serialize = GQLT.String . (fromMaybe "" . JSON.decode . JSON.encode)
 
 instance GQLType ZonedTime where
   type KIND ZonedTime = SCALAR
 
-deriving via ZonedTime instance GQLScalar ZonedTimeEq
-deriving via ZonedTime instance GQLType ZonedTimeEq
+instance GQLScalar ZonedTimeEq where
+  parseValue (GQLT.String x) = first stringToText $ JSON.eitherDecode $ JSON.encode x
+  parseValue _ = Left "ZonedTimeEq can only be String"
+  serialize = GQLT.String . (fromMaybe "" . JSON.decode . JSON.encode)
+
+instance GQLType ZonedTimeEq where
+  type KIND ZonedTimeEq = SCALAR
 
 instance GQLScalar Day where
   parseValue (GQLT.String x) = first stringToText $ JSON.eitherDecode $ JSON.encode x
+  parseValue _ = Left "Day can only be String"
   serialize = GQLT.String . (fromMaybe "" . JSON.decode . JSON.encode)
 
 instance GQLType Day where
@@ -71,6 +80,7 @@ instance GQLType Day where
 
 instance GQLScalar EmailAddress where
   parseValue (GQLT.String x) = first stringToText $ emailValidate $ encodeUtf8 x
+  parseValue _ = Left "EmailAddress can only be String"
   serialize = GQLT.String . (decodeUtf8 . emailToByteString)
 
 instance GQLType EmailAddress where
@@ -78,6 +88,7 @@ instance GQLType EmailAddress where
 
 instance GQLScalar JWTEncodedString where
   parseValue (GQLT.String x) = pure $ JWTEncodedString x
+  parseValue _ = Left "JWTEncodedString can only be String"
   serialize (JWTEncodedString val) = GQLT.String val
 
 instance GQLType JWTEncodedString where
@@ -100,6 +111,7 @@ instance GQLScalar Inclusivity where
     "(]" -> Right EI
     "()" -> Right EE
     _ -> Left $ "cannot parse range inclusivity = " <> x
+  parseValue _ = Left "Unexpected type of value for inclusivity"
   serialize x = case x of
     II -> GQLT.String "[]"
     IE -> GQLT.String "[)"
