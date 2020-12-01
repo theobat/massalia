@@ -122,7 +122,7 @@ import Massalia.SQLUtils (SQLWith (SQLWith), inlineWith, insertIntoWrapper, sele
 import Massalia.SelectionTree (MassaliaNode, MassaliaTree, getName, leaf, over)
 import qualified Massalia.SelectionTree as MassaliaTree
 import Massalia.Utils (intercalate, simpleSnakeCase, simpleSnakeCaseT, toCSVInParens, unsafeSnakeCaseT)
-import Massalia.UtilsGQL (OrderByWay (..), OrderingBy (..), Paginated)
+import Massalia.UtilsGQL (OrderByWay (..), OrderingBy (..), NullsOrder(NFirst, NLast), Paginated)
 import qualified Massalia.UtilsGQL as Paginated
 import Protolude hiding (intercalate)
 
@@ -762,17 +762,20 @@ instance
       combine a Nothing = a
       combine Nothing b = b
       combine (Just a) (Just b) = Just (a <> b)
-      fullName (OrderingBy wayVal colVal) = withWayOrderBy newStruct
+      fullName (OrderingBy wayVal colVal maybeNullsOrd) = withWayOrderBy newStruct
         where
           withWayOrderBy (Just selStruct) =
             Just
               selStruct
-                { _orderBy = fmap (<> ordTrans wayVal) (_orderBy selStruct)
+                { _orderBy = fmap (<> ordTrans wayVal <> ordNulls maybeNullsOrd) (_orderBy selStruct)
                 }
           withWayOrderBy Nothing = Nothing
           newStruct = filterStruct maybeOpt selection colVal
       ordTrans DESC = " DESC"
       ordTrans ASC = " ASC"
+      ordNulls Nothing = mempty
+      ordNulls (Just NFirst) = " NULLS FIRST"
+      ordNulls (Just NLast) = " NULLS LAST"
 
 -- | A function to use when implementing SQLFilterField for composite types.
 compositeFieldFilter ::

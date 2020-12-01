@@ -15,6 +15,7 @@ module Massalia.UtilsGQL
     defaultPaginated,
     OrderByWay (..),
     OrderingBy (..),
+    NullsOrder (..),
   )
 where
 
@@ -50,9 +51,12 @@ instance
   description = const (Just "A simple wrapper around any filter type to get pagination and OR filtered capabilities")
 
 data OrderByWay = ASC | DESC deriving (Eq, Show, Generic, GQLType)
+-- | Nulls first or nulls last.
+data NullsOrder = NFirst | NLast deriving (Eq, Show, Generic, GQLType)
 data OrderingBy a = OrderingBy
   { way :: OrderByWay,
-    column :: a
+    column :: a,
+    nullsOrd :: Maybe NullsOrder
   }
   deriving (Eq, Show, Generic)
 
