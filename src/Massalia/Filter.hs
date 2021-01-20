@@ -45,8 +45,7 @@ module Massalia.Filter
 where
 
 import Data.Aeson (FromJSON, ToJSON)
-import Data.Morpheus.Kind (INPUT)
-import Data.Morpheus.Types (GQLType, KIND)
+import Data.Morpheus.Types (GQLType)
 import Data.UUID ( UUID )
 import Massalia.QueryFormat
   ( PostgresRange (postgresRangeName),
@@ -128,7 +127,7 @@ deriving instance
 --   (ToJSON eqScalarType, ToJSON likeScalarType, ToJSON ordScalarType, Ord ordScalarType) =>
 --   ToJSON (GQLScalarFilter fieldName (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))
 
-instance
+deriving instance
   ( Typeable eqScalarType,
     Typeable likeScalarType,
     Typeable ordScalarType,
@@ -137,15 +136,11 @@ instance
     GQLType ordScalarType
   ) =>
   GQLType (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType)
-  where
-  type KIND (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType) = INPUT
-instance
+deriving instance
   ( Typeable eqScalarType,
     GQLType eqScalarType
   ) =>
   GQLType (GQLCollectionFilterCore eqScalarType)
-  where
-  type KIND (GQLCollectionFilterCore eqScalarType) = INPUT
 
 -- deriving via (NamedFilter (Maybe (GQLScalarFilterCore eqScalarType likeScalarType ordScalarType))) instance
 --     (

@@ -18,7 +18,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: nightly-2020-11-17
+resolver: nightly-2021-01-17
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -35,7 +35,15 @@ resolver: nightly-2020-11-17
 #  - wai
 packages:
 - .
-
+# when using local graphql rep :
+# - ../morpheus-graphql
+# - ../morpheus-graphql/morpheus-graphql-examples-scotty
+# - ../morpheus-graphql/morpheus-graphql-examples-servant
+# - ../morpheus-graphql/morpheus-graphql-examples-client
+# - ../morpheus-graphql/morpheus-graphql-subscriptions
+# - ../morpheus-graphql/morpheus-graphql-client
+# - ../morpheus-graphql/morpheus-graphql-core
+# - ../morpheus-graphql/morpheus-graphql-app
 
 # Dependency packages to be pulled from upstream that are not in the resolver
 # using the same syntax as the packages field.
@@ -61,7 +69,6 @@ packages:
 # Extra directories used by stack for building
 extra-include-dirs:
   - src/MassaliaSchema/Industry
-  # - ../morpheus-graphql/morpheus-graphql-core
   # - ../morpheus-graphql
 # extra-lib-dirs: [/path/to/dir]
 # extra-lib-dirs:
@@ -78,8 +85,22 @@ extra-deps:
   - bug-1.0.1@sha256:a516df91c7330d350480a7d338af645f173d1e767450c5f94295020f11c8432c,1395
   - base-prelude-1.4@sha256:feea99326853023fa9f908308383a7f9802e40f2d241b83dac57b266b202bda6,1412
   - postgresql-binary-0.12.3@sha256:4d5e52e5ef171dae8dd3ce5f72da552c34fe92ae13ba55bb165e59f245349b4f,6057
-  - morpheus-graphql-core-0.16.0
-  - morpheus-graphql-0.16.0
+  - dependent-map-0.2.4.0@sha256:21d35c1eba3f2afa3af3c4c5d8998fd14ac76f596f951c280bd83d1d5a19ae28,1739
+  - dependent-sum-0.4@sha256:40c705604f52374fb72616e10234635104a626ede737ddde899777b719df120b,1907
+  - fastsum-0.1.1.1@sha256:ddb41e30396cc091845596130fb441150118086c6f227c0bd5ce30dadf9dad56,2398
+  - type-aligned-0.9.6@sha256:2517994f5ce77cb8f3c30b33d403a90d36665d3f7ac668241f37a9f11b20db16,1075
+  - fraxl-0.3.0.0@sha256:65cb43791d827fb8055828d41b6419fbed014ec856593d46cacb1db80f4338c9,1884
+  - haxl-2.3.0.0@sha256:4c9a7371a2c21df910628d582776cf52db72bcd6c808daa02823be0ab06f1eb9,3974
+  # - morpheus-graphql-core-0.16.0
+  # - morpheus-graphql-0.16.0
+  - git: https://github.com/theobat/morpheus-graphql.git
+    commit: c075715053a7053a076628341bce22b9c735d242
+    subdirs:
+      - .
+      - ./morpheus-graphql-subscriptions
+      - ./morpheus-graphql-client
+      - ./morpheus-graphql-core
+      - ./morpheus-graphql-app
   - git: https://github.com/theobat/hasql-url.git
     commit: 77e2616d5d33dfaa58eb4d9b643dcf710c2e5745
   - git: https://github.com/theobat/massalia-migration.git

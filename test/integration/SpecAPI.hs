@@ -22,7 +22,7 @@ import Massalia.HasqlConnection (URLError)
 main :: IO ()
 main = do
   let queryStruct = GQLRequest
-        { query = "query plantList_test { plantListPaginated (first: 10, offset: 0, filtered: {id: {isIn: []}}) { id name } }",
+        { query = "query plantList_test { plantListPaginated (first: 10, offset: 0, globalFilter: {id: {isIn: []}}) { id name } }",
           operationName = Nothing,
           variables = Nothing
         }

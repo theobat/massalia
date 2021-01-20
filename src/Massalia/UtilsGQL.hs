@@ -19,8 +19,7 @@ module Massalia.UtilsGQL
   )
 where
 
-import Data.Morpheus.Kind (INPUT)
-import Data.Morpheus.Types (GQLType, KIND, description)
+import Data.Morpheus.Types (GQLType)
 import Data.Aeson (FromJSON, ToJSON)
 import Protolude
 
@@ -38,17 +37,10 @@ data Paginated filterType = Paginated
     -- | The offset in the query
     offset :: Maybe Int
   }
-  deriving (Eq, Show, Generic, FromJSON, ToJSON)
+  deriving (Eq, Show, Generic, GQLType, FromJSON, ToJSON)
 
 defaultPaginated :: Paginated filterType
 defaultPaginated = Paginated Nothing Nothing Nothing Nothing Nothing
-
-instance
-  (Typeable filterType, GQLType filterType) =>
-  GQLType (Paginated filterType)
-  where
-  type KIND (Paginated filterType) = INPUT
-  description = const (Just "A simple wrapper around any filter type to get pagination and OR filtered capabilities")
 
 data OrderByWay = ASC | DESC deriving (Eq, Show, Generic, GQLType)
 -- | Nulls first or nulls last.
@@ -58,8 +50,4 @@ data OrderingBy a = OrderingBy
     column :: a,
     nullsOrd :: Maybe NullsOrder
   }
-  deriving (Eq, Show, Generic)
-
-
-instance (Typeable a) => GQLType (OrderingBy a) where
-  type KIND (OrderingBy a) = INPUT
+  deriving (Eq, Show, Generic, GQLType)

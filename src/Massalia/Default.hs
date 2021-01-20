@@ -28,6 +28,7 @@ timestamptz = localTimeDefault
 localTime = localTimeDefault
 utc = utcTimeDefault
 date = dayDefault
+int :: Num a => a
 int = 0
 
 monoid :: (Monoid a) => a

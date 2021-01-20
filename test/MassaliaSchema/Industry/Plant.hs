@@ -112,7 +112,7 @@ plantListQuery maybePool queryArgs = do
   where
     exec pool validSel = do
       let (snippet, result) = queryAndDecoderToSnippetAndResult $ initialSnippet validSel
-      let fullSnippet = queryTest <> " " <> snippet
+      let fullSnippet = snippet
       let session = dynamicallyParameterizedStatement fullSnippet result True
       res <- use pool session
       case res of
