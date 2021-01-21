@@ -29,7 +29,7 @@
 module Massalia.QueryFormat
   ( QueryFormat (sqlEncode),
     formattedColName,
-    SQLEncoder (wrapEncoding, ignoreInGenericInstance, textEncode, binaryEncode, fieldRename),
+    SQLEncoder (wrapEncoding, textEncode, binaryEncode, fieldRename),
     SQLDecoder (sqlDecoder, sqlExpr),
     fmapList,
     fmapVector,
@@ -156,8 +156,6 @@ instance FromText Snippet where
   fromText = sql . encodeUtf8
 
 class SQLEncoder dataT where
-  ignoreInGenericInstance :: Bool
-  ignoreInGenericInstance = False
   wrapEncoding :: (QueryFormat qf) => qf -> qf
   wrapEncoding = identity
   textEncode :: dataT -> TextQuery
@@ -229,6 +227,7 @@ instance SQLEncoder [Int64] where
   binaryEncode = Snippet.param
 
 instance SQLEncoder Int where
+  wrapEncoding a = "" <> a <> "::int"
   textEncode = pack . show
   binaryEncode = Snippet.param . (fromIntegral @Int @Int64)
 
