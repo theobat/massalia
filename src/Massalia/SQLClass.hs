@@ -44,6 +44,7 @@ module Massalia.SQLClass
     basicDecodeRecordSubquery,
     basicDecodeListSubquery,
     basicDecodeInnerRecord,
+    basicDecodeInnerListOfRecord,
     paginatedFilterToSelectStruct,
     compositeFieldFilter,
     joinFilterFieldSimple,
@@ -156,13 +157,42 @@ basicDecodeInnerRecord context selection = result
     result = (colListQFThunk, defaultDecodeTuple $ Decoders.composite decoderVal)
     colListQFThunk name =
       "(CASE WHEN "
-        <> (fromText compositeName)
+        <> fromText compositeName
         <> " IS NULL THEN null ELSE row("
         <> intercalate "," (colListThunk compositeName)
         <> ") END)"
       where
         parentName = decodeName currentDecodeOpt name
-        compositeName = unsafeSnakeCaseT (parentName ° (getName selection))
+        compositeName = unsafeSnakeCaseT (parentName ° getName selection)
+    (colListThunk, decoderVal) = toColumnListAndDecoder selection updatedContext
+    updatedContext = setDecodeOption @contextT (currentDecodeOpt {fieldPrefixType = CompositeField}) context
+    currentDecodeOpt = fromMaybe mempty $ getDecodeOption context
+
+-- | This is a utility function to facilitate the writing
+-- of SQLDecode for inline lists of inner records.
+-- 
+basicDecodeInnerListOfRecord ::
+  forall contextT nodeT treeNode qf.
+  ( SQLRecord contextT nodeT,
+    MassaliaTree treeNode,
+    MassaliaContext contextT,
+    SQLRecord contextT nodeT,
+    QueryFormat qf
+  ) =>
+  contextT ->
+  treeNode ->
+  (Text -> qf, DecodeTuple [nodeT])
+basicDecodeInnerListOfRecord context selection = result
+  where
+    result = (colListQFThunk,defaultDecodeTuple $ Decoders.listArray $ Decoders.nonNullable $ Decoders.composite decoderVal)
+    colListQFThunk name =
+        "("
+        <> "SELECT array_agg(row(" <> intercalate "," (colListThunk "unnest")
+        <> ")) FROM UNNEST(" <> fromText compositeName <> ")"
+        <> ")"
+      where
+        parentName = decodeName currentDecodeOpt name
+        compositeName = unsafeSnakeCaseT (parentName ° getName selection)
     (colListThunk, decoderVal) = toColumnListAndDecoder selection updatedContext
     updatedContext = setDecodeOption @contextT (currentDecodeOpt {fieldPrefixType = CompositeField}) context
     currentDecodeOpt = fromMaybe mempty $ getDecodeOption context
