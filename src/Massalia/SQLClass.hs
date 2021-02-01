@@ -67,6 +67,7 @@ module Massalia.SQLClass
     existsOrNotFilter,
     existsOrNotPrimitive,
     insertDBContextSubquery,
+    inlineCompositeEncode,
   )
 where
 
@@ -578,6 +579,12 @@ instance Monoid SQLValuesOption where
       { additionalValueList = mempty
       }
 
+
+-- | A function to use if you want to define an SQLEncoder for a Haskell record to postgres composite
+-- datatype.
+inlineCompositeEncode :: (SQLValues a, QueryFormat qf) => a -> qf
+inlineCompositeEncode a = "(" <> mconcat (intersperse "," $ toSQLValues Nothing a) <> ")"
+  
 -- | This class represents all the haskell types with a corresponding 'toSQLValues'
 -- function. It's a function meant to encode a haskell record as an SQL comma separated
 -- list of parametrized values.

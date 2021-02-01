@@ -142,6 +142,9 @@ instance QueryFormat TextQuery where
 instance QueryFormat String where
   sqlEncode = unpack . textEncode
 
+instance QueryFormat ByteString where
+  sqlEncode = encodeUtf8 . textEncode
+
 instance QueryFormat BinaryQuery where
   sqlEncode = binaryEncode
 
@@ -153,6 +156,9 @@ instance FromText Text where
 
 instance FromText String where
   fromText = unpack
+
+instance FromText ByteString where
+  fromText = encodeUtf8
 
 instance FromText Snippet where
   fromText = sql . encodeUtf8
@@ -272,9 +278,8 @@ inParens !a = "(" <> a <> ")"
 commaSepInParens :: [[Char]] -> [Char]
 commaSepInParens = inParens . intercalate ","
 
-data BinaryEncodeMethod
+data BinaryEncodeMethod a
   = TextCollection
-  | CustomFunction (forall qf. qf -> ByteString)
 
 -- | Binary encodes a list of encodable types.
 -- Has almost the same as @collectionTextEncode@, but removes the @ ' @.
@@ -283,13 +288,14 @@ data BinaryEncodeMethod
 -- "{b,a}"
 --
 collectionBinaryEncode ::
-  (Foldable collection, SQLEncoder dataT, DefaultParamEncoder (collection TextQuery)) =>
-  BinaryEncodeMethod ->
+  forall collection dataT.
+  (Foldable collection, SQLEncoder dataT) =>
+  BinaryEncodeMethod dataT ->
   collection dataT ->
-  Snippet 
+  Snippet
 collectionBinaryEncode method collection = case method of
-  TextCollection -> Snippet.param (textEncode <$> toList collection)
-  CustomFunction translater -> Snippet.param (translater <$> toList collection)
+  TextCollection -> Snippet.param (replace "'" "\"" . textEncode <$> toList collection)
+  -- CustomFunction translater -> Snippet.param (translater <$> toList collection)
 
 -- | Text encodes a list of encodable types.
 -- 
@@ -307,7 +313,7 @@ collectionTextEncode collection = wrapCollection assembled
     assemblerFun !val "" = rawEncode val
     assemblerFun !val !currentEncoded = currentEncoded <> "," <> rawEncode val
     rawEncode val = replace "'" "" $ textEncode val
-    wrapCollection a = "'{" <> a <> "}'"
+    wrapCollection a = "'{ " <> a <> " }'"
 
 formattedColName :: (QueryFormat qf) => DecodeFieldPrefixType -> Maybe qf -> qf -> qf
 formattedColName _ Nothing colName = "\"" <> colName <> "\""
