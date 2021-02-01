@@ -57,6 +57,7 @@ module Massalia.QueryFormat
     decodeNameInContext,
     collectionTextEncode,
     collectionBinaryEncode,
+    BinaryEncodeMethod(..),
     PostgresRange (postgresRangeName),
     decodeTupleToHasql,
   )
@@ -271,6 +272,10 @@ inParens !a = "(" <> a <> ")"
 commaSepInParens :: [[Char]] -> [Char]
 commaSepInParens = inParens . intercalate ","
 
+data BinaryEncodeMethod
+  = TextCollection
+  | CustomFunction (forall qf. qf -> ByteString)
+
 -- | Binary encodes a list of encodable types.
 -- Has almost the same as @collectionTextEncode@, but removes the @ ' @.
 --
@@ -278,10 +283,13 @@ commaSepInParens = inParens . intercalate ","
 -- "{b,a}"
 --
 collectionBinaryEncode ::
-  (Functor collection, SQLEncoder dataT, DefaultParamEncoder (collection TextQuery)) =>
+  (Foldable collection, SQLEncoder dataT, DefaultParamEncoder (collection TextQuery)) =>
+  BinaryEncodeMethod ->
   collection dataT ->
   Snippet 
-collectionBinaryEncode collection = Snippet.param (textEncode <$> collection)
+collectionBinaryEncode method collection = case method of
+  TextCollection -> Snippet.param (textEncode <$> toList collection)
+  CustomFunction translater -> Snippet.param (translater <$> toList collection)
 
 -- | Text encodes a list of encodable types.
 -- 
