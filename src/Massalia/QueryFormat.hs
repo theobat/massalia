@@ -56,6 +56,7 @@ module Massalia.QueryFormat
     decodeName,
     decodeNameInContext,
     collectionTextEncode,
+    collectionBinaryEncode,
     PostgresRange (postgresRangeName),
     decodeTupleToHasql,
   )
@@ -270,6 +271,30 @@ inParens !a = "(" <> a <> ")"
 commaSepInParens :: [[Char]] -> [Char]
 commaSepInParens = inParens . intercalate ","
 
+-- | Binary encodes a list of encodable types.
+-- Has almost the same as @collectionTextEncode@, but removes the @ ' @.
+--
+-- >>> collectionBinaryEncode (["a", "b"] :: [Text])
+-- "{b,a}"
+--
+collectionBinaryEncode ::
+  (Foldable collection, SQLEncoder dataT) =>
+  collection dataT ->
+  Snippet 
+collectionBinaryEncode collection = wrapCollection assembled
+  where
+    assembled = fromText $ foldr assemblerFun "" collection
+    assemblerFun :: (SQLEncoder b) => b -> Text -> Text
+    assemblerFun !val "" = rawEncode val
+    assemblerFun !val !currentEncoded = currentEncoded <> "," <> rawEncode val
+    rawEncode val = replace "'" "" $ textEncode val
+    wrapCollection a = "{" <> a <> "}"
+
+-- | Text encodes a list of encodable types.
+-- 
+-- >>> collectionTextEncode (["a", "b"] :: [Text])
+-- "'{b,a}'"
+--
 collectionTextEncode ::
   (Foldable collection, SQLEncoder dataT, Show dataT) =>
   collection dataT ->
@@ -278,8 +303,8 @@ collectionTextEncode collection = wrapCollection assembled
   where
     assembled = foldr assemblerFun "" collection
     assemblerFun :: (SQLEncoder b, Show b) => b -> Text -> Text
-    assemblerFun val "" = rawEncode val
-    assemblerFun val currentEncoded = currentEncoded <> "," <> rawEncode val
+    assemblerFun !val "" = rawEncode val
+    assemblerFun !val !currentEncoded = currentEncoded <> "," <> rawEncode val
     rawEncode val = replace "'" "" $ textEncode val
     wrapCollection a = "'{" <> a <> "}'"
 
