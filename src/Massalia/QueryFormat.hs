@@ -278,17 +278,10 @@ commaSepInParens = inParens . intercalate ","
 -- "{b,a}"
 --
 collectionBinaryEncode ::
-  (Foldable collection, SQLEncoder dataT) =>
+  (Functor collection, SQLEncoder dataT, DefaultParamEncoder (collection TextQuery)) =>
   collection dataT ->
   Snippet 
-collectionBinaryEncode collection = wrapCollection assembled
-  where
-    assembled = fromText $ foldr assemblerFun "" collection
-    assemblerFun :: (SQLEncoder b) => b -> Text -> Text
-    assemblerFun !val "" = rawEncode val
-    assemblerFun !val !currentEncoded = currentEncoded <> "," <> rawEncode val
-    rawEncode val = replace "'" "" $ textEncode val
-    wrapCollection a = "{" <> a <> "}"
+collectionBinaryEncode collection = Snippet.param (textEncode <$> collection)
 
 -- | Text encodes a list of encodable types.
 -- 
