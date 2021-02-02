@@ -279,7 +279,11 @@ commaSepInParens :: [[Char]] -> [Char]
 commaSepInParens = inParens . intercalate ","
 
 data BinaryEncodeMethod a
+  -- | Encodes the collection through a list of text, replaces the @'@ with @"@ but does no casting.
   = TextCollection
+  -- | Encodes the collection through a list of text-based rows, replaces the @'@ with @"@
+  -- and casts the result with the underlying datatype concatenated with the array symbol of postgres (@[]@).
+  | TextCollectionCasted
 
 -- | Binary encodes a list of encodable types.
 -- Has almost the same as @collectionTextEncode@, but removes the @ ' @.
@@ -295,6 +299,7 @@ collectionBinaryEncode ::
   Snippet
 collectionBinaryEncode method collection = case method of
   TextCollection -> Snippet.param (replace "'" "\"" . textEncode <$> toList collection)
+  TextCollectionCasted -> (<> "[]") $ wrapEncoding @dataT $ Snippet.param (replace "'" "\"" . textEncode <$> toList collection)
   -- CustomFunction translater -> Snippet.param (translater <$> toList collection)
 
 -- | Text encodes a list of encodable types.

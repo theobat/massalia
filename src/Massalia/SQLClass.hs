@@ -123,7 +123,7 @@ import Massalia.SQLSelectStruct
 import Massalia.SQLUtils (SQLWith (SQLWith), inlineWith, insertIntoWrapper, selectWrapper)
 import Massalia.SelectionTree (MassaliaNode, MassaliaTree, getName, leaf, over)
 import qualified Massalia.SelectionTree as MassaliaTree
-import Massalia.Utils (intercalate, simpleSnakeCase, simpleSnakeCaseT, toCSVInParens, unsafeSnakeCaseT)
+import Massalia.Utils (intercalate, simpleSnakeCase, simpleSnakeCaseT, toCSVInParens)
 import Massalia.UtilsGQL (OrderByWay (..), OrderingBy (..), NullsOrder(NFirst, NLast), Paginated)
 import qualified Massalia.UtilsGQL as Paginated
 import Protolude hiding (intercalate)
@@ -164,7 +164,7 @@ basicDecodeInnerRecord context selection = result
         <> ") END)"
       where
         parentName = decodeName currentDecodeOpt name
-        compositeName = unsafeSnakeCaseT (parentName ° getName selection)
+        compositeName = simpleSnakeCaseT (parentName ° getName selection)
     (colListThunk, decoderVal) = toColumnListAndDecoder selection updatedContext
     updatedContext = setDecodeOption @contextT (currentDecodeOpt {fieldPrefixType = CompositeField}) context
     currentDecodeOpt = fromMaybe mempty $ getDecodeOption context
@@ -188,12 +188,12 @@ basicDecodeInnerListOfRecord context selection = result
     result = (colListQFThunk,defaultDecodeTuple $ Decoders.listArray $ Decoders.nonNullable $ Decoders.composite decoderVal)
     colListQFThunk name =
         "("
-        <> "SELECT array_agg(row(" <> intercalate "," (colListThunk "unnest")
-        <> ")) FROM UNNEST(" <> fromText compositeName <> ")"
+        <> "SELECT coalesce(array_agg(row(" <> intercalate "," (colListThunk "unnest")
+        <> ")), '{}') FROM UNNEST(" <> fromText compositeName <> ")"
         <> ")"
       where
         parentName = decodeName currentDecodeOpt name
-        compositeName = unsafeSnakeCaseT (parentName ° getName selection)
+        compositeName = simpleSnakeCaseT (parentName ° getName selection)
     (colListThunk, decoderVal) = toColumnListAndDecoder selection updatedContext
     updatedContext = setDecodeOption @contextT (currentDecodeOpt {fieldPrefixType = CompositeField}) context
     currentDecodeOpt = fromMaybe mempty $ getDecodeOption context
@@ -814,8 +814,15 @@ instance
       ordNulls (Just NFirst) = " NULLS FIRST"
       ordNulls (Just NLast) = " NULLS LAST"
 
--- | A function to use when implementing SQLFilterField for composite types.
-compositeFieldFilter ::
+-- | A function to use when implementing SQLFilterField for a composite type postgres.
+--
+-- >>> compositeFieldFilter mempty Nothing "testOk" 
+--
+compositeFieldFilter :: (SQLFilter filterT, QueryFormat qf) => SelectStruct qf -> Maybe SQLFilterOption -> Text -> filterT -> Maybe (SelectStruct qf)
+compositeFieldFilter initialValue options selectorName val = Just $ compositeStructFilter options selectorName val initialValue
+
+-- | A function to use when implementing SQLFilter for a composite type.
+compositeStructFilter ::
   ( SQLFilter filterT,
     QueryFormat qf
   ) =>
@@ -823,7 +830,7 @@ compositeFieldFilter ::
   Text ->
   filterT ->
   (SelectStruct qf -> SelectStruct qf)
-compositeFieldFilter options selectorName val = result
+compositeStructFilter options selectorName val = result
   where
     result = toQueryFormatFilter (transformOptions <$> options) val
     transformOptions baseOpt =
@@ -831,7 +838,7 @@ compositeFieldFilter options selectorName val = result
         { filterTableName = formattedFieldVal,
           filterFieldType = CompositeField
         }
-    formattedFieldVal = formattedColName (fromMaybe TableName $ (filterFieldType <$> options)) prefix actualFieldName
+    formattedFieldVal = formattedColName (maybe TableName filterFieldType options) prefix actualFieldName
     prefix = (fromText . filterTableName) <$> options
     actualFieldName = fromText $ getFilterFieldName selectorName options
 
