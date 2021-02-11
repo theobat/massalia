@@ -227,6 +227,7 @@ instance SQLEncoder [Bool] where
   binaryEncode = Snippet.param . collectionTextEncode
 
 instance SQLEncoder Int64 where
+  wrapEncoding a = "" <> a <> "::bigint"
   textEncode = pack . show
   binaryEncode = Snippet.param
 
