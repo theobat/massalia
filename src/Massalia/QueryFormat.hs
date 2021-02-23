@@ -44,6 +44,7 @@ module Massalia.QueryFormat
     DefaultParamEncoder,
     BinaryQuery,
     TextQuery,
+    DedupeBinaryQuery(..),
     commaAssemble,
     (§),
     (°),
@@ -75,6 +76,7 @@ import Hasql.DynamicStatements.Snippet (Snippet, sql)
 import qualified Hasql.DynamicStatements.Snippet as Snippet
 import Hasql.Implicits.Encoders (DefaultParamEncoder ())
 import Massalia.SelectionTree (MassaliaTree (getName))
+import qualified Data.Sequence as Seq
 import Massalia.Utils
   ( Day,
     EmailAddress,
@@ -102,6 +104,55 @@ type TextQuery = Text
 -- It enables the representation of a query alongside it's parametrized values.
 -- It has no instance of show, which explains the presence of its 'TextQuery' counterpart.
 type BinaryQuery = Snippet
+
+-- | This is a format where we dedupe common binary parts.
+-- The price to pay compared to a simple BinaryQuery is "quite" significant, since 
+-- every single semigroup concatenation will iterate on the textQueryPartList and lookup
+-- on the binary queryPartMap (O (n log n)) and then 
+-- For instance, we can do something like:
+--
+-- @
+--  binaryQueryResult $ "SELECT * FROM ok WHERE id=" <> sqlEncode "'%T%'" <> " AND name ilike " <> sqlEncode "'%T%'" 
+-- @
+-- And get an SQL query with a single parameter (since both sqlEncode values are identical)
+--
+-- @
+--  SELECT * FROM ok WHERE id=$1 AND name ilike name=$1;
+-- @
+data DedupeBinaryQuery = DedupeBinaryQuery {
+  -- | The text to binary comparison.
+  queryPartMap :: Map TextQuery BinaryQuery,
+  -- | The list of query bits in text format.
+  -- To understand the use-case for this field, look at the Semigroup instance.
+  textQueryPartList :: Seq TextQuery,
+  -- | The final query to send to the database (without any parametrized duplicates)
+  binaryQueryResult :: BinaryQuery
+}
+instance IsString DedupeBinaryQuery where
+  fromString st = DedupeBinaryQuery {
+      queryPartMap = mempty,
+      textQueryPartList = pure (String.fromString st),
+      binaryQueryResult = mempty
+    }
+
+instance Semigroup DedupeBinaryQuery where
+  (<>) !a b = a {
+      queryPartMap = binaryRef, -- left biased union
+      textQueryPartList = textQueryPartList a Seq.>< textQueryPartList b,
+      binaryQueryResult = binaryQueryResult a <> foldl' lookupAdd mempty (textQueryPartList b)
+    }
+    where
+      lookupAdd prevList !textVal = case Map.lookup textVal binaryRef of
+        Nothing -> prevList <> fromText textVal
+        Just v -> prevList <> v
+      binaryRef = Map.union (queryPartMap a) (queryPartMap b)
+
+instance Monoid DedupeBinaryQuery where
+  mempty = DedupeBinaryQuery {
+      queryPartMap = mempty,
+      textQueryPartList = mempty,
+      binaryQueryResult = mempty
+    }
 
 -- | The ° operator is taking a table name (or an sql alias) and a field name (or a field alias) and
 -- yields their escaped combination.
@@ -145,6 +196,16 @@ instance QueryFormat String where
 instance QueryFormat ByteString where
   sqlEncode = encodeUtf8 . textEncode
 
+instance QueryFormat DedupeBinaryQuery where
+  sqlEncode a = DedupeBinaryQuery {
+      queryPartMap = Map.singleton txtVal bVal,
+      textQueryPartList = pure txtVal,
+      binaryQueryResult = bVal
+    }
+    where
+      txtVal = textEncode a
+      bVal = binaryEncode a
+
 instance QueryFormat BinaryQuery where
   sqlEncode = binaryEncode
 
@@ -162,6 +223,13 @@ instance FromText ByteString where
 
 instance FromText Snippet where
   fromText = sql . encodeUtf8
+
+instance FromText DedupeBinaryQuery where
+  fromText txt = DedupeBinaryQuery {
+      queryPartMap = mempty,
+      textQueryPartList = pure txt,
+      binaryQueryResult = fromText txt
+    }
 
 class SQLEncoder dataT where
   wrapEncoding :: (QueryFormat qf) => qf -> qf
@@ -289,8 +357,10 @@ data BinaryEncodeMethod a
 -- | Binary encodes a list of encodable types.
 -- Has almost the same as @collectionTextEncode@, but removes the @ ' @.
 --
--- >>> collectionBinaryEncode (["a", "b"] :: [Text])
--- "{b,a}"
+-- @
+--  collectionBinaryEncode (["a", "b"] :: [Text])
+-- -- "{ b,a }" (but binary has no instance for show)
+-- @
 --
 collectionBinaryEncode ::
   forall collection dataT.
@@ -306,7 +376,7 @@ collectionBinaryEncode method collection = case method of
 -- | Text encodes a list of encodable types.
 -- 
 -- >>> collectionTextEncode (["a", "b"] :: [Text])
--- "'{b,a}'"
+-- "'{ b,a }'"
 --
 collectionTextEncode ::
   (Foldable collection, SQLEncoder dataT, Show dataT) =>
@@ -401,7 +471,7 @@ decodeName decOpt name = fromMaybe name (Map.lookup name $ nameMap decOpt)
 -- | When using an overridable name in a given context 'a'
 -- use this function before using the name.
 decodeNameInContext :: MassaliaContext a => a -> Text -> Text
-decodeNameInContext context name = maybe name (flip decodeName $ name) (getDecodeOption context)
+decodeNameInContext context name = maybe name (`decodeName` name) (getDecodeOption context)
 
 -- | A class to decode
 class SQLDecoder contextT decodedT where

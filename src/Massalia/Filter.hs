@@ -297,7 +297,7 @@ wrappedContentInList fieldName op maybeVal = maybeToList . wrappedContent fieldN
 -- Just "foo.bar = 1"
 -- >>>
 -- >>> wrappedContent @Text "foo.bar" "=ANY(" (Just @[Int] [1, 2, 3]) ")"
--- Just "foo.bar =ANY( '{3,2,1}')"
+-- Just "foo.bar =ANY( '{ 3,2,1 }')"
 wrappedContent :: (QueryFormat qf, SQLEncoder valueType) => qf -> qf -> Maybe valueType -> qf -> Maybe qf
 wrappedContent _ _ Nothing _ = Nothing
 wrappedContent fieldName op (Just a) suffix = Just

@@ -70,6 +70,9 @@ plantFilterTest =
                   isBetween = Just defaultSimpleRange{
                     start = case (JSON.eitherDecode "\"1991-08-21\"") of
                       Left _ -> Nothing
+                      Right a -> Just a,
+                    end = case (JSON.eitherDecode "\"1991-08-21\"") of
+                      Left _ -> Nothing
                       Right a -> Just a
                   }
                 }

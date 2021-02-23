@@ -9,12 +9,13 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
+{-# LANGUAGE PartialTypeSignatures #-}
 module MassaliaSchema.Industry.Plant
   ( Plant (..),
     plantListQuery,
   )
 where
-
+import Protolude
 import Data.UUID (UUID, nil)
 import Massalia.HasqlExec (dynamicallyParameterizedStatement, use)
 import Massalia.SelectionTree (fromMorpheusContext)
@@ -29,31 +30,14 @@ import Massalia.QueryFormat
     SQLEncoder,
     joinEq,
     simpleEq,
-    (°)
+    (°),DedupeBinaryQuery (binaryQueryResult)
   )
 import Massalia.SQLSelectStruct (
   SelectStruct(..),
-  queryAndDecoderToSnippetAndResult
+  queryAndDecoderToQueryFormatAndResult, queryAndDecoderToQueryFormat
   )
 import MassaliaSchema.Industry.PlantInput (queryTest)
 import MassaliaSchema.Industry.Truck (Truck)
-import Protolude
-    ( ($),
-      Show,
-      Applicative(pure),
-      Generic,
-      Semigroup((<>)),
-      Monoid(mempty),
-      Bool(True),
-      Maybe(..),
-      Either(Right, Left),
-      Text,
-      (.),
-      (=<<),
-      lift,
-      show,
-      undefined,
-      panic )
 import MassaliaSchema.Industry.PlantFilter (PlantFilter, plantFilterTest)
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
 import Data.Morpheus.Types (unsafeInternalContext)
@@ -80,7 +64,7 @@ data Plant
       }
   deriving (Show, Generic, GQLType)
 deriving instance SQLRecord (Paginated PlantFilter) Plant
-  
+
 instance SQLSelect (Paginated PlantFilter) Plant where
   toSelectQuery = basicQueryAndDecoder (basicEntityQuery "plant" Just)
 
@@ -104,21 +88,22 @@ defaultPlant = Plant {
     name = ""
   }
 
+plantListQuery :: _ => _ -> _ -> _ _ _ IO [Plant]
 plantListQuery maybePool queryArgs = do
   massaliaTree <- (pure . fromMorpheusContext) =<< unsafeInternalContext
   case maybePool of
     Nothing -> pure []
     Just pool -> lift (exec pool massaliaTree)
   where
+    exec :: _ => _ -> _ -> _ [Plant]
     exec pool validSel = do
-      let (snippet, result) = queryAndDecoderToSnippetAndResult $ initialSnippet validSel
-      let fullSnippet = snippet
+      let (snippet, result) = queryAndDecoderToQueryFormatAndResult $ toSelectQuery validSel arg
+      let fullSnippet = binaryQueryResult snippet
       let session = dynamicallyParameterizedStatement fullSnippet result True
       res <- use pool session
       case res of
         Left e -> panic $ show e
         Right listRes -> pure listRes
     -- statement validSel = queryAndDecoderToSession $ initialSnippet validSel
-    initialSnippet selSet = toSelectQuery selSet arg
     arg = defaultPaginated{Paginated.globalFilter = pure plantFilterTest}
 

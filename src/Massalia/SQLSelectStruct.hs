@@ -22,6 +22,7 @@ module Massalia.SQLSelectStruct
     selectStructToQueryFormat,
     queryAndDecoderToListSubquery,
     queryAndDecoderToSnippetAndResult,
+    queryAndDecoderToQueryFormatAndResult,
     queryAndDecoderToStatement,
     queryAndDecoderToSession,
     concatAnd,
@@ -75,7 +76,11 @@ queryAndDecoderToSession selectSt = dynamicallyParameterizedStatement snippet re
 
 -- | select query to a HASQL Statement, which can be executed in a Session.
 queryAndDecoderToSnippetAndResult :: QueryAndDecoder BinaryQuery decoder -> (BinaryQuery, Decoders.Result [decoder])
-queryAndDecoderToSnippetAndResult selectSt = (content, decoderValue)
+queryAndDecoderToSnippetAndResult = queryAndDecoderToQueryFormatAndResult
+
+-- | select query to a HASQL Statement, which can be executed in a Session.
+queryAndDecoderToQueryFormatAndResult :: (QueryFormat qf) => QueryAndDecoder qf decoder -> (qf, Decoders.Result [decoder])
+queryAndDecoderToQueryFormatAndResult selectSt = (content, decoderValue)
   where
     content = assembleSelectStruct [Row] (query selectSt)
     decoderValue = Decoders.rowList (Decoders.column $ Decoders.nonNullable $ Decoders.composite $ decoder selectSt)

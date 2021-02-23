@@ -95,7 +95,6 @@ import Text.Pretty.Simple (pPrint)
 
 -- Legacy String
 import Data.String (String)
-import Data.Char (toLower, isUpper)
 import qualified Data.Text as Text
 
 -- --------------- TEXT
@@ -139,10 +138,10 @@ emailDefault = [email|default@default.com|]
 
 --------------- Time/Day/Timestamp
 
-localTimeDefault = LocalTime dayDefault midnight  
-dayDefault = (ModifiedJulianDay 0)  
+localTimeDefault = LocalTime dayDefault midnight
+dayDefault = ModifiedJulianDay 0
 
-utcTimeDefault = UTCTime dayDefault (secondsToDiffTime 0)  
+utcTimeDefault = UTCTime dayDefault (secondsToDiffTime 0)
 
 unsafeSnakeCaseT :: Text -> Text
 unsafeSnakeCaseT t = case toUnderscore t of

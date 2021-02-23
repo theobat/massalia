@@ -23,6 +23,18 @@ What's the difference with join-monster and hasura then ?
 - **Join monster** uses a join-heavy approach where data fetching is mixed with data shaping (joins are used for both) which is not needed. Besides join monster lacks a number of important features such as parametrized queries and support for user-defined types at the sql level.
 - **Hasura** is made/optimized towards JSON rendering in the database. Massalia is geared towards postgresql rows/arrays rendering in the the datatabase. The result is that massalia is more haskell oriented, whereas hasura really shines any situation where you want to write business logic separatly from the query engine. Under heavy loads, using hasura along with a distributed architecture, is probably a better bet.
 
+Is it an ORM or Type-Relational mapping ?
+
+Yes and no. It could be used as an ORM or as a Type-Relational mapping, no doubt.
+But it lacks a good definition for "this field is not needed", we rely on defining a default value for now.
+(id est, we define default values for all the records we map to the database).
+Which is pretty shitty, but it's mostly a non concern when using massalia with GraphQL,
+because we constructively use the fields sent in the graphQL query, and all the others are ignored at the
+graphQL level.
+For a more widespread ORM/TRM, the issue is not at the library level, it lies in Haskell's lack of a proper
+extensible record system. Thus, for now (and almost certainly until haskell gets proper dependent types and/or extensible records),
+the library is not meant for out-of-graphQL usage.
+
 Quick exemple
 -------------------------------
 

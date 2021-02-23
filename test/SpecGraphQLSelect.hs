@@ -14,6 +14,7 @@ module SpecGraphQLSelect
 where
 
 import GraphQLMorpheusTestData (plantQuery, truckQuery)
+import Massalia.QueryFormat (DedupeBinaryQuery(textQueryPartList))
 import Massalia.SQLClass
   ( SQLSelect (toSelectQuery),
     SQLRecord (fullTopSelection)
@@ -30,6 +31,7 @@ import Protolude
 
 testPlantQuery :: QueryAndDecoder Text Plant
 testPlantQuery = toSelectQuery plantQuery (defaultPaginated @PlantFilter)
+
 testFilteredPlantQuery :: QueryAndDecoder Text Plant
 testFilteredPlantQuery = toSelectQuery plantQuery (defaultPaginated{globalFilter = Just plantFilterTest})
 testUnionFilterPlantQuery :: QueryAndDecoder Text Plant
@@ -39,6 +41,8 @@ testUnionFilterPlantQuery = toSelectQuery plantQuery (defaultPaginated{
 
 testTruckList :: QueryAndDecoder Text Truck
 testTruckList = toSelectQuery truckQuery (defaultPaginated @TruckFilter)
+testTruckListDedupeFormat :: QueryAndDecoder DedupeBinaryQuery Truck
+testTruckListDedupeFormat = toSelectQuery truckQuery (defaultPaginated @TruckFilter)
 
 -- List of (result, expected)
 listCase :: [(TestName, Text, Text)]
@@ -47,26 +51,30 @@ listCase =
       selectStructToQueryFormat (query testTruckList),
       "SELECT \"truck\".\"id\" FROM \"truck\""
     ),
+    ( "test simple Truck query in dedupe format",
+      fold $ textQueryPartList (selectStructToQueryFormat (query testTruckListDedupeFormat)),
+      "SELECT \"truck\".\"id\" FROM \"truck\""
+    ),
     ( "test simple Plant->Truck query",
       selectStructToQueryFormat (query testPlantQuery),
       "SELECT \"plant\".\"id\", coalesce((SELECT coalesce((array_agg(row(\"truck\".\"id\") )), '{}') FROM \"truck\" JOIN \"truck_plant\" ON \"truck_plant\".\"truck_id\" = \"truck\".\"id\" WHERE \"truck_plant\".\"plant_id\" = \"plant\".\"id\" GROUP BY \"plant\".\"id\"), '{}') FROM \"plant\""
     ),
     ( "test simple Plant->Truck query (filtered)",
       selectStructToQueryFormat (query testFilteredPlantQuery),
-      "SELECT \"plant\".\"id\", coalesce((SELECT coalesce((array_agg(row(\"truck\".\"id\") )), '{}') FROM \"truck\" JOIN \"truck_plant\" ON \"truck_plant\".\"truck_id\" = \"truck\".\"id\" WHERE \"truck_plant\".\"plant_id\" = \"plant\".\"id\" GROUP BY \"plant\".\"id\"), '{}') FROM \"plant\" WHERE (\"plant\".\"check_date\" <@ daterange('1991-08-21',null))"
+      "SELECT \"plant\".\"id\", coalesce((SELECT coalesce((array_agg(row(\"truck\".\"id\") )), '{}') FROM \"truck\" JOIN \"truck_plant\" ON \"truck_plant\".\"truck_id\" = \"truck\".\"id\" WHERE \"truck_plant\".\"plant_id\" = \"plant\".\"id\" GROUP BY \"plant\".\"id\"), '{}') FROM \"plant\" WHERE (\"plant\".\"check_date\" <@ daterange('1991-08-21','1991-08-21'))"
     ),
     ( "test simple Plant->Truck query (union filter)",
       selectStructToQueryFormat (query testUnionFilterPlantQuery),
-      "SELECT \"plant\".\"id\", coalesce((SELECT coalesce((array_agg(row(\"truck\".\"id\") )), '{}') FROM \"truck\" JOIN \"truck_plant\" ON \"truck_plant\".\"truck_id\" = \"truck\".\"id\" WHERE \"truck_plant\".\"plant_id\" = \"plant\".\"id\" GROUP BY \"plant\".\"id\"), '{}') FROM ((SELECT \"plant\".* FROM \"plant\" WHERE (\"plant\".\"check_date\" <@ daterange('1991-08-21',null))) UNION (SELECT \"plant\".* FROM \"plant\" WHERE (\"plant\".\"check_date\" <@ daterange('1991-08-21',null))))\"plant\""
+      "SELECT \"plant\".\"id\", coalesce((SELECT coalesce((array_agg(row(\"truck\".\"id\") )), '{}') FROM \"truck\" JOIN \"truck_plant\" ON \"truck_plant\".\"truck_id\" = \"truck\".\"id\" WHERE \"truck_plant\".\"plant_id\" = \"plant\".\"id\" GROUP BY \"plant\".\"id\"), '{}') FROM ((SELECT \"plant\".* FROM \"plant\" WHERE (\"plant\".\"check_date\" <@ daterange('1991-08-21','1991-08-21'))) UNION (SELECT \"plant\".* FROM \"plant\" WHERE (\"plant\".\"check_date\" <@ daterange('1991-08-21','1991-08-21'))))\"plant\""
     ),
     (
       "Filters type name",
-      (show (fullTopSelection @(Paginated TruckFilter) @Truck "")),
+      show (fullTopSelection @(Paginated TruckFilter) @Truck ""),
       "MassaliaNode {name = \"\", children = fromList [(\"id\",MassaliaNode {name = \"id\", children = fromList []}),(\"vehicleId\",MassaliaNode {name = \"vehicleId\", children = fromList []})]}"
     ),
     (
       "Filters type name",
-      (show (fullTopSelection @(Paginated TruckFilter) @Truck "")),
+      show (fullTopSelection @(Paginated TruckFilter) @Truck ""),
       "MassaliaNode {name = \"\", children = fromList [(\"id\",MassaliaNode {name = \"id\", children = fromList []}),(\"vehicleId\",MassaliaNode {name = \"vehicleId\", children = fromList []})]}"
     )
   ]

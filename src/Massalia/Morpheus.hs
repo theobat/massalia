@@ -13,4 +13,3 @@ where
 import Data.Morpheus (
     interpreter
   )
-import Protolude

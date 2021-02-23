@@ -374,8 +374,8 @@ paginatedFilterToSelectStruct filterOption filterValue = limitOffsetEffect . glo
       where
         finalFilterList (a, b) = standaloneFilterList a <> standalonePFilterList b
         standaloneFilterList a = fmap ($ simpleBase) (toQueryFormatFilter filterOption <$> a)
-        simpleBase = mempty {_from = (_from baseQ), _select = simpleSelect name}
-        standalonePFilterList b = (simplePApplication <$> b)
+        simpleBase = mempty {_from = _from baseQ, _select = simpleSelect name}
+        standalonePFilterList b = simplePApplication <$> b
         simplePApplication pval = toQueryFormatFilter filterOption (Paginated.globalFilter pval) simpleBase <> offsetLimitQy pval
         name = _from baseQ
         simpleSelect Nothing = ["*"]
@@ -405,7 +405,7 @@ joinFilterField ::
   Maybe SQLFilterOption ->
   p ->
   record ->
-  (SelectStruct qf)
+  SelectStruct qf
 joinFilterField !joinFunction !opts _ !val = partialRes
   where
     partialRes =
@@ -417,7 +417,7 @@ joinFilterField !joinFunction !opts _ !val = partialRes
       )
         <> recordPart mempty
     (joiningRes, joiningName) = joinFunction fatherTable
-    fatherTable = fromMaybe "" (filterTableName <$> opts)
+    fatherTable = maybe "" filterTableName opts
     recordPart = toQueryFormatFilter updatedOpt val
     updatedOpt = updateFiltOpt <$> opts
     updateFiltOpt a = a {filterTableName = joiningName}
@@ -439,7 +439,7 @@ noExistsFilter ::
   Maybe SQLFilterOption ->
   p ->
   record ->
-  (SelectStruct qf)
+  SelectStruct qf
 noExistsFilter = existsOrNotFilter False
 
 type IsExists = Bool
@@ -460,7 +460,7 @@ existsOrNotFilter ::
   record ->
   -- | The end result is the query formatted @[NOT] EXISTS@ within a _where in SQL.
   (SelectStruct qf)
-existsOrNotFilter !isExists !joinFunction opts = existsOrNotPrimitive isExists False innerQuery opts
+existsOrNotFilter !isExists !joinFunction = existsOrNotPrimitive isExists False innerQuery
   where
     innerQuery fatherTable =
       ( mempty
@@ -493,9 +493,9 @@ existsOrNotPrimitive ::
   SelectStruct p1
 existsOrNotPrimitive !isExists !isFilterInside !sqlExprFunction !opts _ !val = finalRes
   where
-    finalRes = case isFilterInside of
-      True -> partialRes $ (selectStructToQueryFormat $ innerQuery `concatAnd` recordPart mempty)
-      False -> (partialRes $ selectStructToQueryFormat innerQuery) `concatAnd` recordPart mempty
+    finalRes = if isFilterInside
+      then partialRes $ selectStructToQueryFormat (innerQuery `concatAnd` recordPart mempty)
+      else partialRes (selectStructToQueryFormat innerQuery) `concatAnd` recordPart mempty
     partialRes insdeQuery =
       ( mempty
           { _where = Just $ prefix <> "EXISTS (" <> insdeQuery <> ")"
@@ -503,7 +503,7 @@ existsOrNotPrimitive !isExists !isFilterInside !sqlExprFunction !opts _ !val = f
       )
     (innerQuery, tableName) = sqlExprFunction fatherTable
     prefix = if isExists then "" else "NOT "
-    fatherTable = fromMaybe "" (filterTableName <$> opts)
+    fatherTable = maybe "" filterTableName opts
     recordPart = toQueryFormatFilter updatedOpt val
     updatedOpt = updateFiltOpt <$> opts
     updateFiltOpt a = a {filterTableName = tableName}
@@ -555,7 +555,7 @@ class SQLColumns a where
 gsqlColumns :: forall a. (Generic a, GSelectors (Rep a)) => forall queryFormat. (QueryFormat queryFormat) => [queryFormat]
 gsqlColumns = snakeTypename
   where
-    snakeTypename = (fromString . simpleSnakeCase . fst) <$> listValue
+    snakeTypename = fromString . simpleSnakeCase . fst <$> listValue
     listValue = selectors @(Rep a)
 
 columnList :: forall a queryFormat. (QueryFormat queryFormat, SQLColumns a) => queryFormat
@@ -584,7 +584,7 @@ instance Monoid SQLValuesOption where
 -- datatype.
 inlineCompositeEncode :: (SQLValues a, QueryFormat qf) => a -> qf
 inlineCompositeEncode a = "(" <> mconcat (intersperse "," $ toSQLValues Nothing a) <> ")"
-  
+
 -- | This class represents all the haskell types with a corresponding 'toSQLValues'
 -- function. It's a function meant to encode a haskell record as an SQL comma separated
 -- list of parametrized values.
@@ -623,7 +623,7 @@ instance
   (SQLEncoder a, GValues (K1 i a)) =>
   GValues (K1 i a)
   where
-  goToValues (K1 val) = [(sqlEncode val)]
+  goToValues (K1 val) = [sqlEncode val]
 
 ----------------------------------------------------------------------------
 ---------------------------- SQL Filter
@@ -640,7 +640,7 @@ data SQLFilterOption = SQLFilterOption
 getFilterFieldName :: Text -> Maybe SQLFilterOption -> Text
 getFilterFieldName scFieldName opt = fromMaybe scFieldName $ join look
   where
-    look = (Map.lookup scFieldName . filterFieldMap) <$> opt
+    look = Map.lookup scFieldName . filterFieldMap <$> opt
 
 defaultFilterOption :: SQLFilterOption
 defaultFilterOption =
@@ -667,7 +667,7 @@ class SQLFilter record where
       filterList = gtoQueryFormatFilter @(Rep record) @qf options (from value)
 
 class GSQLFilter f where
-  gtoQueryFormatFilter :: forall qf a. (QueryFormat qf) => Maybe SQLFilterOption -> f a -> [(SelectStruct qf -> SelectStruct qf)]
+  gtoQueryFormatFilter :: forall qf a. (QueryFormat qf) => Maybe SQLFilterOption -> f a -> [SelectStruct qf -> SelectStruct qf]
 
 instance GSQLFilter U1 where
   gtoQueryFormatFilter _ U1 = mempty
@@ -724,8 +724,8 @@ instance
           { _where = Just $ "(" <> whClause <> ")"
           }
       filterBitResult = filterFieldToMaybeContent prefixedField (Just val)
-      prefixedField = formattedColName (fromMaybe TableName $ (filterFieldType <$> options)) prefix actualFieldName
-      prefix = (fromText . filterTableName) <$> options
+      prefixedField = formattedColName (maybe TableName filterFieldType options) prefix actualFieldName
+      prefix = fromText . filterTableName <$> options
       actualFieldName = fromText $ getFilterFieldName (fieldRename @b selectorName) options
 
 instance
@@ -740,8 +740,8 @@ instance
           { _where = Just $ "(" <> whClause <> ")"
           }
       filterBitResult = filterFieldCollectionToMaybeContent prefixedField (Just val)
-      prefixedField = formattedColName (fromMaybe TableName $ (filterFieldType <$> options)) prefix actualFieldName
-      prefix = (fromText . filterTableName) <$> options
+      prefixedField = formattedColName (maybe TableName filterFieldType options) prefix actualFieldName
+      prefix = fromText . filterTableName <$> options
       actualFieldName = fromText $ getFilterFieldName (fieldRename @[b] selectorName) options
 
 instance SQLFilter () where
@@ -761,7 +761,7 @@ instance
   ) =>
   SQLFilterField (Maybe a)
   where
-  filterStruct options selectorName val = (filterStruct options selectorName) =<< val
+  filterStruct options selectorName val = filterStruct options selectorName =<< val
 
 -- | Paginated filters are for top queries => always
 -- (and handled through the SQLRecord machinery)
@@ -776,9 +776,9 @@ instance SQLFilterField Bool where
           { _where = Just $ "(" <> filterBitResult val <> ")"
           }
       filterBitResult True = formattedField
-      filterBitResult False = ("NOT " <> formattedField)
-      formattedField = formattedColName (fromMaybe TableName $ (filterFieldType <$> options)) prefix actualFieldName
-      prefix = (fromText . filterTableName) <$> options
+      filterBitResult False = "NOT " <> formattedField
+      formattedField = formattedColName (maybe TableName filterFieldType options) prefix actualFieldName
+      prefix = fromText . filterTableName <$> options
       actualFieldName = fromText $ getFilterFieldName selectorName options
 
 instance (SQLFilter a) => SQLFilter (Paginated a) where
@@ -839,7 +839,7 @@ compositeStructFilter options selectorName val = result
           filterFieldType = CompositeField
         }
     formattedFieldVal = formattedColName (maybe TableName filterFieldType options) prefix actualFieldName
-    prefix = (fromText . filterTableName) <$> options
+    prefix = fromText . filterTableName <$> options
     actualFieldName = fromText $ getFilterFieldName selectorName options
 
 ----------------------------------------------------------------------------
@@ -854,7 +854,7 @@ class DBContextSubquery record where
     (Foldable collection, QueryFormat queryFormat) =>
     Maybe WithQueryOption ->
     collection record ->
-    [(SQLWith queryFormat)]
+    [SQLWith queryFormat]
 
 -- | A type to specify which type of query should be generated in
 -- 'Default' is an insert query statement with values wrapped in
@@ -938,7 +938,7 @@ insertDBContextSubquery ::
   ) =>
   Maybe WithQueryOption ->
   collectionIn recordT ->
-  [(SQLWith queryFormat)]
+  [SQLWith queryFormat]
 insertDBContextSubquery options val = result
   where
     result
@@ -949,7 +949,7 @@ insertDBContextSubquery options val = result
     insertOpt = Map.lookup (sqlName @recordT) (withShape optionVal)
     pureSelectArgs = (fromText $ sqlName @recordT, columnList @recordT)
     value = toSQLValues @recordT $ sqlValueOption <$> options
-    selectInstance = case (fromMaybe (defaultShape optionVal) insertOpt) of
+    selectInstance = case fromMaybe (defaultShape optionVal) insertOpt of
       PureSelect -> selectValuesQuery value pureSelectArgs val
       res@Insert {} -> insertValuesQuery res value (fromText $ sqlTable @recordT) (sqlColumns @recordT) val
 
@@ -974,11 +974,11 @@ insertValuesQuery opt getValues qfSQLTable rawColList recordCollection =
   insertHeader <> "\n" <> selectBody <> "\n" <> suffix
   where
     suffix = case opt of
-      Insert True True -> (onConflictUpdateExcluded rawColList) <> "\n RETURNING *"
+      Insert True True -> onConflictUpdateExcluded rawColList <> "\n RETURNING *"
       Insert True False -> "RETURNING *"
       Insert False True -> onConflictUpdateExcluded rawColList
       _ -> ""
-    insertHeader = insertIntoWrapper qfSQLTable (columnListVal)
+    insertHeader = insertIntoWrapper qfSQLTable columnListVal
     selectBuildArgs = (qfSQLTable, columnListVal)
     selectBody = selectValuesQuery @_ @recordType @queryFormat getValues selectBuildArgs recordCollection
     columnListVal = toCSVInParens rawColList
@@ -1020,7 +1020,7 @@ selectValuesQuery ::
 selectValuesQuery sqlRowEncoder (name, colAssembledList) recordCollection = result
   where
     result = selectWrapper name colAssembledList test
-    test = "VALUES " <> (intercalate ", " (transformer <$> toList recordCollection))
+    test = "VALUES " <> intercalate ", " (transformer <$> toList recordCollection)
     transformer = inParens . intercalate ", " . sqlRowEncoder
 
 ---------------------- SQLSelect test
@@ -1101,7 +1101,7 @@ class SQLRecord contextT nodeT where
     selectionType ->
     contextT ->
     (Text -> [queryFormat], Composite nodeT)
-  toColumnListAndDecoder selectionVal context = fmap (to <$>) $ gtoColumnListAndDecoder selectionVal context defaultVal
+  toColumnListAndDecoder selectionVal context = (to <$>) <$> gtoColumnListAndDecoder selectionVal context defaultVal
     where
       -- (colListThunk, gdeco) = gtoColumnListAndDecoder selectionVal context defaultVal
       defaultVal = from $ getDefault @nodeT
@@ -1165,7 +1165,7 @@ instance
   where
   gfullTopSelection name = leaf name `over` leaf key
     where
-      key = (fromString $ selName (proxySelName :: M1 S s (K1 R t) ()))
+      key = fromString $ selName (proxySelName :: M1 S s (K1 R t) ())
   gtoColumnListAndDecoder selection contextT defaultValue = case lookupRes of
     Nothing -> (const mempty, pure defaultValue)
     Just childTree -> result
@@ -1178,7 +1178,7 @@ instance
         decodeRes = sqlExpr @contextT @t contextT childTree
     where
       lookupRes = MassaliaTree.lookupChildren key selection
-      key = (fromString $ selName (proxySelName :: M1 S s (K1 R t) ()))
+      key = fromString $ selName (proxySelName :: M1 S s (K1 R t) ())
 
 decoderFromSQLDefault :: (SQLDefault a) => DecodeTuple a
 decoderFromSQLDefault = defaultDecodeTuple $ Decoders.composite (pure getDefault)
