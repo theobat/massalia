@@ -20,7 +20,7 @@ extra-source-files:
 description:         Please see the README on GitHub at <https://github.com/theobat/massalia#readme>
 
 ghc-options:
-  - -Wall -fno-warn-redundant-constraints
+  - -Wall -fno-warn-redundant-constraints -Wno-partial-type-signatures
   - -j4 +RTS -A128m -n2m -qg -RTS
 
 dependencies:

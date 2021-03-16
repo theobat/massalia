@@ -197,14 +197,7 @@ instance QueryFormat ByteString where
   sqlEncode = encodeUtf8 . textEncode
 
 instance QueryFormat DedupeBinaryQuery where
-  sqlEncode a = DedupeBinaryQuery {
-      queryPartMap = Map.singleton txtVal bVal,
-      textQueryPartList = pure txtVal,
-      binaryQueryResult = bVal
-    }
-    where
-      txtVal = textEncode a
-      bVal = binaryEncode a
+  sqlEncode = binaryDedupeEncode
 
 instance QueryFormat BinaryQuery where
   sqlEncode = binaryEncode
@@ -238,6 +231,15 @@ class SQLEncoder dataT where
   default textEncode :: (Show dataT) => dataT -> TextQuery
   textEncode = inSingleQuote . pack . show
   binaryEncode :: dataT -> BinaryQuery
+  binaryDedupeEncode :: dataT -> DedupeBinaryQuery
+  binaryDedupeEncode a = DedupeBinaryQuery {
+      queryPartMap = Map.singleton txtVal bVal,
+      textQueryPartList = pure txtVal,
+      binaryQueryResult = mempty
+    }
+    where
+      txtVal = textEncode a
+      bVal = binaryEncode a
   fieldRename :: Text -> Text
   fieldRename = identity
 
@@ -623,6 +625,7 @@ instance
   where
   textEncode = encodeRange
   binaryEncode = encodeRange
+  binaryDedupeEncode = encodeRange
 
 -- | test
 -- >>> import Massalia.Utils (SimpleRange(SimpleRange))

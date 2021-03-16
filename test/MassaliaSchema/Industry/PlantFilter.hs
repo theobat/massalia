@@ -25,7 +25,7 @@ import Massalia.Filter
   ( GQLFilterText,
     GQLFilterUUID,
     GQLFilterDay,
-    GQLScalarFilterCore (isBetween),
+    GQLScalarFilterCore (isBetween, isEq, isNotEq),
     defaultScalarFilter,
   )
 import MassaliaSchema.Industry.TruckFilter (TruckFilter, testInstance)
@@ -53,12 +53,10 @@ data PlantFilter
     SQLFilter)
 
 instance GQLType PlantFilter where
-  type KIND PlantFilter = INPUT
   description = const $ Just ("A set of filters for the Plant type" :: Text)
-  
 
 plantFilterTest :: PlantFilter
-plantFilterTest = 
+plantFilterTest =
   PlantFilter
     { id = Nothing,
       name = Nothing,
@@ -67,6 +65,10 @@ plantFilterTest =
       existsTruck = Just testInstance
     }
   where filter = defaultScalarFilter {
+                  isNotEq = case (JSON.eitherDecode "\"1991-08-21\"") of
+                      Left _ -> Nothing
+                      Right a -> Just a
+                  ,
                   isBetween = Just defaultSimpleRange{
                     start = case (JSON.eitherDecode "\"1991-08-21\"") of
                       Left _ -> Nothing

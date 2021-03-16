@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1ac3a6f9a833dab2b22ef165ca6b41dfc57492cf99f3b253440ae7d2595338c9
+-- hash: 21e663f86c5a223d0252b0b21f5f3850e3e7f7cd5ee446986229cdcde19bd1f2
 
 name:           massalia
 version:        0.1.0.0
@@ -52,7 +52,7 @@ library
       Paths_massalia
   hs-source-dirs:
       src
-  ghc-options: -Wall -fno-warn-redundant-constraints -j4 +RTS -A128m -n2m -qg -RTS
+  ghc-options: -Wall -fno-warn-redundant-constraints -Wno-partial-type-signatures -j4 +RTS -A128m -n2m -qg -RTS
   build-depends:
       aeson
     , base >=4.7 && <5
@@ -94,7 +94,7 @@ test-suite doctest
       Paths_massalia
   hs-source-dirs:
       doctest
-  ghc-options: -Wall -fno-warn-redundant-constraints -j4 +RTS -A128m -n2m -qg -RTS -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -fno-warn-redundant-constraints -Wno-partial-type-signatures -j4 +RTS -A128m -n2m -qg -RTS -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
     , base >=4.7 && <5
@@ -151,7 +151,7 @@ test-suite massalia-integration-test
       Paths_massalia
   hs-source-dirs:
       test
-  ghc-options: -Wall -fno-warn-redundant-constraints -j4 +RTS -A128m -n2m -qg -RTS -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -fno-warn-redundant-constraints -Wno-partial-type-signatures -j4 +RTS -A128m -n2m -qg -RTS -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
     , base >=4.7 && <5
@@ -208,7 +208,7 @@ test-suite massalia-unit-test
       Paths_massalia
   hs-source-dirs:
       test
-  ghc-options: -Wall -fno-warn-redundant-constraints -j4 +RTS -A128m -n2m -qg -RTS -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -fno-warn-redundant-constraints -Wno-partial-type-signatures -j4 +RTS -A128m -n2m -qg -RTS -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
     , base >=4.7 && <5
