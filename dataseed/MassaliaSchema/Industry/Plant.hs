@@ -13,6 +13,7 @@
 module MassaliaSchema.Industry.Plant
   ( Plant (..),
     plantListQuery,
+    plantListQueryGen
   )
 where
 import Protolude
@@ -41,17 +42,17 @@ import MassaliaSchema.Industry.Truck (Truck)
 import MassaliaSchema.Industry.PlantFilter (PlantFilter, plantFilterTest)
 import MassaliaSchema.Industry.TruckFilter (TruckFilter)
 import Data.Morpheus.Types (unsafeInternalContext)
-import Massalia.Utils (LocalTime, Day)
+import Massalia.Utils (LocalTime, Day, uuidV4)
 import Massalia.UtilsGQL (Paginated, defaultPaginated)
 import qualified Massalia.UtilsGQL as Paginated
 import Massalia.SQLClass (
     SQLRecord,
     SQLSelect(toSelectQuery),
     SQLDefault(getDefault),
-    basicDecodeListSubquery,
     basicQueryAndDecoder,
     basicEntityQuery
   )
+import qualified Massalia.Default as Default
 
 data Plant
   = Plant
@@ -68,29 +69,21 @@ deriving instance SQLRecord (Paginated PlantFilter) Plant
 instance SQLSelect (Paginated PlantFilter) Plant where
   toSelectQuery = basicQueryAndDecoder (basicEntityQuery "plant" Just)
 
-instance SQLDecoder (Paginated PlantFilter) [Truck] where
-  sqlExpr = basicDecodeListSubquery contextSwitch joinFn
-    where
-      contextSwitch input = undefined :: (Paginated TruckFilter)
-      joinFn name = mempty {
-        _join = [joinEq truckPlantName "truck_id" truckName "id"],
-        _where = Just $ simpleEq truckPlantName "plant_id" name "id",
-        _groupBy = [name ° "id"]
-      }
-      truckPlantName = "truck_plant"
-      truckName = "truck"
-
 instance SQLDefault Plant where
   getDefault = defaultPlant
+defaultPlant :: Plant
 defaultPlant = Plant {
     id = nil,
     truckList = mempty,
-    name = ""
+    name = "",
+    description= Nothing,
+    checkDate=Default.date,
+    createdAt=Default.timestamptz
   }
 
 plantListQuery :: _ => _ -> _ -> _ _ _ IO [Plant]
 plantListQuery maybePool queryArgs = do
-  massaliaTree <- (pure . fromMorpheusContext) =<< unsafeInternalContext
+  massaliaTree <- fromMorpheusContext <$> unsafeInternalContext
   case maybePool of
     Nothing -> pure []
     Just pool -> lift (exec pool massaliaTree)
@@ -107,3 +100,8 @@ plantListQuery maybePool queryArgs = do
     -- statement validSel = queryAndDecoderToSession $ initialSnippet validSel
     arg = defaultPaginated{Paginated.globalFilter = pure plantFilterTest}
 
+plantListQueryGen :: _ => Paginated PlantFilter -> _ _ _ IO [Plant]
+plantListQueryGen queryArgs = do
+  massaliaTree <- fromMorpheusContext <$> unsafeInternalContext
+  let (snippet, _) = queryAndDecoderToQueryFormatAndResult $ toSelectQuery @_ @Plant massaliaTree queryArgs
+  pure [defaultPlant{name=snippet}]

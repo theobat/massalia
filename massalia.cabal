@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 21e663f86c5a223d0252b0b21f5f3850e3e7f7cd5ee446986229cdcde19bd1f2
+-- hash: b20e82923b225b811fa36ed470849a3d15a2761174ca8b9699cf4dfc554c282f
 
 name:           massalia
 version:        0.1.0.0
@@ -136,6 +136,9 @@ test-suite massalia-integration-test
   main-is: integration/SpecAPI.hs
   other-modules:
       GraphQLMorpheusTestData
+      SpecGraphQLSelect
+      SpecStaticInsert
+      SpecStaticSelect
       MassaliaSchema.Industry.Organization
       MassaliaSchema.Industry.Plant
       MassaliaSchema.Industry.PlantFilter
@@ -144,13 +147,10 @@ test-suite massalia-integration-test
       MassaliaSchema.Industry.TruckFilter
       MassaliaSchema.Industry.TruckInput
       MassaliaSchema.TestAPI
-      MassaliaTestSchema
-      SpecGraphQLSelect
-      SpecStaticInsert
-      SpecStaticSelect
       Paths_massalia
   hs-source-dirs:
       test
+      dataseed
   ghc-options: -Wall -fno-warn-redundant-constraints -Wno-partial-type-signatures -j4 +RTS -A128m -n2m -qg -RTS -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
@@ -193,6 +193,9 @@ test-suite massalia-unit-test
   main-is: unit/Spec.hs
   other-modules:
       GraphQLMorpheusTestData
+      SpecGraphQLSelect
+      SpecStaticInsert
+      SpecStaticSelect
       MassaliaSchema.Industry.Organization
       MassaliaSchema.Industry.Plant
       MassaliaSchema.Industry.PlantFilter
@@ -201,19 +204,69 @@ test-suite massalia-unit-test
       MassaliaSchema.Industry.TruckFilter
       MassaliaSchema.Industry.TruckInput
       MassaliaSchema.TestAPI
-      MassaliaTestSchema
-      SpecGraphQLSelect
-      SpecStaticInsert
-      SpecStaticSelect
       Paths_massalia
   hs-source-dirs:
       test
+      dataseed
   ghc-options: -Wall -fno-warn-redundant-constraints -Wno-partial-type-signatures -j4 +RTS -A128m -n2m -qg -RTS -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
     , base >=4.7 && <5
     , bytestring
     , containers
+    , email-validate
+    , filepath
+    , filepattern
+    , hasql
+    , hasql-dynamic-statements
+    , hasql-implicits
+    , hasql-migration
+    , hasql-pool
+    , hasql-transaction
+    , hasql-url
+    , inflections
+    , jwt
+    , massalia
+    , morpheus-graphql >=0.16
+    , morpheus-graphql-core >=0.16
+    , mtl
+    , postgresql-binary
+    , pretty-simple
+    , protolude
+    , range
+    , tasty
+    , tasty-hunit
+    , text
+    , these
+    , time
+    , unordered-containers
+    , uuid
+    , vector
+  default-language: Haskell2010
+
+benchmark massalia-bench
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      MassaliaSchema.Industry.Organization
+      MassaliaSchema.Industry.Plant
+      MassaliaSchema.Industry.PlantFilter
+      MassaliaSchema.Industry.PlantInput
+      MassaliaSchema.Industry.Truck
+      MassaliaSchema.Industry.TruckFilter
+      MassaliaSchema.Industry.TruckInput
+      MassaliaSchema.TestAPI
+      Paths_massalia
+  hs-source-dirs:
+      bench
+      dataseed
+  ghc-options: -Wall -fno-warn-redundant-constraints -Wno-partial-type-signatures -j4 +RTS -A128m -n2m -qg -RTS -eventlog -threaded -rtsopts -with-rtsopts=-N6 -O2
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , criterion
     , email-validate
     , filepath
     , filepattern

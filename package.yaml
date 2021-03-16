@@ -76,6 +76,7 @@ tests:
     main:                unit/Spec.hs
     source-dirs:
       - test
+      - dataseed
     ghc-options:
     - -threaded
     - -rtsopts
@@ -97,6 +98,7 @@ tests:
     main:                integration/SpecAPI.hs
     source-dirs:
       - test
+      - dataseed
     ghc-options:
     - -threaded
     - -rtsopts
@@ -104,3 +106,19 @@ tests:
     dependencies:
     - massalia
     - massalia-migration
+
+benchmarks:
+  massalia-bench:
+    main: Main.hs
+    source-dirs:
+      - bench
+      - dataseed
+    ghc-options:
+      - -eventlog
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N6
+      - -O2
+    dependencies:
+      - massalia
+      - criterion

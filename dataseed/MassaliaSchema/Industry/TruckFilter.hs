@@ -67,7 +67,6 @@ testInstance =
     }
 
 instance GQLType TruckFilter where
-  type KIND TruckFilter = INPUT
   description = const $ Just ("A set of filters for the Truck type" :: Text)
 
 instance MassaliaContext TruckFilter where

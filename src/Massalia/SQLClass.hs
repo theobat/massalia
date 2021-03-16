@@ -221,9 +221,9 @@ basicDecodeRecordSubquery ::
 basicDecodeRecordSubquery !contextSwitch !joinFn !parentContext !selection = (recordSubquery, newDecoder)
   where
     !newDecoder = compositeToDecoderTuple $ decoder subQueryRaw
-    !recordSubquery name = selectStructToRecordSubquery $ query subQueryRaw <> joinFn decodedName
+    recordSubquery !tablename = selectStructToRecordSubquery $ query subQueryRaw <> joinFn decodedName
       where
-        decodedName = fromText $ decodeName decodeOpt name
+        decodedName = fromText $ decodeName decodeOpt tablename
         decodeOpt = fromMaybe mempty $ getDecodeOption parentContext
     subQueryRaw = basicDecodeSubquery contextSwitch selection parentContext
 
