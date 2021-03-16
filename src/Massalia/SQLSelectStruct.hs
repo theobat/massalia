@@ -54,13 +54,13 @@ import Protolude hiding (intercalate)
 
 data QueryAndDecoder queryFormat decoder
   = QueryAndDecoder
-      { query :: SelectStruct queryFormat,
-        decoder :: Decoders.Composite decoder
+      { query :: !(SelectStruct queryFormat),
+        decoder :: !(Decoders.Composite decoder)
       }
 
 -- | select query to a HASQL Statement, which can be executed in a Session.
 queryAndDecoderToStatement :: QueryAndDecoder BinaryQuery decoder -> Statement () [decoder]
-queryAndDecoderToStatement selectSt = dynamicallyParameterized snippet result True
+queryAndDecoderToStatement !selectSt = dynamicallyParameterized snippet result True
   where
     (snippet, result) = queryAndDecoderToSnippetAndResult selectSt
 
@@ -70,7 +70,7 @@ queryAndDecoderToQueryFormat = selectStructToQueryFormat . query
 
 -- | select query to a HASQL Statement, which can be executed in a Session.
 queryAndDecoderToSession :: QueryAndDecoder BinaryQuery decoder -> Session [decoder]
-queryAndDecoderToSession selectSt = dynamicallyParameterizedStatement snippet result True
+queryAndDecoderToSession !selectSt = dynamicallyParameterizedStatement snippet result True
   where
     (snippet, result) = queryAndDecoderToSnippetAndResult selectSt
 

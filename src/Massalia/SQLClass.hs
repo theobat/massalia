@@ -153,7 +153,7 @@ basicDecodeInnerRecord ::
   contextT ->
   treeNode ->
   (Text -> qf, DecodeTuple nodeT)
-basicDecodeInnerRecord context selection = result
+basicDecodeInnerRecord !context !selection = result
   where
     result = (colListQFThunk, defaultDecodeTuple $ Decoders.composite decoderVal)
     colListQFThunk name =
@@ -165,7 +165,7 @@ basicDecodeInnerRecord context selection = result
       where
         parentName = decodeName currentDecodeOpt name
         compositeName = simpleSnakeCaseT (parentName ° getName selection)
-    (colListThunk, decoderVal) = toColumnListAndDecoder selection updatedContext
+    (!colListThunk, !decoderVal) = toColumnListAndDecoder selection updatedContext
     updatedContext = setDecodeOption @contextT (currentDecodeOpt {fieldPrefixType = CompositeField}) context
     currentDecodeOpt = fromMaybe mempty $ getDecodeOption context
 
@@ -194,7 +194,7 @@ basicDecodeInnerListOfRecord context selection = result
       where
         parentName = decodeName currentDecodeOpt name
         compositeName = simpleSnakeCaseT (parentName ° getName selection)
-    (colListThunk, decoderVal) = toColumnListAndDecoder selection updatedContext
+    (!colListThunk, !decoderVal) = toColumnListAndDecoder selection updatedContext
     updatedContext = setDecodeOption @contextT (currentDecodeOpt {fieldPrefixType = CompositeField}) context
     currentDecodeOpt = fromMaybe mempty $ getDecodeOption context
 
@@ -218,10 +218,10 @@ basicDecodeRecordSubquery ::
   -- | The selection tree.
   treeNode ->
   (Text -> qf, DecodeTuple childrenT)
-basicDecodeRecordSubquery contextSwitch joinFn parentContext selection = (recordSubquery, newDecoder)
+basicDecodeRecordSubquery !contextSwitch !joinFn !parentContext !selection = (recordSubquery, newDecoder)
   where
-    newDecoder = compositeToDecoderTuple $ decoder subQueryRaw
-    recordSubquery name = selectStructToRecordSubquery $ query subQueryRaw <> joinFn decodedName
+    !newDecoder = compositeToDecoderTuple $ decoder subQueryRaw
+    !recordSubquery name = selectStructToRecordSubquery $ query subQueryRaw <> joinFn decodedName
       where
         decodedName = fromText $ decodeName decodeOpt name
         decodeOpt = fromMaybe mempty $ getDecodeOption parentContext
@@ -246,7 +246,7 @@ basicDecodeListSubquery ::
   -- | The selection tree.
   treeNode ->
   (Text -> qf, DecodeTuple [childrenT])
-basicDecodeListSubquery contextSwitch joinFn parentContext selection = (globalWrapper, newDecoder)
+basicDecodeListSubquery !contextSwitch !joinFn !parentContext !selection = (globalWrapper, newDecoder)
   where
     globalWrapper a = "coalesce(" <> listSubquery a <> ", '{}')"
     newDecoder = compositeToListDecoderTuple $ decoder subQueryRaw
@@ -267,7 +267,7 @@ basicDecodeSubquery ::
   treeNode ->
   parentContextT ->
   QueryAndDecoder qf childNodeT
-basicDecodeSubquery contextSwitcher selection parentContextT = subQueryRaw
+basicDecodeSubquery !contextSwitcher !selection !parentContextT = subQueryRaw
   where
     subQueryRaw = toSelectQuery selection childrenContext
     childrenContext = contextSwitcher parentContextT
@@ -304,8 +304,8 @@ basicQueryAndDecoder contextTransformer selection context =
         <> mempty
           { _select = colListThunk instanceName
           }
-    (colListThunk, decoderVal) = toColumnListAndDecoder selection context
-    (instanceName, rawQuery) = contextTransformer context
+    (!colListThunk, !decoderVal) = toColumnListAndDecoder selection context
+    (!instanceName, !rawQuery) = contextTransformer context
 
 -- | This is a simple FROM "tablename" query bit with no filtering at all
 basicEntityNoFilter ::
@@ -363,7 +363,7 @@ paginatedFilterToSelectStruct ::
   Maybe SQLFilterOption ->
   Paginated filterT ->
   (SelectStruct qf -> SelectStruct qf)
-paginatedFilterToSelectStruct filterOption filterValue = limitOffsetEffect . globalFilterEffect . unionEffect
+paginatedFilterToSelectStruct filterOption !filterValue = limitOffsetEffect . globalFilterEffect . unionEffect
   where
     unionEffect !baseQ = case (Paginated.unionFilter filterValue, Paginated.unionFilterPaginated filterValue) of
       (Nothing, Nothing) -> baseQ
@@ -471,7 +471,7 @@ existsOrNotFilter !isExists !joinFunction = existsOrNotPrimitive isExists False 
         fatherTable
       )
       where
-        (conditionRes, tableName) = joinFunction fatherTable
+        (!conditionRes, !tableName) = joinFunction fatherTable
 
 -- |
 -- >>> selectStructToQueryFormat $ existsOrNotPrimitive True True mempty Nothing "selection" () :: Text
@@ -501,7 +501,7 @@ existsOrNotPrimitive !isExists !isFilterInside !sqlExprFunction !opts _ !val = f
           { _where = Just $ prefix <> "EXISTS (" <> insdeQuery <> ")"
           }
       )
-    (innerQuery, tableName) = sqlExprFunction fatherTable
+    (!innerQuery, !tableName) = sqlExprFunction fatherTable
     prefix = if isExists then "" else "NOT "
     fatherTable = maybe "" filterTableName opts
     recordPart = toQueryFormatFilter updatedOpt val
