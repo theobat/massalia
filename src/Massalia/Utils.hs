@@ -99,6 +99,7 @@ import Text.Pretty.Simple (pPrint)
 -- Legacy String
 import Data.String (String)
 import qualified Data.Text as Text
+import qualified Data.Char as Char
 
 -- --------------- TEXT
 intercalate :: (Monoid a, Foldable t) => a -> t a -> a
@@ -172,19 +173,19 @@ simpleSnakeCase = foldl' iterator baseCase
     baseCase :: String
     baseCase = ""
     iterator :: String -> Char -> String
-    iterator "" c = [toLower c]
+    iterator "" c = [Char.toLower c]
     iterator name c
-      | isUpper c = name ++ "_" ++ [toLower c]
-      | otherwise = name ++ [toLower c]
+      | Char.isUpper c = name ++ "_" ++ [Char.toLower c]
+      | otherwise = name ++ [Char.toLower c]
 
 -- | A very simple snake_case converter.
 simpleSnakeCaseT :: Text -> Text
 simpleSnakeCaseT = Text.concatMap iterator
   where
     iterator c
-      | isUpper c = "_" <> lowerChar c
+      | Char.isUpper c = "_" <> lowerChar c
       | otherwise = lowerChar c
-    lowerChar c = Text.singleton $ toLower c
+    lowerChar c = Text.singleton $ Char.toLower c
 
 -- | A very simple, JSON oriented, representation for a range.
 -- A null @start@ means @-infinity@ and a null end means @+infinity@.
