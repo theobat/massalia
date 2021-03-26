@@ -20,7 +20,7 @@ main =
 
 sqlFromGql repeatedQ = do 
   let gFilter = "checkDate: { isNotIn: [ \"2012-07-21\" ], isBetween: {start: \"1991-08-21\", end: \"2077-01-01\" } } "
-  let mainQuery = " plantListQueryGenerator (first: 10, offset: 0, globalFilter: { " <> gFilter <> " }) { id name } "
+  let mainQuery = " plantListQueryGenerator (first: 10, offset: 0, globalFilter: { " <> gFilter <> " }) { id name truckList { id }} "
   let queryQ s = "query plantList_test { " <> s <> " }"
   let queryStruct = GQLRequest
         { query = queryQ (mconcat $ replicate repeatedQ mainQuery),

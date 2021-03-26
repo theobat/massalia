@@ -20,7 +20,6 @@ import Data.Morpheus.Types
 import MassaliaSchema.Industry.Plant (Plant, plantListQuery, plantListQueryGen)
 import MassaliaSchema.Industry.PlantFilter (PlantFilter)
 import Massalia.UtilsGQL (Paginated)
-import Data.Text (Text)
 
 api :: Pool -> GQLRequest -> IO GQLResponse
 api dbConnectionPool = interpreter $ rootResolver (Just dbConnectionPool)

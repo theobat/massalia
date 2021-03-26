@@ -39,8 +39,7 @@ import Massalia.SQLSelectStruct (
   )
 import MassaliaSchema.Industry.PlantInput (queryTest)
 import MassaliaSchema.Industry.Truck (Truck)
-import MassaliaSchema.Industry.PlantFilter (PlantFilter, plantFilterTest)
-import MassaliaSchema.Industry.TruckFilter (TruckFilter)
+import MassaliaSchema.Industry.PlantFilter (PlantFilter)
 import Data.Morpheus.Types (unsafeInternalContext)
 import Massalia.Utils (LocalTime, Day, uuidV4)
 import Massalia.UtilsGQL (Paginated, defaultPaginated)
@@ -90,7 +89,7 @@ plantListQuery maybePool queryArgs = do
   where
     exec :: _ => _ -> _ -> _ [Plant]
     exec pool validSel = do
-      let (snippet, result) = queryAndDecoderToQueryFormatAndResult $ toSelectQuery validSel arg
+      let (snippet, result) = queryAndDecoderToQueryFormatAndResult $ toSelectQuery validSel queryArgs
       let fullSnippet = binaryQueryResult snippet
       let session = dynamicallyParameterizedStatement fullSnippet result True
       res <- use pool session
@@ -98,10 +97,10 @@ plantListQuery maybePool queryArgs = do
         Left e -> panic $ show e
         Right listRes -> pure listRes
     -- statement validSel = queryAndDecoderToSession $ initialSnippet validSel
-    arg = defaultPaginated{Paginated.globalFilter = pure plantFilterTest}
+    -- arg = defaultPaginated{Paginated.globalFilter = pure plantFilterTest}
 
 plantListQueryGen :: _ => Paginated PlantFilter -> _ _ _ IO [Plant]
 plantListQueryGen queryArgs = do
   massaliaTree <- fromMorpheusContext <$> unsafeInternalContext
   let (snippet, _) = queryAndDecoderToQueryFormatAndResult $ toSelectQuery @_ @Plant massaliaTree queryArgs
-  pure [defaultPlant{name=snippet}]
+  pure [defaultPlant{name=snippet}] -- a Hack for only generating the query

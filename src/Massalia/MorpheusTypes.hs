@@ -20,7 +20,7 @@ where
 import qualified Data.Aeson as JSON
 import Data.Morpheus.Types.GQLScalar ( EncodeScalar(encodeScalar), DecodeScalar(decodeScalar) )
 import Data.Morpheus.Types (GQLType(description), KIND)
-import Data.Morpheus.Kind (SCALAR, INPUT)
+import Data.Morpheus.Kind (SCALAR)
 import qualified Data.Morpheus.Types as GQLT
 import Massalia.Utils (UTCTime, 
   EmailAddress, LocalTime, ZonedTime, ZonedTimeEq, UUID, Day,
