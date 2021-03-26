@@ -1081,7 +1081,9 @@ class SQLRecord contextT nodeT where
 
   toColumnListAndDecoder ::
     forall selectionType queryFormat container.
-    (Applicative container, QueryFormat queryFormat, MassaliaTree selectionType) =>
+    (Applicative container, QueryFormat queryFormat, MassaliaTree selectionType,
+      Monoid (container queryFormat)
+    ) =>
     -- | The selection set (in the form of a 'Tree' interface).
     selectionType ->
     -- | The node's cont. It Has to respect the MassaliaContext interface/class.
