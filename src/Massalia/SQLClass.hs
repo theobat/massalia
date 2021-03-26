@@ -165,7 +165,7 @@ basicDecodeInnerRecord !context !selection = result
       where
         parentName = decodeName currentDecodeOpt name
         compositeName = simpleSnakeCaseT (parentName ° getName selection)
-    (!colListThunk, !decoderVal) = toColumnListAndDecoder selection updatedContext
+    (!colListThunk, !decoderVal) = toColumnSeqAndDecoder selection updatedContext
     updatedContext = setDecodeOption @contextT (currentDecodeOpt {fieldPrefixType = CompositeField}) context
     currentDecodeOpt = fromMaybe mempty $ getDecodeOption context
 
@@ -194,7 +194,7 @@ basicDecodeInnerListOfRecord context selection = result
       where
         parentName = decodeName currentDecodeOpt name
         compositeName = simpleSnakeCaseT (parentName ° getName selection)
-    (!colListThunk, !decoderVal) = toColumnListAndDecoder selection updatedContext
+    (!colListThunk, !decoderVal) = toColumnSeqAndDecoder selection updatedContext
     updatedContext = setDecodeOption @contextT (currentDecodeOpt {fieldPrefixType = CompositeField}) context
     currentDecodeOpt = fromMaybe mempty $ getDecodeOption context
 
@@ -304,7 +304,7 @@ basicQueryAndDecoder contextTransformer selection context =
         <> mempty
           { _select = colListThunk instanceName
           }
-    (!colListThunk, !decoderVal) = toColumnListAndDecoder selection context
+    (!colListThunk, !decoderVal) = toColumnSeqAndDecoder selection context
     (!instanceName, !rawQuery) = contextTransformer context
 
 -- | This is a simple FROM "tablename" query bit with no filtering at all
@@ -378,8 +378,8 @@ paginatedFilterToSelectStruct filterOption !filterValue = limitOffsetEffect . gl
         standalonePFilterList b = simplePApplication <$> b
         simplePApplication pval = toQueryFormatFilter filterOption (Paginated.globalFilter pval) simpleBase <> offsetLimitQy pval
         name = _from baseQ
-        simpleSelect Nothing = ["*"]
-        simpleSelect (Just quotedName) = [quotedName <> ".*"]
+        simpleSelect Nothing = pure "*"
+        simpleSelect (Just quotedName) = pure $ quotedName <> ".*"
     globalFilterEffect a = toQueryFormatFilter filterOption (Paginated.globalFilter filterValue) a
     limitOffsetEffect baseQ = baseQ <> offsetLimitQy filterValue
     offsetLimitQy pval =
@@ -410,9 +410,7 @@ joinFilterField !joinFunction !opts _ !val = partialRes
   where
     partialRes =
       ( mempty
-          { _join =
-              [ fromText $ joiningRes
-              ]
+          { _join = pure (fromText joiningRes)
           }
       )
         <> recordPart mempty
@@ -1082,35 +1080,49 @@ class SQLRecord contextT nodeT where
   fullTopSelection name = gfullTopSelection @contextT @(Rep nodeT) name
 
   toColumnListAndDecoder ::
-    forall selectionType queryFormat.
-    (QueryFormat queryFormat, MassaliaTree selectionType) =>
+    forall selectionType queryFormat container.
+    (Applicative container, QueryFormat queryFormat, MassaliaTree selectionType) =>
     -- | The selection set (in the form of a 'Tree' interface).
     selectionType ->
     -- | The node's cont. It Has to respect the MassaliaContext interface/class.
     contextT ->
     -- | A queryFormatted list of columns and a Hasql decoder.
-    (Text -> [queryFormat], Composite nodeT)
+    (Text -> container queryFormat, Composite nodeT)
   default toColumnListAndDecoder ::
-    forall selectionType queryFormat.
+    forall selectionType queryFormat container.
     ( QueryFormat queryFormat,
       SQLDefault nodeT,
       MassaliaTree selectionType,
+      Monoid (container queryFormat),
       GSQLRecord contextT (Rep nodeT),
+      Applicative container,
       Generic nodeT
     ) =>
     selectionType ->
     contextT ->
-    (Text -> [queryFormat], Composite nodeT)
+    (Text -> container queryFormat, Composite nodeT)
   toColumnListAndDecoder selectionVal context = (to <$>) <$> gtoColumnListAndDecoder selectionVal context defaultVal
     where
       -- (colListThunk, gdeco) = gtoColumnListAndDecoder selectionVal context defaultVal
       defaultVal = from $ getDefault @nodeT
 
+toColumnSeqAndDecoder :: 
+    forall selectionType queryFormat contextT nodeT.
+    (SQLRecord contextT nodeT, QueryFormat queryFormat, MassaliaTree selectionType) =>
+    -- | The selection set (in the form of a 'Tree' interface).
+    selectionType ->
+    -- | The node's cont. It Has to respect the MassaliaContext interface/class.
+    contextT ->
+    -- | A queryFormatted list of columns and a Hasql decoder.
+    (Text -> Seq queryFormat, Composite nodeT)
+toColumnSeqAndDecoder = toColumnListAndDecoder
+
 class GSQLRecord contextT (rep :: * -> *) where
   gfullTopSelection :: Text -> MassaliaNode
   gtoColumnListAndDecoder ::
-    forall selectionType nodeT queryFormat.
-    (QueryFormat queryFormat, MassaliaTree selectionType) =>
+    forall selectionType nodeT queryFormat container.
+    (Applicative container,
+      QueryFormat queryFormat, MassaliaTree selectionType, Monoid (container queryFormat)) =>
     -- | The selection set (in the form of a 'Tree' interface)
     selectionType ->
     -- | The node's context type
@@ -1118,7 +1130,7 @@ class GSQLRecord contextT (rep :: * -> *) where
     -- | The node's default value
     (rep nodeT) ->
     -- | A queryFormatted list of columns (parametrized by tablename) and a Hasql decoder.
-    (Text -> [queryFormat], Composite (rep nodeT))
+    (Text -> container queryFormat, Composite (rep nodeT))
 
 -- | Use the Monad instance of the composite hasql type
 -- It's where the magic happens
@@ -1171,7 +1183,7 @@ instance
     Just childTree -> result
       where
         result = bimap fnWrapper decoderWrapper decoded
-        fnWrapper fn qfName = [fn qfName]
+        fnWrapper fn qfName = pure $ fn qfName
         decoderWrapper = ((M1 . K1) <$>) . Decoders.field
         decoded = (columnFn, nullability decValue)
         (columnFn, DecodeTuple decValue nullability) = decodeRes

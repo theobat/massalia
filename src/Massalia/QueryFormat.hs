@@ -45,7 +45,6 @@ module Massalia.QueryFormat
     BinaryQuery,
     TextQuery,
     DedupeBinaryQuery(..),
-    commaAssemble,
     (§),
     (°),
     joinEq,
@@ -53,7 +52,6 @@ module Massalia.QueryFormat
     Snippet.param,
     inSingleQuote,
     inParens,
-    commaSepInParens,
     decodeName,
     decodeNameInContext,
     collectionTextEncode,
@@ -89,11 +87,9 @@ import Massalia.Utils
     ZonedTimeEq (ZonedTimeEq),
     emailToText,
     emailValidateText,
-    intercalate,
-    intercalateMap,
     unsafeSnakeCaseT,
   )
-import Protolude hiding (intercalate, replace)
+import Protolude hiding (replace)
 
 -- | The text query format is the canonical representation for debugging
 -- and printing queries.
@@ -174,9 +170,6 @@ simpleEq tableA fieldA tableB fieldB = (tableA ° fieldA) <> " = " <> (tableB °
 
 (§) :: (IsString content, Monoid content) => content -> content -> content
 (§) a b = a <> "," <> b
-
-commaAssemble :: (IsString a, Monoid a) => [a] -> a
-commaAssemble = intercalateMap identity ","
 
 class
   ( FromText queryFormat,
@@ -346,8 +339,6 @@ inSingleQuote a = "'" <> a <> "'"
 inParens :: (Semigroup a, IsString a) => a -> a
 inParens !a = "(" <> a <> ")"
 
-commaSepInParens :: [[Char]] -> [Char]
-commaSepInParens = inParens . intercalate ","
 
 data BinaryEncodeMethod a
   -- | Encodes the collection through a list of text, replaces the @'@ with @"@ but does no casting.

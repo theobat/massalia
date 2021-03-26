@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DeriveAnyClass #-}
@@ -7,6 +9,7 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 
 -- |
@@ -98,14 +101,27 @@ import Data.String (String)
 import qualified Data.Text as Text
 
 -- --------------- TEXT
-intercalate :: Monoid a => a -> [a] -> a
+intercalate :: (Monoid a, Foldable t) => a -> t a -> a
 intercalate = intercalateMap identity
 
-intercalateMap :: Monoid a => (b -> a) -> a -> [b] -> a
-intercalateMap mapper separator currentList = case currentList of
-  [] -> mempty
-  [e1] -> mapper e1
-  (e1 : reducedList) -> mapper e1 <> separator <> intercalateMap mapper separator reducedList
+-- | 
+-- >>> intercalateMap @Int @Text show ", " [1, 2, 3]
+-- "1, 2, 3"
+-- >>> intercalateMap @Int @Text show ", " [1]
+-- "1"
+-- >>> intercalateMap @Int @Text show ", " []
+-- ""
+intercalateMap ::
+  forall sourceType targetMonoid container.
+  (Monoid targetMonoid, Foldable container) =>
+  (sourceType -> targetMonoid) -> targetMonoid -> container sourceType -> targetMonoid
+intercalateMap mapper separator currentList = case res of
+  (_, r) -> r
+  where
+    res = foldr' iterator (0 :: Int, mempty) currentList
+    iterator !element !tuple = case tuple of
+      (0, !acc) -> (1, mapper element <> acc)
+      (!i, !acc) -> (i + 1, mapper element <> separator <> acc)
 
 
 toCSVInParens :: (IsString a, Monoid a) => [a] -> a
