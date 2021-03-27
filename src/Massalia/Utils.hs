@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DeriveAnyClass #-}
@@ -7,6 +9,7 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 
 -- |
@@ -96,16 +99,30 @@ import Text.Pretty.Simple (pPrint)
 -- Legacy String
 import Data.String (String)
 import qualified Data.Text as Text
+import qualified Data.Char as Char
 
 -- --------------- TEXT
-intercalate :: Monoid a => a -> [a] -> a
+intercalate :: (Monoid a, Foldable t) => a -> t a -> a
 intercalate = intercalateMap identity
 
-intercalateMap :: Monoid a => (b -> a) -> a -> [b] -> a
-intercalateMap mapper separator currentList = case currentList of
-  [] -> mempty
-  [e1] -> mapper e1
-  (e1 : reducedList) -> mapper e1 <> separator <> intercalateMap mapper separator reducedList
+-- | 
+-- >>> intercalateMap @Int @Text show ", " [1, 2, 3]
+-- "1, 2, 3"
+-- >>> intercalateMap @Int @Text show ", " [1]
+-- "1"
+-- >>> intercalateMap @Int @Text show ", " []
+-- ""
+intercalateMap ::
+  forall sourceType targetMonoid container.
+  (Monoid targetMonoid, Foldable container) =>
+  (sourceType -> targetMonoid) -> targetMonoid -> container sourceType -> targetMonoid
+intercalateMap mapper separator currentList = case res of
+  (_, r) -> r
+  where
+    res = foldr' iterator (0 :: Int, mempty) currentList
+    iterator !element !tuple = case tuple of
+      (0, !acc) -> (1, mapper element <> acc)
+      (!i, !acc) -> (i + 1, mapper element <> separator <> acc)
 
 
 toCSVInParens :: (IsString a, Monoid a) => [a] -> a
@@ -156,19 +173,19 @@ simpleSnakeCase = foldl' iterator baseCase
     baseCase :: String
     baseCase = ""
     iterator :: String -> Char -> String
-    iterator "" c = [toLower c]
+    iterator "" c = [Char.toLower c]
     iterator name c
-      | isUpper c = name ++ "_" ++ [toLower c]
-      | otherwise = name ++ [toLower c]
+      | Char.isUpper c = name ++ "_" ++ [Char.toLower c]
+      | otherwise = name ++ [Char.toLower c]
 
 -- | A very simple snake_case converter.
 simpleSnakeCaseT :: Text -> Text
 simpleSnakeCaseT = Text.concatMap iterator
   where
     iterator c
-      | isUpper c = "_" <> lowerChar c
+      | Char.isUpper c = "_" <> lowerChar c
       | otherwise = lowerChar c
-    lowerChar c = Text.singleton $ toLower c
+    lowerChar c = Text.singleton $ Char.toLower c
 
 -- | A very simple, JSON oriented, representation for a range.
 -- A null @start@ means @-infinity@ and a null end means @+infinity@.

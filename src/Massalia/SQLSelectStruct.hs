@@ -191,9 +191,9 @@ wrap CoalesceArr _ (wasAggregated, selectVal) = (wasAggregated, "coalesce(" <> s
 wrapList :: (Semigroup t, IsString t) => [SQLWrapper] -> (t, t) -> (Bool, t) -> (Bool, t)
 wrapList !wrapperList !odb !q = foldr' (`wrap` odb) q wrapperList
 
-intercalIfExists :: (QueryFormat qf) => qf -> qf -> [qf] -> qf
-intercalIfExists _ _ [] = mempty
-intercalIfExists prefix sep givenList = prefix <> intercalate sep givenList
+intercalIfExists :: (QueryFormat qf) => qf -> qf -> Seq qf -> qf
+intercalIfExists prefix sep givenList = if null givenList then
+  mempty else prefix <> intercalate sep givenList
 
 -- | SQL Operators for query building in massalia.
 -- They are wrappers around a list of fields/a field.
@@ -209,13 +209,13 @@ data SQLWrapper
 -- simplify query building (it's not meant to bring safety).
 data SelectStruct queryFormat = SelectStruct {
   _rawPrefix  :: !(Maybe queryFormat),
-  _select  :: ![queryFormat],
+  _select  :: !(Seq queryFormat),
   _from  :: !(Maybe queryFormat),
-  _join  :: ![queryFormat],
+  _join  :: !(Seq queryFormat),
   _where  :: !(Maybe queryFormat),
-  _groupBy  :: ![queryFormat],
+  _groupBy  :: !(Seq queryFormat),
   _having  :: !(Maybe queryFormat),
-  _orderBy  :: ![queryFormat],
+  _orderBy  :: !(Seq queryFormat),
   _offsetLimit  :: !(Maybe (Maybe queryFormat, queryFormat))
 } deriving (Eq, Show)
 
