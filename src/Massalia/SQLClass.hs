@@ -43,6 +43,7 @@ module Massalia.SQLClass
     basicQueryAndDecoder,
     basicDecodeRecordSubquery,
     basicDecodeListSubquery,
+    basicDecodeVectSubquery,
     basicDecodeInnerRecord,
     basicDecodeInnerListOfRecord,
     paginatedFilterToSelectStruct,
@@ -128,7 +129,6 @@ import Massalia.Utils (intercalate, simpleSnakeCase, simpleSnakeCaseT, toCSVInPa
 import Massalia.UtilsGQL (OrderByWay (..), OrderingBy (..), NullsOrder(NFirst, NLast), Paginated)
 import qualified Massalia.UtilsGQL as Paginated
 import Protolude hiding (intercalate)
-import Data.Vector (Vector)
 
 -- This is for doctest only:
 

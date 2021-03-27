@@ -94,7 +94,7 @@ extra-deps:
   # - morpheus-graphql-core-0.16.0
   # - morpheus-graphql-0.16.0
   - git: https://github.com/theobat/morpheus-graphql.git
-    commit: c075715053a7053a076628341bce22b9c735d242
+    commit: 40ee29632a9eeb4d4973a48c1f3898a6b2c8b672
     subdirs:
       - .
       - ./morpheus-graphql-subscriptions

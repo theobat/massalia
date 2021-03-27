@@ -8,6 +8,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE QuantifiedConstraints #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 
 module Massalia.SQLSelectStruct
   ( SelectStruct (..),
@@ -27,8 +28,14 @@ module Massalia.SQLSelectStruct
     queryAndDecoderToListSubquery,
     queryAndDecoderToSnippetAndResult,
     queryAndDecoderToQueryFormatAndResult,
+    queryAndDecoderToQueryFormatAndResultList,
+    queryAndDecoderToQueryFormatAndResultVect,
     queryAndDecoderToStatement,
+    queryAndDecoderToStatementList,
+    queryAndDecoderToStatementVect,
     queryAndDecoderToSession,
+    queryAndDecoderToSessionList,
+    queryAndDecoderToSessionVect,
     concatAnd,
     inlineAndUnion,
     filterMerge,
@@ -63,32 +70,43 @@ data QueryAndDecoder queryFormat decoder
         decoder :: !(Decoders.Composite decoder)
       }
 
+queryAndDecoderToStatementList = queryAndDecoderToSession Decoders.rowList
+queryAndDecoderToStatementVect = queryAndDecoderToSession Decoders.rowVector
+
 -- | select query to a HASQL Statement, which can be executed in a Session.
-queryAndDecoderToStatement :: QueryAndDecoder BinaryQuery decoder -> Statement () [decoder]
-queryAndDecoderToStatement !selectSt = dynamicallyParameterized snippet result True
+queryAndDecoderToStatement :: (_ -> Decoders.Result (container decoder)) -> QueryAndDecoder BinaryQuery decoder -> Statement () (container decoder)
+queryAndDecoderToStatement !converter !selectSt = dynamicallyParameterized snippet result True
   where
-    (snippet, result) = queryAndDecoderToSnippetAndResult selectSt
+    (snippet, result) = queryAndDecoderToSnippetAndResult converter selectSt
 
 -- | Transforms a given 'QueryAndDecoder' to a its assembled query format.
 queryAndDecoderToQueryFormat :: (QueryFormat qf) => QueryAndDecoder qf decoder -> qf
 queryAndDecoderToQueryFormat = selectStructToQueryFormat . query
 
+queryAndDecoderToSessionList = queryAndDecoderToSession Decoders.rowList
+queryAndDecoderToSessionVect = queryAndDecoderToSession Decoders.rowVector
+
 -- | select query to a HASQL Statement, which can be executed in a Session.
-queryAndDecoderToSession :: QueryAndDecoder BinaryQuery decoder -> Session [decoder]
-queryAndDecoderToSession !selectSt = dynamicallyParameterizedStatement snippet result True
+queryAndDecoderToSession :: (_ -> Decoders.Result (container decoder)) -> QueryAndDecoder BinaryQuery decoder -> Session (container decoder)
+queryAndDecoderToSession !converter !selectSt = dynamicallyParameterizedStatement snippet result True
   where
-    (snippet, result) = queryAndDecoderToSnippetAndResult selectSt
+    (!snippet, !result) = queryAndDecoderToSnippetAndResult converter selectSt
 
 -- | select query to a HASQL Statement, which can be executed in a Session.
-queryAndDecoderToSnippetAndResult :: QueryAndDecoder BinaryQuery decoder -> (BinaryQuery, Decoders.Result [decoder])
-queryAndDecoderToSnippetAndResult = queryAndDecoderToQueryFormatAndResult
+queryAndDecoderToSnippetAndResult :: (_ -> Decoders.Result (container decoder)) -> QueryAndDecoder BinaryQuery decoder -> (BinaryQuery, Decoders.Result (container decoder))
+queryAndDecoderToSnippetAndResult !converter !selectSt = queryAndDecoderToQueryFormatAndResult converter selectSt
+
+queryAndDecoderToQueryFormatAndResultList :: (_) => _
+queryAndDecoderToQueryFormatAndResultList = queryAndDecoderToQueryFormatAndResult Decoders.rowList
+queryAndDecoderToQueryFormatAndResultVect :: (_) => _
+queryAndDecoderToQueryFormatAndResultVect = queryAndDecoderToQueryFormatAndResult Decoders.rowVector
 
 -- | select query to a HASQL Statement, which can be executed in a Session.
-queryAndDecoderToQueryFormatAndResult :: (QueryFormat qf) => QueryAndDecoder qf decoder -> (qf, Decoders.Result [decoder])
-queryAndDecoderToQueryFormatAndResult selectSt = (content, decoderValue)
+queryAndDecoderToQueryFormatAndResult :: (QueryFormat qf) => (_ -> Decoders.Result (container decoder)) -> QueryAndDecoder qf decoder -> (qf, Decoders.Result (container decoder))
+queryAndDecoderToQueryFormatAndResult !converter !selectSt = (content, decoderValue)
   where
     content = assembleSelectStruct [Row] (query selectSt)
-    decoderValue = Decoders.rowList (Decoders.column $ Decoders.nonNullable $ Decoders.composite $ decoder selectSt)
+    decoderValue = converter (Decoders.column $ Decoders.nonNullable $ Decoders.composite $ decoder selectSt)
 
 queryAndDecoderToListSubquery ::
   QueryFormat queryFormat =>

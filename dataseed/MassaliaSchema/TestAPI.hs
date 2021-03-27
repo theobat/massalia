@@ -20,6 +20,7 @@ import Data.Morpheus.Types
 import MassaliaSchema.Industry.Plant (Plant, plantListQuery, plantListQueryGen)
 import MassaliaSchema.Industry.PlantFilter (PlantFilter)
 import Massalia.UtilsGQL (Paginated)
+import Data.Vector (Vector)
 
 api :: Pool -> GQLRequest -> IO GQLResponse
 api dbConnectionPool = interpreter $ rootResolver (Just dbConnectionPool)
@@ -43,14 +44,14 @@ rootResolver dbConnectionPool =
 
 data Query m
   = Query
-      { plantListPaginated :: Paginated PlantFilter -> m [Plant],
-        plantListQueryGenerator :: Paginated PlantFilter -> m [Plant]
+      { plantListPaginated :: Paginated PlantFilter -> m (Vector Plant),
+        plantListQueryGenerator :: Paginated PlantFilter -> m (Vector Plant)
       }
   deriving (Generic, GQLType)
 
 rootQuery :: (Maybe Pool) -> Query (_ _ () IO)
 rootQuery dbConnectionPool =
-  Query 
+  Query
     { plantListPaginated = plantListQuery dbConnectionPool,
       plantListQueryGenerator = plantListQueryGen
     }

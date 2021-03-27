@@ -98,68 +98,68 @@ packages:
 - completed:
     subdir: .
     name: morpheus-graphql
-    version: 0.16.0
+    version: 0.17.0
     git: https://github.com/theobat/morpheus-graphql.git
     pantry-tree:
-      size: 86785
-      sha256: d898dabd0a67c141b46537a3399e66057fc295b25dde614c859b8dbd47ae2773
-    commit: c075715053a7053a076628341bce22b9c735d242
+      size: 87112
+      sha256: 365a50e747052ad86dafc3ce4e458910a62e862c2e244d8281ed23b13631628a
+    commit: 40ee29632a9eeb4d4973a48c1f3898a6b2c8b672
   original:
     subdir: .
     git: https://github.com/theobat/morpheus-graphql.git
-    commit: c075715053a7053a076628341bce22b9c735d242
+    commit: 40ee29632a9eeb4d4973a48c1f3898a6b2c8b672
 - completed:
     subdir: ./morpheus-graphql-subscriptions
     name: morpheus-graphql-subscriptions
-    version: 0.16.0
+    version: 0.17.0
     git: https://github.com/theobat/morpheus-graphql.git
     pantry-tree:
       size: 917
-      sha256: e3bb819122e4e82f6a970b290ff5c57ac90d6739590c8b2900ba49fcb2b3ff46
-    commit: c075715053a7053a076628341bce22b9c735d242
+      sha256: ca91c5e5b395e1d5a93708c6391264a04a7bf35a300c10daafff7b8f51bbdb29
+    commit: 40ee29632a9eeb4d4973a48c1f3898a6b2c8b672
   original:
     subdir: ./morpheus-graphql-subscriptions
     git: https://github.com/theobat/morpheus-graphql.git
-    commit: c075715053a7053a076628341bce22b9c735d242
+    commit: 40ee29632a9eeb4d4973a48c1f3898a6b2c8b672
 - completed:
     subdir: ./morpheus-graphql-client
     name: morpheus-graphql-client
-    version: 0.16.0
+    version: 0.17.0
     git: https://github.com/theobat/morpheus-graphql.git
     pantry-tree:
-      size: 3003
-      sha256: 67bea9c9b159d60e9a09e70ac1aadde268aa81e142b5b5f1e18eee48c5ffaa9d
-    commit: c075715053a7053a076628341bce22b9c735d242
+      size: 3085
+      sha256: 626861ac410ce6ef936a3b6e13450ecfbbe841e3201c9738d5899e5b55864337
+    commit: 40ee29632a9eeb4d4973a48c1f3898a6b2c8b672
   original:
     subdir: ./morpheus-graphql-client
     git: https://github.com/theobat/morpheus-graphql.git
-    commit: c075715053a7053a076628341bce22b9c735d242
+    commit: 40ee29632a9eeb4d4973a48c1f3898a6b2c8b672
 - completed:
     subdir: ./morpheus-graphql-core
     name: morpheus-graphql-core
-    version: 0.16.0
+    version: 0.17.0
     git: https://github.com/theobat/morpheus-graphql.git
     pantry-tree:
-      size: 20341
-      sha256: 3e776df606962a974a2c5697405504ad9c67371ae789bb4862a68eb3246cbaa6
-    commit: c075715053a7053a076628341bce22b9c735d242
+      size: 20424
+      sha256: 3ffb96463a5516f77a844d3b3df6a3c03d4b63c3b27fce4a58ab359c004e9e46
+    commit: 40ee29632a9eeb4d4973a48c1f3898a6b2c8b672
   original:
     subdir: ./morpheus-graphql-core
     git: https://github.com/theobat/morpheus-graphql.git
-    commit: c075715053a7053a076628341bce22b9c735d242
+    commit: 40ee29632a9eeb4d4973a48c1f3898a6b2c8b672
 - completed:
     subdir: ./morpheus-graphql-app
     name: morpheus-graphql-app
-    version: 0.16.0
+    version: 0.17.0
     git: https://github.com/theobat/morpheus-graphql.git
     pantry-tree:
       size: 5370
-      sha256: 24cf2047a7f4c3da7462448fa862bc74efcc141f43a32fee221ccce931ee1cf9
-    commit: c075715053a7053a076628341bce22b9c735d242
+      sha256: 4c1378626df29c8d04f04097b91c1de69400faf5a67e0fe87dc9f29abbc6d1fd
+    commit: 40ee29632a9eeb4d4973a48c1f3898a6b2c8b672
   original:
     subdir: ./morpheus-graphql-app
     git: https://github.com/theobat/morpheus-graphql.git
-    commit: c075715053a7053a076628341bce22b9c735d242
+    commit: 40ee29632a9eeb4d4973a48c1f3898a6b2c8b672
 - completed:
     name: hasql-url
     version: 0.1.0.0
