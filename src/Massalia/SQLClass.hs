@@ -113,6 +113,7 @@ import Massalia.SQLSelectStruct
     SelectStruct (..),
     compositeToDecoderTuple,
     compositeToListDecoderTuple,
+    compositeToVectDecoderTuple,
     concatAnd,
     filterMerge,
     inlineAndUnion,
@@ -127,6 +128,7 @@ import Massalia.Utils (intercalate, simpleSnakeCase, simpleSnakeCaseT, toCSVInPa
 import Massalia.UtilsGQL (OrderByWay (..), OrderingBy (..), NullsOrder(NFirst, NLast), Paginated)
 import qualified Massalia.UtilsGQL as Paginated
 import Protolude hiding (intercalate)
+import Data.Vector (Vector)
 
 -- This is for doctest only:
 
@@ -227,16 +229,27 @@ basicDecodeRecordSubquery !contextSwitch !joinFn !parentContext !selection = (re
         decodeOpt = fromMaybe mempty $ getDecodeOption parentContext
     subQueryRaw = basicDecodeSubquery contextSwitch selection parentContext
 
--- | A utility function to build a list subquery within an existing query.
+-- | A utility function to a haskell list out of a list subquery within an existing query.
 -- It's meant to be used in 'SQLDecode'.
-basicDecodeListSubquery ::
-  forall qf parentContextT childrenContextT childrenT treeNode.
+-- See 'basicDecodeArraySubqueryCore' for more details.
+basicDecodeListSubquery :: (_) => _
+basicDecodeListSubquery = basicDecodeArraySubqueryCore compositeToListDecoderTuple
+-- | A utility function to a haskell vector out of a list subquery within an existing query.
+-- It's meant to be used in 'SQLDecode'.
+-- See 'basicDecodeArraySubqueryCore' for more details.
+basicDecodeVectSubquery :: (_) => _
+basicDecodeVectSubquery = basicDecodeArraySubqueryCore compositeToVectDecoderTuple
+
+basicDecodeArraySubqueryCore :: 
+  forall qf parentContextT childrenContextT childrenT treeNode container.
   ( SQLSelect childrenContextT childrenT,
     MassaliaTree treeNode,
     SQLRecord childrenContextT childrenT,
     QueryFormat qf,
     MassaliaContext parentContextT
   ) =>
+  -- | The haskell data structure to decode the list (list or vector).
+  (Decoders.Composite childrenT -> DecodeTuple (container childrenT)) ->
   -- | The context switch between parent and child.
   (parentContextT -> childrenContextT) ->
   -- | The function which performs the join between parents and child.
@@ -245,11 +258,11 @@ basicDecodeListSubquery ::
   parentContextT ->
   -- | The selection tree.
   treeNode ->
-  (Text -> qf, DecodeTuple [childrenT])
-basicDecodeListSubquery !contextSwitch !joinFn !parentContext !selection = (globalWrapper, newDecoder)
+  (Text -> qf, DecodeTuple (container childrenT))
+basicDecodeArraySubqueryCore !compositeToContDecoderTuple !contextSwitch !joinFn !parentContext !selection = (globalWrapper, newDecoder)
   where
     globalWrapper a = "coalesce(" <> listSubquery a <> ", '{}')"
-    newDecoder = compositeToListDecoderTuple $ decoder subQueryRaw
+    newDecoder = compositeToContDecoderTuple $ decoder subQueryRaw
     listSubquery name = selectStructToListSubquery $ filterMerge (query subQueryRaw) (joinFn decodedName)
       where
         decodedName = fromText $ decodeName decodeOpt name

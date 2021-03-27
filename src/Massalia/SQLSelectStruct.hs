@@ -16,7 +16,11 @@ module Massalia.SQLSelectStruct
     queryAndDecoderToQueryFormat,
     selectStructToListSubquery,
     decoderToListSubdecoder,
+    decoderToVectSubdecoder,
     compositeToListDecoderTuple,
+    compositeToVectArray,
+    valueToVectArray,
+    compositeToVectDecoderTuple,
     selectStructToRecordSubquery,
     compositeToDecoderTuple,
     selectStructToQueryFormat,
@@ -51,6 +55,7 @@ import Massalia.QueryFormat
   )
 import Massalia.Utils (intercalate, inParens)
 import Protolude hiding (intercalate)
+import Data.Vector (Vector)
 
 data QueryAndDecoder queryFormat decoder
   = QueryAndDecoder
@@ -97,14 +102,22 @@ compositeToListArray :: Decoders.Composite element -> Decoders.Value [element]
 compositeToListArray = valueToListArray . Decoders.composite
 valueToListArray :: Decoders.Value element -> Decoders.Value [element]
 valueToListArray = Decoders.listArray . Decoders.nonNullable
+compositeToVectArray :: Decoders.Composite element -> Decoders.Value (Vector element)
+compositeToVectArray = valueToVectArray . Decoders.composite
+valueToVectArray :: Decoders.Value element -> Decoders.Value (Vector element)
+valueToVectArray = Decoders.vectorArray . Decoders.nonNullable
 compositeToListDecoderTuple :: Decoders.Composite decoder -> DecodeTuple [decoder]
 compositeToListDecoderTuple input = DecodeTuple (compositeToListArray input) Decoders.nonNullable
+compositeToVectDecoderTuple :: Decoders.Composite decoder -> DecodeTuple (Vector decoder)
+compositeToVectDecoderTuple input = DecodeTuple (compositeToVectArray input) Decoders.nonNullable
 compositeToDecoderTuple :: Decoders.Composite decoder -> DecodeTuple decoder
 compositeToDecoderTuple input = DecodeTuple (Decoders.composite input) Decoders.nonNullable
 compositeToResult :: Decoders.Composite decoder -> Decoders.Result decoder
 compositeToResult = Decoders.singleRow . Decoders.column . Decoders.nonNullable . Decoders.composite
 decoderToListSubdecoder :: DecodeTuple decoder -> DecodeTuple [decoder]
 decoderToListSubdecoder (DecodeTuple dec _) = DecodeTuple (valueToListArray dec) Decoders.nonNullable
+decoderToVectSubdecoder :: DecodeTuple decoder -> DecodeTuple (Vector decoder)
+decoderToVectSubdecoder (DecodeTuple dec _) = DecodeTuple (valueToVectArray dec) Decoders.nonNullable
 
 -- | Format a 'SelectStruct' to a list subquery using the array_agg ('ArrayAgg') operation.
 selectStructToListSubquery ::
