@@ -37,7 +37,6 @@ module Massalia.SQLClass
     WithQueryOption (..),
     SQLFilter (toQueryFormatFilter),
     SQLFilterField (filterStruct),
-    SubSelectConstraint,
     basicEntityQuery,
     basicEntityNoFilter,
     basicQueryAndDecoder,
@@ -136,12 +135,6 @@ import Protolude hiding (intercalate)
 -- >>> :set -XNoImplicitPrelude
 -- >>> :set -XTypeApplications
 
-type SubSelectConstraint qf contextT subNodeT =
-  ( QueryFormat qf,
-    SQLSelect contextT subNodeT,
-    SQLRecord contextT subNodeT
-  )
-
 -- | This is a utility function to facilitate the writing
 -- of SQLDecode for inner records.
 basicDecodeInnerRecord ::
@@ -170,6 +163,7 @@ basicDecodeInnerRecord !context !selection = result
     (!colListThunk, !decoderVal) = toColumnSeqAndDecoder selection updatedContext
     updatedContext = setDecodeOption @contextT (currentDecodeOpt {fieldPrefixType = CompositeField}) context
     currentDecodeOpt = fromMaybe mempty $ getDecodeOption context
+{-# INLINABLE basicDecodeInnerRecord #-}
 
 -- | This is a utility function to facilitate the writing
 -- of SQLDecode for inline lists of inner records.
@@ -199,6 +193,7 @@ basicDecodeInnerListOfRecord context selection = result
     (!colListThunk, !decoderVal) = toColumnSeqAndDecoder selection updatedContext
     updatedContext = setDecodeOption @contextT (currentDecodeOpt {fieldPrefixType = CompositeField}) context
     currentDecodeOpt = fromMaybe mempty $ getDecodeOption context
+{-# INLINABLE basicDecodeInnerListOfRecord #-}
 
 -- | A utility function to build a list subquery within an existing query.
 -- It's meant to be used in SQLDecode.
@@ -228,17 +223,21 @@ basicDecodeRecordSubquery !contextSwitch !joinFn !parentContext !selection = (re
         decodedName = fromText $ decodeName decodeOpt tablename
         decodeOpt = fromMaybe mempty $ getDecodeOption parentContext
     subQueryRaw = basicDecodeSubquery contextSwitch selection parentContext
+{-# INLINABLE basicDecodeRecordSubquery #-}
 
 -- | A utility function to a haskell list out of a list subquery within an existing query.
 -- It's meant to be used in 'SQLDecode'.
 -- See 'basicDecodeArraySubqueryCore' for more details.
 basicDecodeListSubquery :: (_) => _
 basicDecodeListSubquery = basicDecodeArraySubqueryCore compositeToListDecoderTuple
+{-# INLINABLE basicDecodeListSubquery #-}
+
 -- | A utility function to a haskell vector out of a list subquery within an existing query.
 -- It's meant to be used in 'SQLDecode'.
 -- See 'basicDecodeArraySubqueryCore' for more details.
 basicDecodeVectSubquery :: (_) => _
 basicDecodeVectSubquery = basicDecodeArraySubqueryCore compositeToVectDecoderTuple
+{-# INLINABLE basicDecodeVectSubquery #-}
 
 basicDecodeArraySubqueryCore :: 
   forall qf parentContextT childrenContextT childrenT treeNode container.
@@ -268,6 +267,7 @@ basicDecodeArraySubqueryCore !compositeToContDecoderTuple !contextSwitch !joinFn
         decodedName = fromText $ decodeName decodeOpt name
         decodeOpt = fromMaybe mempty $ getDecodeOption parentContext
     subQueryRaw = basicDecodeSubquery contextSwitch selection parentContext
+{-# INLINABLE basicDecodeArraySubqueryCore #-}
 
 basicDecodeSubquery ::
   forall qf parentContextT childrenContextT childNodeT treeNode.
@@ -284,6 +284,7 @@ basicDecodeSubquery !contextSwitcher !selection !parentContextT = subQueryRaw
   where
     subQueryRaw = toSelectQuery selection childrenContext
     childrenContext = contextSwitcher parentContextT
+{-# INLINABLE basicDecodeSubquery #-}
 
 -- | A simple building block for the 'toSelectQuery' function in the SQLSelect instance.
 -- It provides the equivalent of
@@ -319,6 +320,7 @@ basicQueryAndDecoder contextTransformer selection context =
           }
     (!colListThunk, !decoderVal) = toColumnSeqAndDecoder selection context
     (!instanceName, !rawQuery) = contextTransformer context
+{-# INLINABLE basicQueryAndDecoder #-}
 
 -- | This is a simple FROM "tablename" query bit with no filtering at all
 basicEntityNoFilter ::
@@ -336,6 +338,7 @@ basicEntityNoFilter tablename context = (tablename, base)
     base = mempty {_from = Just ("\"" <> fromText realTableName <> "\"")}
     realTableName = decodeName (fromMaybe mempty decodeOption) tablename
     decodeOption = getDecodeOption context
+{-# INLINABLE basicEntityNoFilter #-}
 
 -- | This is a simple FROM "tablename" query bit along with
 --  a potential filter
@@ -402,6 +405,7 @@ paginatedFilterToSelectStruct filterOption !filterValue = limitOffsetEffect . gl
     offsetLimitFn pval = case Paginated.first pval of
       Nothing -> Nothing
       Just lVal -> Just (sqlEncode <$> Paginated.offset pval, sqlEncode lVal)
+{-# INLINABLE paginatedFilterToSelectStruct #-}
 
 joinFilterFieldSimple :: (QueryFormat qf, SQLFilter record) => (Text, Text, Text) -> Maybe SQLFilterOption -> p -> record -> (SelectStruct qf)
 joinFilterFieldSimple (tableName, tableCol, parentCol) = joinFilterField joinRes
