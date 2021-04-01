@@ -159,14 +159,17 @@ instance Monoid DedupeBinaryQuery where
 -- "\"foo\".\"bar\""
 (°) :: (Semigroup a, IsString a) => a -> a -> a
 (°) a b = "\"" <> a <> "\".\"" <> b <> "\""
+{-# INLINE (°) #-}
 
 joinEq :: (Semigroup a, IsString a) => a -> a -> a -> a -> a
 joinEq tableA fieldA tableB fieldB = "JOIN \"" <> tableA <> "\" ON " <> joinCondition
   where
     joinCondition = simpleEq tableA fieldA tableB fieldB
+{-# INLINE joinEq #-}
 
 simpleEq :: (Semigroup a, IsString a) => a -> a -> a -> a -> a
 simpleEq tableA fieldA tableB fieldB = (tableA ° fieldA) <> " = " <> (tableB ° fieldB)
+{-# INLINE simpleEq #-}
 
 (§) :: (IsString content, Monoid content) => content -> content -> content
 (§) a b = a <> "," <> b
@@ -182,33 +185,42 @@ class
 
 instance QueryFormat TextQuery where
   sqlEncode = textEncode
+  {-# INLINABLE sqlEncode #-}
 
 instance QueryFormat String where
   sqlEncode = unpack . textEncode
+  {-# INLINABLE sqlEncode #-}
 
 instance QueryFormat ByteString where
   sqlEncode = encodeUtf8 . textEncode
+  {-# INLINABLE sqlEncode #-}
 
 instance QueryFormat DedupeBinaryQuery where
   sqlEncode = binaryDedupeEncode
+  {-# INLINABLE sqlEncode #-}
 
 instance QueryFormat BinaryQuery where
   sqlEncode = binaryEncode
+  {-# INLINABLE sqlEncode #-}
 
 class FromText content where
   fromText :: Text -> content
 
 instance FromText Text where
   fromText = identity
+  {-# INLINABLE fromText #-}
 
 instance FromText String where
   fromText = unpack
+  {-# INLINABLE fromText #-}
 
 instance FromText ByteString where
   fromText = encodeUtf8
+  {-# INLINABLE fromText #-}
 
 instance FromText Snippet where
   fromText = sql . encodeUtf8
+  {-# INLINABLE fromText #-}
 
 instance FromText DedupeBinaryQuery where
   fromText txt = DedupeBinaryQuery {
