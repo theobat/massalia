@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE BangPatterns #-}
 
 module Massalia.SelectionTree
 where
@@ -15,14 +16,14 @@ import qualified Data.Morpheus.Core as MorpheusTree (SelectionTree(..))
 import Data.Morpheus.Types (
     ResolverContext (ResolverContext, currentSelection),
   )
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Data.Morpheus.Types.Internal.AST (FieldName(readName))
 import Protolude
 
 -- | A tree structure but with indexed-by-name children
 data MassaliaNode = MassaliaNode {
-  name :: Text,
-  children :: Map Text MassaliaNode
+  name :: !Text,
+  children :: (Map Text MassaliaNode)
 } deriving (Eq, Show)
 
 -- | left associative (prefer data from the left side in case of conflict).
@@ -35,13 +36,13 @@ instance Semigroup MassaliaNode where
   
 
 leaf :: Text -> MassaliaNode
-leaf key = MassaliaNode {
+leaf !key = MassaliaNode {
   name = key,
   children = mempty
 }
 
 node :: Text -> [Text] -> MassaliaNode
-node key child = MassaliaNode {name = key, children= Map.fromList ((\a -> (a, leaf a)) <$> child)}
+node !key !child = MassaliaNode {name = key, children= Map.fromList ((\a -> (a, leaf a)) <$> child)}
 
 over :: MassaliaNode -> MassaliaNode -> MassaliaNode
 over parent child = parent{children=Map.insert (name child) child $ children parent}
@@ -56,6 +57,7 @@ nodeOver key childList = leaf key `overAll` childList
 fromMorpheusContext :: ResolverContext -> MassaliaNode
 fromMorpheusContext ResolverContext{currentSelection = input} = morpheusNodeToMassaliaNode input
 
+{-# INLINABLE morpheusNodeToMassaliaNode #-}
 morpheusNodeToMassaliaNode :: (SelectionTree a) => a -> MassaliaNode
 morpheusNodeToMassaliaNode input
   | MorpheusTree.isLeaf input = leaf $ textName
@@ -70,10 +72,14 @@ morpheusNodeToMassaliaNode input
       transformer morpheusNode = (readName $ MorpheusTree.getName morpheusNode, morpheusNodeToMassaliaNode morpheusNode)
 
 instance MassaliaTree MassaliaNode where
+  {-# INLINE isLeaf #-}
   isLeaf = (Map.null . children)
   getChildrenList = ((snd <$>) . Map.toList . children)
-  lookupChildren key val = Map.lookup key (children val)
-  foldrChildren foldFunction init n = foldr foldFunction init (children n)
+  {-# INLINE lookupChildren #-}
+  lookupChildren !key !val = Map.lookup key (children val)
+  {-# INLINE foldrChildren #-}
+  foldrChildren foldFunction init n = foldr' foldFunction init (children n)
+  {-# INLINE getName #-}
   getName = name
   
 class MassaliaTree a where
