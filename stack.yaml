@@ -18,7 +18,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-17.4
+resolver: lts-17.3
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -94,7 +94,7 @@ extra-deps:
   # - morpheus-graphql-core-0.16.0
   # - morpheus-graphql-0.16.0
   - git: https://github.com/theobat/morpheus-graphql.git
-    commit: bfae7161a0e8d8c4d84f3795a7b31028d189789c
+    commit: 89eb5ea2ed4f6547d30178bbddf330ef94f37466
     subdirs:
       - .
       - ./morpheus-graphql-subscriptions
