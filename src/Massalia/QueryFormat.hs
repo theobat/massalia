@@ -527,40 +527,65 @@ fmapList = fmapDecoderValue (Decoders.listArray . Decoders.nonNullable) (sqlDeco
 fmapVector :: forall contextT element. (SQLDecoder contextT element) => DecodeTuple (Vector element)
 fmapVector = fmapDecoderValue (Decoders.vectorArray . Decoders.nonNullable) (sqlDecoder @contextT @element)
 
-instance (SQLDecoder contextT a) => SQLDecoder contextT [a] where
-  sqlDecoder = fmapList @contextT
-instance (SQLDecoder contextT a) => SQLDecoder contextT (Vector a) where
-  sqlDecoder = fmapVector @contextT
-
 instance SQLDecoder contextT UUID where
   sqlDecoder = defaultDecodeTuple Decoders.uuid
 
+instance SQLDecoder contextT [UUID] where
+  sqlDecoder = fmapList
 instance SQLDecoder contextT Text where
   sqlDecoder = defaultDecodeTuple Decoders.text
-
+instance SQLDecoder contextT (Vector Text) where
+  sqlDecoder = fmapVector
+instance SQLDecoder contextT [Text] where
+  sqlDecoder = fmapList
 instance SQLDecoder contextT Bool where
   sqlDecoder = defaultDecodeTuple Decoders.bool
-
+instance SQLDecoder contextT (Vector Bool) where
+  sqlDecoder = fmapVector
+instance SQLDecoder contextT [Bool] where
+  sqlDecoder = fmapList
 instance SQLDecoder contextT EmailAddress where
   sqlDecoder = defaultDecodeTuple $ Decoders.custom $ const emailValidateText
-
+instance SQLDecoder contextT (Vector EmailAddress) where
+  sqlDecoder = fmapVector
+instance SQLDecoder contextT [EmailAddress] where
+  sqlDecoder = fmapList
 instance SQLDecoder contextT Int64 where
   sqlDecoder = defaultDecodeTuple Decoders.int8
-
+instance SQLDecoder contextT (Vector Int64) where
+  sqlDecoder = fmapVector
+instance SQLDecoder contextT [Int64] where
+  sqlDecoder = fmapList
 instance SQLDecoder contextT Int where
   sqlDecoder = defaultDecodeTuple (fromIntegral <$> Decoders.int8)
-
+instance SQLDecoder contextT (Vector Int) where
+  sqlDecoder = fmapVector
+instance SQLDecoder contextT [Int] where
+  sqlDecoder = fmapList
 instance SQLDecoder contextT LocalTime where
   sqlDecoder = defaultDecodeTuple Decoders.timestamp
-
+instance SQLDecoder contextT (Vector LocalTime) where
+  sqlDecoder = fmapVector
+instance SQLDecoder contextT [LocalTime] where
+  sqlDecoder = fmapList
 instance SQLDecoder contextT Day where
   sqlDecoder = defaultDecodeTuple Decoders.date
-
+instance SQLDecoder contextT (Vector Day) where
+  sqlDecoder = fmapVector
+instance SQLDecoder contextT [Day] where
+  sqlDecoder = fmapList
 instance SQLDecoder contextT Scientific where
   sqlDecoder = defaultDecodeTuple Decoders.numeric
-
+instance SQLDecoder contextT (Vector Scientific) where
+  sqlDecoder = fmapVector
+instance SQLDecoder contextT [Scientific] where
+  sqlDecoder = fmapList
 instance SQLDecoder contextT UTCTime where
   sqlDecoder = defaultDecodeTuple Decoders.timestamptz
+instance SQLDecoder contextT (Vector UTCTime) where
+  sqlDecoder = fmapVector
+instance SQLDecoder contextT [UTCTime] where
+  sqlDecoder = fmapList
 
 instance
   ( SQLDecoder contextT a
