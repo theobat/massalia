@@ -70,6 +70,8 @@ data QueryAndDecoder queryFormat decoder
         decoder :: !(Decoders.Composite decoder)
       }
 
+queryAndDecoderToStatementList :: QueryAndDecoder BinaryQuery decoder -> Session [decoder]
+queryAndDecoderToStatementVect :: QueryAndDecoder BinaryQuery decoder -> Session (Vector decoder)
 queryAndDecoderToStatementList = queryAndDecoderToSession Decoders.rowList
 queryAndDecoderToStatementVect = queryAndDecoderToSession Decoders.rowVector
 
@@ -83,7 +85,9 @@ queryAndDecoderToStatement !converter !selectSt = dynamicallyParameterized snipp
 queryAndDecoderToQueryFormat :: (QueryFormat qf) => QueryAndDecoder qf decoder -> qf
 queryAndDecoderToQueryFormat = selectStructToQueryFormat . query
 
+queryAndDecoderToSessionList :: QueryAndDecoder BinaryQuery decoder -> Session [decoder]
 queryAndDecoderToSessionList = queryAndDecoderToSession Decoders.rowList
+queryAndDecoderToSessionVect :: QueryAndDecoder BinaryQuery decoder -> Session (Vector decoder)
 queryAndDecoderToSessionVect = queryAndDecoderToSession Decoders.rowVector
 
 -- | select query to a HASQL Statement, which can be executed in a Session.

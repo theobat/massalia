@@ -90,6 +90,7 @@ import Massalia.Utils
     unsafeSnakeCaseT,
   )
 import Protolude hiding (replace)
+import Data.Coerce (coerce)
 
 -- | The text query format is the canonical representation for debugging
 -- and printing queries.
@@ -266,11 +267,17 @@ instance SQLEncoder UUID where
 instance SQLEncoder [UUID] where
   textEncode = collectionTextEncode
   binaryEncode = Snippet.param
+instance SQLEncoder (Vector UUID) where
+  textEncode = collectionTextEncode
+  binaryEncode = Snippet.param
 
 instance SQLEncoder Day where
   binaryEncode = Snippet.param
 
 instance SQLEncoder [Day] where
+  textEncode = collectionTextEncode
+  binaryEncode = Snippet.param
+instance SQLEncoder (Vector Day) where
   textEncode = collectionTextEncode
   binaryEncode = Snippet.param
 
@@ -280,12 +287,18 @@ instance SQLEncoder LocalTime where
 instance SQLEncoder [LocalTime] where
   textEncode = collectionTextEncode
   binaryEncode = Snippet.param
+instance SQLEncoder (Vector LocalTime) where
+  textEncode = collectionTextEncode
+  binaryEncode = Snippet.param
 
 instance SQLEncoder Text where
   textEncode = inSingleQuote
   binaryEncode = Snippet.param
 
 instance SQLEncoder [Text] where
+  textEncode = collectionTextEncode
+  binaryEncode = Snippet.param
+instance SQLEncoder (Vector Text) where
   textEncode = collectionTextEncode
   binaryEncode = Snippet.param
 
@@ -299,7 +312,10 @@ instance SQLEncoder Bool where
 
 instance SQLEncoder [Bool] where
   textEncode = collectionTextEncode
-  binaryEncode = Snippet.param . collectionTextEncode
+  binaryEncode = Snippet.param . fmap (boolEncode @Text)
+instance SQLEncoder (Vector Bool) where
+  textEncode = collectionTextEncode
+  binaryEncode = Snippet.param . fmap (boolEncode @Text)
 
 instance SQLEncoder Int64 where
   wrapEncoding a = "" <> a <> "::bigint"
@@ -307,6 +323,10 @@ instance SQLEncoder Int64 where
   binaryEncode = Snippet.param
 
 instance SQLEncoder [Int64] where
+  textEncode = collectionTextEncode
+  binaryEncode = Snippet.param
+
+instance SQLEncoder (Vector Int64) where
   textEncode = collectionTextEncode
   binaryEncode = Snippet.param
 
@@ -318,6 +338,9 @@ instance SQLEncoder Int where
 instance SQLEncoder [Int] where
   textEncode = collectionTextEncode
   binaryEncode = Snippet.param . (fromIntegral @Int @Int64 <$>)
+instance SQLEncoder (Vector Int) where
+  textEncode = collectionTextEncode
+  binaryEncode = Snippet.param . (fromIntegral @Int @Int64 <$>)
 
 instance SQLEncoder ZonedTime where
   binaryEncode = Snippet.param . zonedTimeToUTC
@@ -325,10 +348,13 @@ instance SQLEncoder ZonedTime where
 instance SQLEncoder [ZonedTime] where
   textEncode = collectionTextEncode
   binaryEncode = Snippet.param . (zonedTimeToUTC <$>)
+instance SQLEncoder (Vector ZonedTime) where
+  textEncode = collectionTextEncode
+  binaryEncode = Snippet.param . (zonedTimeToUTC <$>)
 
 deriving via ZonedTime instance SQLEncoder ZonedTimeEq
-
 deriving via [ZonedTime] instance SQLEncoder [ZonedTimeEq]
+deriving via (Vector ZonedTime) instance SQLEncoder (Vector ZonedTimeEq)
 
 instance SQLEncoder UTCTime where
   binaryEncode = Snippet.param
@@ -337,13 +363,17 @@ instance SQLEncoder [UTCTime] where
   textEncode = collectionTextEncode
   binaryEncode = Snippet.param
 
+instance SQLEncoder (Vector UTCTime) where
+  textEncode = collectionTextEncode
+  binaryEncode = Snippet.param
+
 instance SQLEncoder EmailAddress where
   textEncode = inSingleQuote . emailToText
   binaryEncode = Snippet.param . emailToText
 
-instance SQLEncoder [EmailAddress] where
+instance SQLEncoder (Vector EmailAddress) where
   textEncode = collectionTextEncode
-  binaryEncode = Snippet.param . (emailToText <$>)
+  binaryEncode = Snippet.param . fmap (show @_ @Text)
 
 inSingleQuote :: (Semigroup a, IsString a) => a -> a
 inSingleQuote a = "'" <> a <> "'"
@@ -497,95 +527,40 @@ fmapList = fmapDecoderValue (Decoders.listArray . Decoders.nonNullable) (sqlDeco
 fmapVector :: forall contextT element. (SQLDecoder contextT element) => DecodeTuple (Vector element)
 fmapVector = fmapDecoderValue (Decoders.vectorArray . Decoders.nonNullable) (sqlDecoder @contextT @element)
 
+instance (SQLDecoder contextT a) => SQLDecoder contextT [a] where
+  sqlDecoder = fmapList @contextT
+instance (SQLDecoder contextT a) => SQLDecoder contextT (Vector a) where
+  sqlDecoder = fmapVector @contextT
+
 instance SQLDecoder contextT UUID where
   sqlDecoder = defaultDecodeTuple Decoders.uuid
-
-instance SQLDecoder contextT [UUID] where
-  sqlDecoder = fmapList
-
-instance SQLDecoder contextT (Vector UUID) where
-  sqlDecoder = fmapVector
 
 instance SQLDecoder contextT Text where
   sqlDecoder = defaultDecodeTuple Decoders.text
 
-instance SQLDecoder contextT [Text] where
-  sqlDecoder = fmapList
-
-instance SQLDecoder contextT (Vector Text) where
-  sqlDecoder = fmapVector
-
 instance SQLDecoder contextT Bool where
   sqlDecoder = defaultDecodeTuple Decoders.bool
-
-instance SQLDecoder contextT [Bool] where
-  sqlDecoder = fmapList
-
-instance SQLDecoder contextT (Vector Bool) where
-  sqlDecoder = fmapVector
 
 instance SQLDecoder contextT EmailAddress where
   sqlDecoder = defaultDecodeTuple $ Decoders.custom $ const emailValidateText
 
-instance SQLDecoder contextT [EmailAddress] where
-  sqlDecoder = fmapList
-
-instance SQLDecoder contextT (Vector EmailAddress) where
-  sqlDecoder = fmapVector
-
 instance SQLDecoder contextT Int64 where
   sqlDecoder = defaultDecodeTuple Decoders.int8
-
-instance SQLDecoder contextT [Int64] where
-  sqlDecoder = fmapList
-
-instance SQLDecoder contextT (Vector Int64) where
-  sqlDecoder = fmapVector
 
 instance SQLDecoder contextT Int where
   sqlDecoder = defaultDecodeTuple (fromIntegral <$> Decoders.int8)
 
-instance SQLDecoder contextT [Int] where
-  sqlDecoder = fmapList
-
-instance SQLDecoder contextT (Vector Int) where
-  sqlDecoder = fmapVector
-
 instance SQLDecoder contextT LocalTime where
   sqlDecoder = defaultDecodeTuple Decoders.timestamp
-
-instance SQLDecoder contextT [LocalTime] where
-  sqlDecoder = fmapList
-
-instance SQLDecoder contextT (Vector LocalTime) where
-  sqlDecoder = fmapVector
 
 instance SQLDecoder contextT Day where
   sqlDecoder = defaultDecodeTuple Decoders.date
 
-instance SQLDecoder contextT [Day] where
-  sqlDecoder = fmapList
-
-instance SQLDecoder contextT (Vector Day) where
-  sqlDecoder = fmapVector
-
 instance SQLDecoder contextT Scientific where
   sqlDecoder = defaultDecodeTuple Decoders.numeric
 
-instance SQLDecoder contextT [Scientific] where
-  sqlDecoder = fmapList
-
-instance SQLDecoder contextT (Vector Scientific) where
-  sqlDecoder = fmapVector
-
 instance SQLDecoder contextT UTCTime where
   sqlDecoder = defaultDecodeTuple Decoders.timestamptz
-
-instance SQLDecoder contextT [UTCTime] where
-  sqlDecoder = fmapList
-
-instance SQLDecoder contextT (Vector UTCTime) where
-  sqlDecoder = fmapVector
 
 instance
   ( SQLDecoder contextT a

@@ -19,10 +19,10 @@ rowsAssembler ::
   queryFormat -> collection queryFormat -> queryFormat
 rowsAssembler sep input = assembledRows
   where
-    rowSeparator a (0, previousRows) = rowSeparatorGeneric sep a (0, previousRows)
-    rowSeparator a (index, previousRows) = rowSeparatorGeneric ("," <> sep) a (index, previousRows)
-    rowSeparatorGeneric isep a (index, previousRows) = (index + 1, previousRows <> isep <> a)
-    (_, assembledRows) = foldr rowSeparator (0, "") input
+    rowSeparator !a (0, !previousRows) = rowSeparatorGeneric sep a (0, previousRows)
+    rowSeparator !a (!index, !previousRows) = rowSeparatorGeneric ("," <> sep) a (index, previousRows)
+    rowSeparatorGeneric !isep !a (!index, !previousRows) = (index + 1, previousRows <> isep <> a)
+    (_, !assembledRows) = foldr rowSeparator (0, "") input
 
 insertIntoWrapper ::
   (Monoid queryFormat, IsString queryFormat) => queryFormat -> queryFormat -> queryFormat
