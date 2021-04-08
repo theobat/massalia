@@ -529,9 +529,10 @@ fmapVector = fmapDecoderValue (Decoders.vectorArray . Decoders.nonNullable) (sql
 
 instance SQLDecoder contextT UUID where
   sqlDecoder = defaultDecodeTuple Decoders.uuid
-
 instance SQLDecoder contextT [UUID] where
   sqlDecoder = fmapList
+instance SQLDecoder contextT (Vector UUID) where
+  sqlDecoder = fmapVector
 instance SQLDecoder contextT Text where
   sqlDecoder = defaultDecodeTuple Decoders.text
 instance SQLDecoder contextT (Vector Text) where
