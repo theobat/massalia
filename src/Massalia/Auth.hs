@@ -1,25 +1,25 @@
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 -- |
 -- Module      : Massalia.Auth
 -- Description : A module to define utility functions for authentication using JWTs.
--- In particular, it provides utility function to check several properties of a JWT 
+-- In particular, it provides utility function to check several properties of a JWT
 -- (expiration date, not before time, and signature integrity).
 module Massalia.Auth
   ( module Web.JWT,
     JWTEncodedString (JWTEncodedString),
     defaultCheckJWT,
     checkJWT,
-    JWTError(..),
-    unsafeJWTClaims
+    JWTError (..),
+    unsafeJWTClaims,
   )
 where
 
 import Control.Monad.Except (liftEither)
-import Data.Time.Clock.POSIX (getPOSIXTime)
 import Data.Time (NominalDiffTime)
+import Data.Time.Clock.POSIX (getPOSIXTime)
 import Protolude hiding (exp)
 import Web.JWT
 
@@ -66,7 +66,7 @@ defaultCheckJWT ::
   JWTEncodedString ->
   ExceptT JWTError IO JWTClaimsSet
 defaultCheckJWT = checkJWT Nothing
-{-# INLINABLE defaultCheckJWT #-}
+{-# INLINEABLE defaultCheckJWT #-}
 
 -- | A simple JWT check for all the following:
 --
@@ -74,7 +74,6 @@ defaultCheckJWT = checkJWT Nothing
 -- * expiration timestamp is greater than current timestamp
 -- * not before timestamp is lesser than current timestamp
 -- It uses @getPOSIXTime@ for the accessing the current time.
---
 checkJWT ::
   Maybe CheckOptions ->
   Signer ->
@@ -89,7 +88,7 @@ checkJWT maybeOpt secret (JWTEncodedString inputJWT) = do
   where
     !verified = decodeAndVerifySignature secret inputJWT
     !opt = fromMaybe defaultCheckOptions maybeOpt
-{-# INLINABLE checkJWT #-}
+{-# INLINEABLE checkJWT #-}
 
 checkExpiration :: Bool -> NominalDiffTime -> JWTClaimsSet -> Either JWTError JWTClaimsSet
 checkExpiration shouldFailOnNothing now claimSet = case exp claimSet of
@@ -102,7 +101,14 @@ checkExpiration shouldFailOnNothing now claimSet = case exp claimSet of
       then Left HasExpired
       else Right claimSet
 
-checkNotBefore :: Bool -> NominalDiffTime -> JWTClaimsSet -> (Either JWTError JWTClaimsSet)
+checkNotBefore ::
+  -- | should fail on the absence of not before field
+  Bool ->
+  -- | current time
+  NominalDiffTime ->
+  -- | the jwt claim set to verify
+  JWTClaimsSet ->
+  Either JWTError JWTClaimsSet
 checkNotBefore shouldFailOnNothing now claimSet = case nbf claimSet of
   Nothing ->
     if shouldFailOnNothing
@@ -116,4 +122,4 @@ checkNotBefore shouldFailOnNothing now claimSet = case nbf claimSet of
 -- | This function unsafely retreives jwt claims,
 -- **WITHOUT CHECKING JWT's integrity**
 unsafeJWTClaims :: JWTEncodedString -> Maybe JWTClaimsSet
-unsafeJWTClaims (JWTEncodedString input) = claims <$> (decode input)
+unsafeJWTClaims (JWTEncodedString input) = claims <$> decode input
