@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE DeriveGeneric #-}
 
@@ -65,26 +66,30 @@ defaultCheckJWT ::
   JWTEncodedString ->
   ExceptT JWTError IO JWTClaimsSet
 defaultCheckJWT = checkJWT Nothing
+{-# INLINABLE defaultCheckJWT #-}
 
 -- | A simple JWT check for all the following:
+--
 -- * signature in JWT and computed signature correspond (integrity)
 -- * expiration timestamp is greater than current timestamp
 -- * not before timestamp is lesser than current timestamp
 -- It uses @getPOSIXTime@ for the accessing the current time.
+--
 checkJWT ::
   Maybe CheckOptions ->
   Signer ->
   JWTEncodedString ->
   ExceptT JWTError IO JWTClaimsSet
 checkJWT maybeOpt secret (JWTEncodedString inputJWT) = do
-  verifiedJWT <- liftEither $ maybeToRight WrongSignature verified
-  let claim = claims verifiedJWT
+  !verifiedJWT <- liftEither $ maybeToRight WrongSignature verified
+  let !claim = claims verifiedJWT
   now <- liftIO getPOSIXTime
   validExpClaimSet <- liftEither $ checkExpiration (failOnMissingExp opt) now claim
   liftEither $ checkNotBefore (failOnMissingNbf opt) now validExpClaimSet
   where
-    verified = decodeAndVerifySignature secret inputJWT
-    opt = fromMaybe defaultCheckOptions maybeOpt
+    !verified = decodeAndVerifySignature secret inputJWT
+    !opt = fromMaybe defaultCheckOptions maybeOpt
+{-# INLINABLE checkJWT #-}
 
 checkExpiration :: Bool -> NominalDiffTime -> JWTClaimsSet -> Either JWTError JWTClaimsSet
 checkExpiration shouldFailOnNothing now claimSet = case exp claimSet of
