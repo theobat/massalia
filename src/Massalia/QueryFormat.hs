@@ -558,7 +558,7 @@ instance SQLDecoder contextT (Vector Int64) where
 instance SQLDecoder contextT [Int64] where
   sqlDecoder = fmapList
 instance SQLDecoder contextT Int where
-  sqlDecoder = defaultDecodeTuple (fromIntegral <$> Decoders.int8)
+  sqlDecoder = defaultDecodeTuple (fromIntegral <$> Decoders.int4)
 instance SQLDecoder contextT (Vector Int) where
   sqlDecoder = fmapVector
 instance SQLDecoder contextT [Int] where
