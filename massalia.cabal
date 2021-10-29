@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: b20e82923b225b811fa36ed470849a3d15a2761174ca8b9699cf4dfc554c282f
+-- hash: 5dfd5e0742455ad37a16aaee97c35e8222b5a2982e42407851cc89cfd777ce6e
 
 name:           massalia
 version:        0.1.0.0
@@ -46,6 +46,7 @@ library
       Massalia.SQLSelectStruct
       Massalia.SQLUtils
       Massalia.SQLWith
+      Massalia.SymbolTree
       Massalia.Utils
       Massalia.UtilsGQL
   other-modules:

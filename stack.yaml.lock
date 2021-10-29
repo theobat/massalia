@@ -10,104 +10,34 @@ packages:
       size: 641
       sha256: b1b9a6a26ec765e5fe29f9a670a5c9ec7067ea00dee8491f0819284ff0201b6f
   original:
-    hackage: hasql-dynamic-statements-0.3.1
+    hackage: hasql-dynamic-statements-0.3.1@sha256:c3a2c89c4a8b3711368dbd33f0ccfe46a493faa7efc2c85d3e354c56a01dfc48,2673
 - completed:
-    hackage: hasql-1.4.4.2@sha256:b892045844506174b0b3a6f0e20241d0bd708faf9392f7fea6c9a33773d7de14,6590
-    pantry-tree:
-      size: 2567
-      sha256: 7485e7252aa8e40fb5783bb8a259f9750c55ff62ef2526874a24217dfe8cd646
-  original:
-    hackage: hasql-1.4.4.2
-- completed:
-    hackage: hasql-implicits-0.1.0.1@sha256:93581bf006dbb2641930c41c647b5a42c87064aa6a4feaa7dee6af8e58ccd7af,1388
+    hackage: hasql-implicits-0.1.0.2@sha256:5d54e09cb779a209681b139fb3cc726bae75134557932156340cc0a56dd834a8,1361
     pantry-tree:
       size: 310
-      sha256: 5953e48ce2ce0cb31aa188981003768bc129d1401a911c86bc796daaa99f7ad8
+      sha256: 2f00d1467d0e226b966c2cd7bac433c8948e2f7bbdf8a44936029f66fc20b5f3
   original:
-    hackage: hasql-implicits-0.1.0.1@sha256:93581bf006dbb2641930c41c647b5a42c87064aa6a4feaa7dee6af8e58ccd7af,1388
+    hackage: hasql-implicits-0.1.0.2@sha256:5d54e09cb779a209681b139fb3cc726bae75134557932156340cc0a56dd834a8,1361
 - completed:
-    hackage: ptr-0.16.7.2@sha256:4a91e1342db8e627435a002798d65329a0c09c8632b2e415461b9928785327f9,2686
+    hackage: ptr-0.16.8.1@sha256:525219ec5f5da5c699725f7efcef91b00a7d44120fc019878b85c09440bf51d6,2686
     pantry-tree:
       size: 1089
-      sha256: 061c2c8a357cb4d6a03c915dba627971a28460746dd47f662496ae4f2c91a6b6
+      sha256: d2b8440a738719ef8430ec38fe33b129e3940e4ccf2c016a727a1110a43656bb
   original:
-    hackage: ptr-0.16.7.2@sha256:4a91e1342db8e627435a002798d65329a0c09c8632b2e415461b9928785327f9,2686
-- completed:
-    hackage: bug-1.0.1@sha256:a516df91c7330d350480a7d338af645f173d1e767450c5f94295020f11c8432c,1395
-    pantry-tree:
-      size: 266
-      sha256: 43405b9fbc2819e7f6bda450a3668fa7314c6b5482d26015831fcc54d680f604
-  original:
-    hackage: bug-1.0.1@sha256:a516df91c7330d350480a7d338af645f173d1e767450c5f94295020f11c8432c,1395
-- completed:
-    hackage: base-prelude-1.4@sha256:feea99326853023fa9f908308383a7f9802e40f2d241b83dac57b266b202bda6,1412
-    pantry-tree:
-      size: 271
-      sha256: 89c097b83439c4b044b6ae8e43e6cee790ac12ab51cd9f47273b38237fd69eea
-  original:
-    hackage: base-prelude-1.4@sha256:feea99326853023fa9f908308383a7f9802e40f2d241b83dac57b266b202bda6,1412
-- completed:
-    hackage: postgresql-binary-0.12.3@sha256:4d5e52e5ef171dae8dd3ce5f72da552c34fe92ae13ba55bb165e59f245349b4f,6057
-    pantry-tree:
-      size: 1666
-      sha256: 7d29fb2283dec17ac7c4a57155ed2b170fc7643f72b25fb4e00ec63b36f316e8
-  original:
-    hackage: postgresql-binary-0.12.3@sha256:4d5e52e5ef171dae8dd3ce5f72da552c34fe92ae13ba55bb165e59f245349b4f,6057
-- completed:
-    hackage: dependent-map-0.2.4.0@sha256:21d35c1eba3f2afa3af3c4c5d8998fd14ac76f596f951c280bd83d1d5a19ae28,1739
-    pantry-tree:
-      size: 453
-      sha256: fb90d868424e86c32b03cef1ae1b08413e66503f3fc2e31f5111cf1f49846886
-  original:
-    hackage: dependent-map-0.2.4.0@sha256:21d35c1eba3f2afa3af3c4c5d8998fd14ac76f596f951c280bd83d1d5a19ae28,1739
-- completed:
-    hackage: dependent-sum-0.4@sha256:40c705604f52374fb72616e10234635104a626ede737ddde899777b719df120b,1907
-    pantry-tree:
-      size: 565
-      sha256: 6c0cb5e52d35c04c3a561b342d41d0bfb20cd8a5e83ab39d93ab1a25aba50888
-  original:
-    hackage: dependent-sum-0.4@sha256:40c705604f52374fb72616e10234635104a626ede737ddde899777b719df120b,1907
-- completed:
-    hackage: fastsum-0.1.1.1@sha256:ddb41e30396cc091845596130fb441150118086c6f227c0bd5ce30dadf9dad56,2398
-    pantry-tree:
-      size: 431
-      sha256: 45e007bf4395315bf2cdb5b17f1e956739d836a53fa9dd022ea3d0b123ded8f5
-  original:
-    hackage: fastsum-0.1.1.1@sha256:ddb41e30396cc091845596130fb441150118086c6f227c0bd5ce30dadf9dad56,2398
-- completed:
-    hackage: type-aligned-0.9.6@sha256:2517994f5ce77cb8f3c30b33d403a90d36665d3f7ac668241f37a9f11b20db16,1075
-    pantry-tree:
-      size: 811
-      sha256: 470fab1da31654617c674ae9c3b3a2c9fd7a1cb8876b45f6e1c600114d1f71f5
-  original:
-    hackage: type-aligned-0.9.6@sha256:2517994f5ce77cb8f3c30b33d403a90d36665d3f7ac668241f37a9f11b20db16,1075
-- completed:
-    hackage: fraxl-0.3.0.0@sha256:65cb43791d827fb8055828d41b6419fbed014ec856593d46cacb1db80f4338c9,1884
-    pantry-tree:
-      size: 727
-      sha256: 404de5eed977d1548c91efa6cb263c9091cd03b8bd3889713e81db5841483940
-  original:
-    hackage: fraxl-0.3.0.0@sha256:65cb43791d827fb8055828d41b6419fbed014ec856593d46cacb1db80f4338c9,1884
-- completed:
-    hackage: haxl-2.3.0.0@sha256:4c9a7371a2c21df910628d582776cf52db72bcd6c808daa02823be0ab06f1eb9,3974
-    pantry-tree:
-      size: 3076
-      sha256: 2da38564de7cda18d12923fef2fd279c7072a7dbd6ee13a4dfea7f347eb50c8c
-  original:
-    hackage: haxl-2.3.0.0@sha256:4c9a7371a2c21df910628d582776cf52db72bcd6c808daa02823be0ab06f1eb9,3974
+    hackage: ptr-0.16.8.1@sha256:525219ec5f5da5c699725f7efcef91b00a7d44120fc019878b85c09440bf51d6,2686
 - completed:
     subdir: .
     name: morpheus-graphql
     version: 0.17.0
     git: https://github.com/theobat/morpheus-graphql.git
     pantry-tree:
-      size: 88813
-      sha256: 8d9f29fb93aba960b689c46d7705521126bb6ad9fd1818c0f1a87a0d3c7484ec
-    commit: 89eb5ea2ed4f6547d30178bbddf330ef94f37466
+      size: 89102
+      sha256: ca404bd568907c96a05ddfe35f5e4da588f6c0446a2d7eb6c701cfe37985dde7
+    commit: a31e3293929c3854e7765f8c4893a450635d31ef
   original:
     subdir: .
     git: https://github.com/theobat/morpheus-graphql.git
-    commit: 89eb5ea2ed4f6547d30178bbddf330ef94f37466
+    commit: a31e3293929c3854e7765f8c4893a450635d31ef
 - completed:
     subdir: ./morpheus-graphql-subscriptions
     name: morpheus-graphql-subscriptions
@@ -116,37 +46,37 @@ packages:
     pantry-tree:
       size: 917
       sha256: ca91c5e5b395e1d5a93708c6391264a04a7bf35a300c10daafff7b8f51bbdb29
-    commit: 89eb5ea2ed4f6547d30178bbddf330ef94f37466
+    commit: a31e3293929c3854e7765f8c4893a450635d31ef
   original:
     subdir: ./morpheus-graphql-subscriptions
     git: https://github.com/theobat/morpheus-graphql.git
-    commit: 89eb5ea2ed4f6547d30178bbddf330ef94f37466
+    commit: a31e3293929c3854e7765f8c4893a450635d31ef
 - completed:
     subdir: ./morpheus-graphql-client
     name: morpheus-graphql-client
     version: 0.17.0
     git: https://github.com/theobat/morpheus-graphql.git
     pantry-tree:
-      size: 3085
-      sha256: c917a0432fde1d892b04f5f43a13feeba8d891308db57fdd41f8d607316817c6
-    commit: 89eb5ea2ed4f6547d30178bbddf330ef94f37466
+      size: 3287
+      sha256: da99cb7af7d2ba78a6e0d25d0f57c8ac40d576d2ebb3a715b488bc8ff96c8963
+    commit: a31e3293929c3854e7765f8c4893a450635d31ef
   original:
     subdir: ./morpheus-graphql-client
     git: https://github.com/theobat/morpheus-graphql.git
-    commit: 89eb5ea2ed4f6547d30178bbddf330ef94f37466
+    commit: a31e3293929c3854e7765f8c4893a450635d31ef
 - completed:
     subdir: ./morpheus-graphql-core
     name: morpheus-graphql-core
     version: 0.17.0
     git: https://github.com/theobat/morpheus-graphql.git
     pantry-tree:
-      size: 20769
-      sha256: 9d17d2d2ad622b49c8da333cc5dba35a2809818e5d388f6ccc4e08b29f74c67e
-    commit: 89eb5ea2ed4f6547d30178bbddf330ef94f37466
+      size: 20879
+      sha256: 8d1b47063e5d35a7a3cb999a24d40098ddf464d346d5d5bb76f43e05627e7139
+    commit: a31e3293929c3854e7765f8c4893a450635d31ef
   original:
     subdir: ./morpheus-graphql-core
     git: https://github.com/theobat/morpheus-graphql.git
-    commit: 89eb5ea2ed4f6547d30178bbddf330ef94f37466
+    commit: a31e3293929c3854e7765f8c4893a450635d31ef
 - completed:
     subdir: ./morpheus-graphql-app
     name: morpheus-graphql-app
@@ -155,11 +85,11 @@ packages:
     pantry-tree:
       size: 5370
       sha256: 4c1378626df29c8d04f04097b91c1de69400faf5a67e0fe87dc9f29abbc6d1fd
-    commit: 89eb5ea2ed4f6547d30178bbddf330ef94f37466
+    commit: a31e3293929c3854e7765f8c4893a450635d31ef
   original:
     subdir: ./morpheus-graphql-app
     git: https://github.com/theobat/morpheus-graphql.git
-    commit: 89eb5ea2ed4f6547d30178bbddf330ef94f37466
+    commit: a31e3293929c3854e7765f8c4893a450635d31ef
 - completed:
     name: hasql-url
     version: 0.1.0.0
@@ -177,11 +107,11 @@ packages:
     git: https://github.com/theobat/massalia-migration.git
     pantry-tree:
       size: 1175
-      sha256: 1d0ed741cfecb52bb8399cfb9b187b9cbe92500c3e169169a96db43486ed1ef7
-    commit: efdfbc53ff29e80958f5d991d240eadc77146848
+      sha256: ab2bc162e37d9537f98dca6875ffd08edb48e9829d9d655cc33e920c745f6eaa
+    commit: c8000ee628b9a9773f42ba82644fe0b4e97e1e47
   original:
     git: https://github.com/theobat/massalia-migration.git
-    commit: efdfbc53ff29e80958f5d991d240eadc77146848
+    commit: c8000ee628b9a9773f42ba82644fe0b4e97e1e47
 - completed:
     subdir: .
     name: hasql-migration
@@ -197,7 +127,7 @@ packages:
     commit: a85fddce1be310ce40e2861ee4ebcc3e045a120a
 snapshots:
 - completed:
-    size: 563099
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/17/3.yaml
-    sha256: 1e9f31ec160a144f796bc49b91dfc2bab5eca88b1dcc93da569108febaf5b382
-  original: lts-17.3
+    size: 586069
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/14.yaml
+    sha256: 87842ecbaa8ca9cee59a7e6be52369dbed82ed075cb4e0d152614a627e8fd488
+  original: lts-18.14

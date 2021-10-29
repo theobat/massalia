@@ -18,7 +18,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-17.3
+resolver: lts-18.14
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -78,23 +78,11 @@ extra-include-dirs:
 # Allow a newer minor version of GHC than the snapshot specifies
 # compiler-check: newer-minor
 extra-deps:
-  - hasql-dynamic-statements-0.3.1
-  - hasql-1.4.4.2
-  - hasql-implicits-0.1.0.1@sha256:93581bf006dbb2641930c41c647b5a42c87064aa6a4feaa7dee6af8e58ccd7af,1388
-  - ptr-0.16.7.2@sha256:4a91e1342db8e627435a002798d65329a0c09c8632b2e415461b9928785327f9,2686
-  - bug-1.0.1@sha256:a516df91c7330d350480a7d338af645f173d1e767450c5f94295020f11c8432c,1395
-  - base-prelude-1.4@sha256:feea99326853023fa9f908308383a7f9802e40f2d241b83dac57b266b202bda6,1412
-  - postgresql-binary-0.12.3@sha256:4d5e52e5ef171dae8dd3ce5f72da552c34fe92ae13ba55bb165e59f245349b4f,6057
-  - dependent-map-0.2.4.0@sha256:21d35c1eba3f2afa3af3c4c5d8998fd14ac76f596f951c280bd83d1d5a19ae28,1739
-  - dependent-sum-0.4@sha256:40c705604f52374fb72616e10234635104a626ede737ddde899777b719df120b,1907
-  - fastsum-0.1.1.1@sha256:ddb41e30396cc091845596130fb441150118086c6f227c0bd5ce30dadf9dad56,2398
-  - type-aligned-0.9.6@sha256:2517994f5ce77cb8f3c30b33d403a90d36665d3f7ac668241f37a9f11b20db16,1075
-  - fraxl-0.3.0.0@sha256:65cb43791d827fb8055828d41b6419fbed014ec856593d46cacb1db80f4338c9,1884
-  - haxl-2.3.0.0@sha256:4c9a7371a2c21df910628d582776cf52db72bcd6c808daa02823be0ab06f1eb9,3974
-  # - morpheus-graphql-core-0.16.0
-  # - morpheus-graphql-0.16.0
+  - hasql-dynamic-statements-0.3.1@sha256:c3a2c89c4a8b3711368dbd33f0ccfe46a493faa7efc2c85d3e354c56a01dfc48,2673
+  - hasql-implicits-0.1.0.2@sha256:5d54e09cb779a209681b139fb3cc726bae75134557932156340cc0a56dd834a8,1361
+  - ptr-0.16.8.1@sha256:525219ec5f5da5c699725f7efcef91b00a7d44120fc019878b85c09440bf51d6,2686
   - git: https://github.com/theobat/morpheus-graphql.git
-    commit: 89eb5ea2ed4f6547d30178bbddf330ef94f37466
+    commit: a31e3293929c3854e7765f8c4893a450635d31ef # lts-18.14
     subdirs:
       - .
       - ./morpheus-graphql-subscriptions
@@ -104,7 +92,7 @@ extra-deps:
   - git: https://github.com/theobat/hasql-url.git
     commit: 77e2616d5d33dfaa58eb4d9b643dcf710c2e5745
   - git: https://github.com/theobat/massalia-migration.git
-    commit: efdfbc53ff29e80958f5d991d240eadc77146848
+    commit: c8000ee628b9a9773f42ba82644fe0b4e97e1e47 # lts 18.14
   - git: https://github.com/theobat/hasql-migration.git
     commit: a85fddce1be310ce40e2861ee4ebcc3e045a120a
     subdirs:

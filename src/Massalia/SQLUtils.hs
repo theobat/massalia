@@ -9,17 +9,21 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 
+{-# LANGUAGE ScopedTypeVariables #-}
 module Massalia.SQLUtils where
 
 import Protolude
 import Massalia.QueryFormat (inParens)
 
+-- |
+-- >>> rowsAssembler "," ["a", "b", "c"]
+-- ",c,,b,,a"
 rowsAssembler ::
   (Foldable collection, Semigroup queryFormat, IsString queryFormat) =>
   queryFormat -> collection queryFormat -> queryFormat
 rowsAssembler sep input = assembledRows
   where
-    rowSeparator !a (0, !previousRows) = rowSeparatorGeneric sep a (0, previousRows)
+    rowSeparator !a (0::Int, !previousRows) = rowSeparatorGeneric sep a (0, previousRows)
     rowSeparator !a (!index, !previousRows) = rowSeparatorGeneric ("," <> sep) a (index, previousRows)
     rowSeparatorGeneric !isep !a (!index, !previousRows) = (index + 1, previousRows <> isep <> a)
     (_, !assembledRows) = foldr rowSeparator (0, "") input
@@ -55,10 +59,10 @@ inlineWith :: (Foldable collection, Monoid queryFormat, IsString queryFormat) =>
   Maybe () ->
   collection (SQLWith queryFormat) ->
   queryFormat
-inlineWith _ input = "WITH " <> (fst $ foldr' assembler ("", 0::Int) input)
+inlineWith _ input = "WITH " <> fst (foldr' assembler ("", 0::Int) input)
   where
     assembler (SQLWith !nameV !bodyV) (!existing, !index) = (
-        ("\"" <> nameV <> "\"" <> " AS " <> (inParens bodyV) <> sep <> existing),
+        "\"" <> nameV <> "\"" <> " AS " <> inParens bodyV <> sep <> existing,
         index + 1
         )
       where

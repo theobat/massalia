@@ -632,12 +632,15 @@ instance
   binaryDedupeEncode = encodeRange
 
 -- | test
+--
 -- >>> import Massalia.Utils (SimpleRange(SimpleRange))
 -- >>> (sqlEncode $ SimpleRange (Just 1 :: Maybe Int) Nothing Nothing) :: Text
 -- "int4range(1,null)"
+--
 -- >>> import Massalia.Utils (SimpleRange(SimpleRange))
 -- >>> (sqlEncode $ SimpleRange (Just 1 :: Maybe Int) (Nothing :: Maybe Int) (Just EE)) :: Text
 -- "int4range(1,null, '()')"
+--
 encodeRange ::
   forall qf dataT.
   ( QueryFormat qf,

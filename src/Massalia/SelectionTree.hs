@@ -33,7 +33,7 @@ instance Semigroup MassaliaNode where
       children = children a <> children b
     }
 
-  
+
 
 leaf :: Text -> MassaliaNode
 leaf !key = MassaliaNode {
@@ -63,7 +63,7 @@ morpheusNodeToMassaliaNode input
   | MorpheusTree.isLeaf input = leaf $ textName
   | otherwise = MassaliaNode {
       name = textName,
-      children = Map.fromList childrenList 
+      children = Map.fromList childrenList
     }
     where
       textName = getTextName input
@@ -73,15 +73,15 @@ morpheusNodeToMassaliaNode input
 
 instance MassaliaTree MassaliaNode where
   {-# INLINE isLeaf #-}
-  isLeaf = (Map.null . children)
-  getChildrenList = ((snd <$>) . Map.toList . children)
+  isLeaf = Map.null . children
+  getChildrenList = (snd <$>) . Map.toList . children
   {-# INLINE lookupChildren #-}
   lookupChildren !key !val = Map.lookup key (children val)
   {-# INLINE foldrChildren #-}
   foldrChildren foldFunction init n = foldr' foldFunction init (children n)
   {-# INLINE getName #-}
   getName = name
-  
+
 class MassaliaTree a where
 
   -- | leaf test: list of children empty?
@@ -94,7 +94,7 @@ class MassaliaTree a where
 
   -- | Get the children
   getChildrenList :: a -> [a]
-  
+
   -- | A loopuk for children. Beware, the complexity will depend on the underlying implementation.
   -- The lookup is done using names
   lookupChildren :: Text -> a -> Maybe a
