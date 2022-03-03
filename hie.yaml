@@ -1,6 +1,6 @@
 cradle:
   stack:
-    - path: "."
-      component: "massalia:test:massalia-unit-test"
-    - path: "."
-      component: "massalia:test:massalia-integration-test"
+    # - path: "."
+    #   component: "massalia:test:massalia-unit-test"
+    # - path: "."
+    #   component: "massalia:test:massalia-integration-test"
