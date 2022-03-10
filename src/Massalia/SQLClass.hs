@@ -135,12 +135,6 @@ import Protolude hiding (intercalate)
 -- >>> :set -XNoImplicitPrelude
 -- >>> :set -XTypeApplications
 
--- 
-getFullRecordDecoder ::
-  forall contextT nodeT.
-  ( SQLRecord contextT nodeT ) =>
-  DecodeTuple nodeT
-getFullRecordDecoder = decValue $ snd (toColumnListAndDecoder fullTopSelection "")
 
 -- | This is a utility function to facilitate the writing
 -- of SQLDecode for inner records.
@@ -246,7 +240,7 @@ basicDecodeVectSubquery :: (_) => _
 basicDecodeVectSubquery = basicDecodeArraySubqueryCore compositeToVectDecoderTuple
 {-# INLINABLE basicDecodeVectSubquery #-}
 
-basicDecodeArraySubqueryCore :: 
+basicDecodeArraySubqueryCore ::
   forall qf parentContextT childrenContextT childrenT treeNode container.
   ( SQLSelect childrenContextT childrenT,
     MassaliaTree treeNode,
@@ -1099,8 +1093,8 @@ class SQLRecord contextT nodeT where
   -- >>> data Test = Test { firstName :: Text, lastName :: Text } deriving (Generic, Show, SQLRecord ())
   -- >>> fullRecordDecoder @Test -- yield the hasql decoder for sql query like "SELECT row(firstName, lastName) FROM test" or even "SELECT row('', '')"
   --
-  fullRecordDecoder :: Decoders.Value nodeT
-  fullRecordDecoder = Decoders.composite (to <$> gfullRecordDecoder)
+  fullRecordDecoder :: (GSQLRecord contextT (Rep nodeT), Generic nodeT) => Decoders.Value nodeT
+  fullRecordDecoder = Decoders.composite (to <$> gfullRecordDecoder @contextT)
   -- | Given a top name, selects every leaf selector in this type.
   fullTopSelection :: Text -> MassaliaNode
   default fullTopSelection ::
@@ -1140,7 +1134,7 @@ class SQLRecord contextT nodeT where
       -- (colListThunk, gdeco) = gtoColumnListAndDecoder selectionVal context defaultVal
       defaultVal = from $ getDefault @nodeT
 
-toColumnSeqAndDecoder :: 
+toColumnSeqAndDecoder ::
     forall selectionType queryFormat contextT nodeT.
     (SQLRecord contextT nodeT, QueryFormat queryFormat, MassaliaTree selectionType) =>
     -- | The selection set (in the form of a 'Tree' interface).
@@ -1179,8 +1173,8 @@ instance
       resA = gfullTopSelection @contextT @a name :: MassaliaNode
       resB = gfullTopSelection @contextT @b name :: MassaliaNode
   gfullRecordDecoder = do
-        ca <- gfullRecordDecoder
-        cb <- gfullRecordDecoder
+        ca <- gfullRecordDecoder @contextT
+        cb <- gfullRecordDecoder @contextT
         pure (ca :*: cb)
   gtoColumnListAndDecoder selectionVal context (a :*: b) = result
     where
@@ -1219,7 +1213,7 @@ instance
   gfullTopSelection name = leaf name `over` leaf key
     where
       key = fromString $ selName (proxySelName :: M1 S s (K1 R t) ())
-  gfullRecordDecoder = Decoders.field $ decodeTupleToHasql sqlDecoder
+  gfullRecordDecoder = M1 . K1 <$> Decoders.field (decodeTupleToHasql (sqlDecoder @contextT @t))
   gtoColumnListAndDecoder selection contextT defaultValue = case lookupRes of
     Nothing -> (const mempty, pure defaultValue)
     Just childTree -> result
