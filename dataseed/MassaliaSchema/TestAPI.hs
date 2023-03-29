@@ -4,6 +4,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module MassaliaSchema.TestAPI where
 
@@ -16,6 +18,9 @@ import Data.Morpheus.Types
     RootResolver (..),
     GQLType,
     Undefined (..),
+    defaultRootResolver,
+    Resolver,
+    QUERY
   )
 import MassaliaSchema.Industry.Plant (Plant, plantListQuery, plantListQueryGen)
 import MassaliaSchema.Industry.PlantFilter (PlantFilter)
@@ -28,12 +33,10 @@ api dbConnectionPool = interpreter $ rootResolver (Just dbConnectionPool)
 apiWithoutDB :: GQLRequest -> IO GQLResponse
 apiWithoutDB = interpreter $ rootResolver Nothing
 
-rootResolver :: Maybe Pool -> RootResolver IO () Query Undefined Undefined
+rootResolver :: _ => Maybe Pool -> RootResolver m () Query Undefined Undefined
 rootResolver dbConnectionPool =
-  RootResolver
-    { queryResolver = rootQuery dbConnectionPool,
-      mutationResolver = Undefined,
-      subscriptionResolver = Undefined
+  defaultRootResolver
+    { queryResolver = rootQuery dbConnectionPool
     }
 
 -- data Mutation m
@@ -49,7 +52,7 @@ data Query m
       }
   deriving (Generic, GQLType)
 
-rootQuery :: (Maybe Pool) -> Query (_ _ () IO)
+rootQuery :: _ => (Maybe Pool) -> Query m
 rootQuery dbConnectionPool =
   Query
     { plantListPaginated = plantListQuery dbConnectionPool,

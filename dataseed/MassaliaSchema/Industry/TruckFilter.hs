@@ -45,8 +45,7 @@ import Massalia.SQLClass (
     SQLFilter,
     SQLFilterField(filterStruct)
   )
-import Data.Morpheus.Types (GQLType(description), KIND)
-import Data.Morpheus.Kind (INPUT)
+import Data.Morpheus.Types (GQLType(..), directives, typeDirective, Describe (Describe), KIND)
 import Protolude
 
 data TruckFilter
@@ -67,7 +66,7 @@ testInstance =
     }
 
 instance GQLType TruckFilter where
-  description = const $ Just ("A set of filters for the Truck type" :: Text)
+  directives _ = typeDirective (Describe "A set of filters for the Truck type")
 
 instance MassaliaContext TruckFilter where
   getDecodeOption = const mempty

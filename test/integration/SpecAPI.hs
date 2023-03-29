@@ -41,7 +41,7 @@ data TestError
 executionScheme :: ExceptT TestError IO ()
 executionScheme = do
   withExceptT InitErrorMigration $ findAndRunAllMigration migrationConfig dbURL
-  pool <- withExceptT InitErrorURL $ ExceptT $ poolFromURLString 1 10 dbURL
+  pool <- withExceptT InitErrorURL $ ExceptT $ poolFromURLString 1 (Just 10) dbURL
   let queryStruct = GQLRequest
         { query = "query plantList_test { plantListPaginated (first: 10, offset: 0) { id name } }",
           operationName = Nothing,

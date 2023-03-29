@@ -6,5 +6,8 @@
 		{
 			"path": "../morpheus-graphql"
 		}
-	]
+	],
+	"settings": {
+		"esbonio.server.enabled": true
+	}
 }

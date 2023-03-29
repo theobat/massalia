@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.35.1.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 5dfd5e0742455ad37a16aaee97c35e8222b5a2982e42407851cc89cfd777ce6e
+-- hash: 2ab94fbd39fc1fb8c1db68ea1da00ebc7d8a2155991a5cf4f055836d4fb26504
 
 name:           massalia
 version:        0.1.0.0
@@ -71,13 +71,15 @@ library
     , hasql-url
     , inflections
     , jwt
-    , morpheus-graphql >=0.16
-    , morpheus-graphql-core >=0.16
+    , morpheus-graphql >=0.27
+    , morpheus-graphql-core >=0.27
+    , morpheus-graphql-server >=0.27
     , mtl
     , postgresql-binary
     , pretty-simple
     , protolude
     , range
+    , scientific
     , tasty
     , tasty-hunit
     , text
@@ -115,13 +117,15 @@ test-suite doctest
     , inflections
     , jwt
     , massalia
-    , morpheus-graphql >=0.16
-    , morpheus-graphql-core >=0.16
+    , morpheus-graphql >=0.27
+    , morpheus-graphql-core >=0.27
+    , morpheus-graphql-server >=0.27
     , mtl
     , postgresql-binary
     , pretty-simple
     , protolude
     , range
+    , scientific
     , tasty
     , tasty-hunit
     , text
@@ -172,13 +176,15 @@ test-suite massalia-integration-test
     , jwt
     , massalia
     , massalia-migration
-    , morpheus-graphql >=0.16
-    , morpheus-graphql-core >=0.16
+    , morpheus-graphql >=0.27
+    , morpheus-graphql-core >=0.27
+    , morpheus-graphql-server >=0.27
     , mtl
     , postgresql-binary
     , pretty-simple
     , protolude
     , range
+    , scientific
     , tasty
     , tasty-hunit
     , text
@@ -228,13 +234,15 @@ test-suite massalia-unit-test
     , inflections
     , jwt
     , massalia
-    , morpheus-graphql >=0.16
-    , morpheus-graphql-core >=0.16
+    , morpheus-graphql >=0.27
+    , morpheus-graphql-core >=0.27
+    , morpheus-graphql-server >=0.27
     , mtl
     , postgresql-binary
     , pretty-simple
     , protolude
     , range
+    , scientific
     , tasty
     , tasty-hunit
     , text
@@ -281,13 +289,15 @@ benchmark massalia-bench
     , inflections
     , jwt
     , massalia
-    , morpheus-graphql >=0.16
-    , morpheus-graphql-core >=0.16
+    , morpheus-graphql >=0.27
+    , morpheus-graphql-core >=0.27
+    , morpheus-graphql-server >=0.27
     , mtl
     , postgresql-binary
     , pretty-simple
     , protolude
     , range
+    , scientific
     , tasty
     , tasty-hunit
     , text

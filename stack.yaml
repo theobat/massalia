@@ -18,7 +18,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-18.14
+resolver: lts-20.13
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -78,17 +78,17 @@ extra-include-dirs:
 # Allow a newer minor version of GHC than the snapshot specifies
 # compiler-check: newer-minor
 extra-deps:
-  - hasql-dynamic-statements-0.3.1@sha256:c3a2c89c4a8b3711368dbd33f0ccfe46a493faa7efc2c85d3e354c56a01dfc48,2673
-  - hasql-implicits-0.1.0.2@sha256:5d54e09cb779a209681b139fb3cc726bae75134557932156340cc0a56dd834a8,1361
-  - ptr-0.16.8.1@sha256:525219ec5f5da5c699725f7efcef91b00a7d44120fc019878b85c09440bf51d6,2686
-  - git: https://github.com/theobat/morpheus-graphql.git
-    commit: a31e3293929c3854e7765f8c4893a450635d31ef # lts-18.14
-    subdirs:
-      - .
-      - ./morpheus-graphql-subscriptions
-      - ./morpheus-graphql-client
-      - ./morpheus-graphql-core
-      - ./morpheus-graphql-app
+  - hasql-dynamic-statements-0.3.1.2
+  - hasql-implicits-0.1.1
+  # - git: https://github.com/theobat/morpheus-graphql.git
+  #   commit: c31e238bfb6c4bc522d6c3d419e5c3135a4a0d21 # lts-20.13
+  #   subdirs:
+  #     - ./morpheus-graphql
+  #     - ./morpheus-graphql-subscriptions
+  #     - ./morpheus-graphql-client
+  #     - ./morpheus-graphql-server
+  #     - ./morpheus-graphql-core
+  #     - ./morpheus-graphql-app
   - git: https://github.com/theobat/hasql-url.git
     commit: 77e2616d5d33dfaa58eb4d9b643dcf710c2e5745
   - git: https://github.com/theobat/massalia-migration.git

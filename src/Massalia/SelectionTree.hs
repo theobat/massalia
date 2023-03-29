@@ -7,17 +7,18 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Massalia.SelectionTree
 where
 
-import Data.Morpheus.Core (SelectionTree)
 import qualified Data.Morpheus.Core as MorpheusTree (SelectionTree(..))
 import Data.Morpheus.Types (
     ResolverContext (ResolverContext, currentSelection),
   )
 import qualified Data.Map.Strict as Map
-import Data.Morpheus.Types.Internal.AST (FieldName(readName))
+import Data.Morpheus.Types.Internal.AST (Selection, VALID, FieldName, unpackName)
 import Protolude
 
 -- | A tree structure but with indexed-by-name children
@@ -54,11 +55,14 @@ overAll parent child = parent{
 nodeOver :: Text -> [MassaliaNode] -> MassaliaNode
 nodeOver key childList = leaf key `overAll` childList
 
+fromMorpheusContextM ::  MonadReader ResolverContext m => m MassaliaNode
+fromMorpheusContextM = asks fromMorpheusContext
+
 fromMorpheusContext :: ResolverContext -> MassaliaNode
 fromMorpheusContext ResolverContext{currentSelection = input} = morpheusNodeToMassaliaNode input
 
 {-# INLINABLE morpheusNodeToMassaliaNode #-}
-morpheusNodeToMassaliaNode :: (SelectionTree a) => a -> MassaliaNode
+morpheusNodeToMassaliaNode :: Selection VALID -> MassaliaNode
 morpheusNodeToMassaliaNode input
   | MorpheusTree.isLeaf input = leaf $ textName
   | otherwise = MassaliaNode {
@@ -105,3 +109,5 @@ class MassaliaTree a where
   -- | get a node's name
   getName :: a -> Text
 
+readName :: FieldName -> Text
+readName = unpackName

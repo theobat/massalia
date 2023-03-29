@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 
 -- |
 -- Module      : Massalia.Auth
@@ -62,7 +63,7 @@ defaultCheckOptions =
 -- | A simple alias to 'checkJWT' with default options.
 -- See 'checkJWT'.
 defaultCheckJWT ::
-  Signer ->
+  _ ->
   JWTEncodedString ->
   ExceptT JWTError IO JWTClaimsSet
 defaultCheckJWT = checkJWT Nothing
@@ -76,7 +77,7 @@ defaultCheckJWT = checkJWT Nothing
 -- It uses @getPOSIXTime@ for the accessing the current time.
 checkJWT ::
   Maybe CheckOptions ->
-  Signer ->
+  VerifySigner ->
   JWTEncodedString ->
   ExceptT JWTError IO JWTClaimsSet
 checkJWT maybeOpt secret (JWTEncodedString inputJWT) = do
