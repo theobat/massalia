@@ -20,6 +20,7 @@ import Data.Morpheus.Types (
 import qualified Data.Map.Strict as Map
 import Data.Morpheus.Types.Internal.AST (Selection, VALID, FieldName, unpackName)
 import Protolude
+import GHC.Base (error)
 
 -- | A tree structure but with indexed-by-name children
 data MassaliaNode = MassaliaNode {
@@ -111,3 +112,24 @@ class MassaliaTree a where
 
 readName :: FieldName -> Text
 readName = unpackName
+
+data JsonMassaliaTree = JsonMassaliaNode [JsonMassaliaTree] | JsonMassaliaLeaf Text
+  deriving (Eq, Show)
+
+instance MassaliaTree JsonMassaliaTree where
+    isLeaf (JsonMassaliaNode _) = False
+    isLeaf (JsonMassaliaLeaf _) = True
+
+    getChildrenList (JsonMassaliaLeaf _) = []
+    getChildrenList (JsonMassaliaNode (_:children)) = children
+    getChildrenList (JsonMassaliaNode _) = error "No children on nested node"
+
+    lookupChildren _key (JsonMassaliaLeaf _) = Nothing
+    lookupChildren key n = find ((== key) . getName) (getChildrenList n)
+
+    foldrChildren _ init (JsonMassaliaLeaf _) = init
+    foldrChildren f init n = foldr' f init (getChildrenList n)
+    
+    getName (JsonMassaliaLeaf name) = name
+    getName (JsonMassaliaNode (JsonMassaliaLeaf name:_)) = name
+    getName (JsonMassaliaNode _) = error "Missing name on nested node"
