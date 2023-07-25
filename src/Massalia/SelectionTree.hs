@@ -118,7 +118,7 @@ readName :: FieldName -> Text
 readName = unpackName
 
 data JsonMassaliaTree = JsonMassaliaNode Text (Set JsonMassaliaTree) | JsonMassaliaLeaf Text
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Show)
 
 instance MassaliaTree JsonMassaliaTree where
   isLeaf (JsonMassaliaNode _ _) = False

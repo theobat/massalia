@@ -41,6 +41,7 @@ library
       Massalia.MorpheusTypes
       Massalia.MRange
       Massalia.QueryFormat
+      Massalia.RESTSchema
       Massalia.SelectionTree
       Massalia.SQLClass
       Massalia.SQLSelectStruct
