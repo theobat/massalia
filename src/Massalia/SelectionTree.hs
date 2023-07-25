@@ -20,7 +20,11 @@ import Data.Morpheus.Types (
 import qualified Data.Map.Strict as Map
 import Data.Morpheus.Types.Internal.AST (Selection, VALID, FieldName, unpackName)
 import Protolude
-import GHC.Base (error)
+import Data.Aeson (ToJSON, Value (String, Array), FromJSON (parseJSON))
+import Data.Aeson.Types (ToJSON(toJSON))
+import Data.Vector ((!), tail, map, Vector, (!?))
+import Control.Monad (MonadFail(fail))
+import Data.Set (fromList, insert)
 
 -- | A tree structure but with indexed-by-name children
 data MassaliaNode = MassaliaNode {
@@ -113,23 +117,33 @@ class MassaliaTree a where
 readName :: FieldName -> Text
 readName = unpackName
 
-data JsonMassaliaTree = JsonMassaliaNode [JsonMassaliaTree] | JsonMassaliaLeaf Text
-  deriving (Eq, Show)
+data JsonMassaliaTree = JsonMassaliaNode Text (Set JsonMassaliaTree) | JsonMassaliaLeaf Text
+  deriving (Eq, Show, Generic)
 
 instance MassaliaTree JsonMassaliaTree where
-    isLeaf (JsonMassaliaNode _) = False
-    isLeaf (JsonMassaliaLeaf _) = True
+  isLeaf (JsonMassaliaNode _ _) = False
+  isLeaf (JsonMassaliaLeaf _) = True
 
-    getChildrenList (JsonMassaliaLeaf _) = []
-    getChildrenList (JsonMassaliaNode (_:children)) = children
-    getChildrenList (JsonMassaliaNode _) = error "No children on nested node"
+  getChildrenList (JsonMassaliaLeaf _) = []
+  getChildrenList (JsonMassaliaNode _ children) = toList children
 
-    lookupChildren _key (JsonMassaliaLeaf _) = Nothing
-    lookupChildren key n = find ((== key) . getName) (getChildrenList n)
+  lookupChildren key n = find ((== key) . getName) (getChildrenList n)
 
-    foldrChildren _ init (JsonMassaliaLeaf _) = init
-    foldrChildren f init n = foldr' f init (getChildrenList n)
-    
-    getName (JsonMassaliaLeaf name) = name
-    getName (JsonMassaliaNode (JsonMassaliaLeaf name:_)) = name
-    getName (JsonMassaliaNode _) = error "Missing name on nested node"
+  foldrChildren f init n = foldr' f init (getChildrenList n)
+
+  getName (JsonMassaliaLeaf name) = name
+  getName (JsonMassaliaNode name _) = name
+
+instance Ord JsonMassaliaTree where
+  compare = compare `on` getName
+instance FromJSON JsonMassaliaTree where
+  parseJSON (String name) = pure $ JsonMassaliaLeaf name
+  parseJSON (Array arr) = do
+    name <- maybe (fail "No name in nested node") parseJSON (arr !? 0)
+    childrenVector :: Vector JsonMassaliaTree <- mapM parseJSON (tail arr)
+    let childrenSet = foldr' insert mempty childrenVector
+    return $ JsonMassaliaNode name childrenSet
+  parseJSON _ = fail "Invalid JSON Tree (Expected leaf string or array)"
+instance ToJSON JsonMassaliaTree where
+  toJSON (JsonMassaliaLeaf name) = toJSON name
+  toJSON (JsonMassaliaNode name children) = toJSON (JsonMassaliaLeaf name : toList children)
