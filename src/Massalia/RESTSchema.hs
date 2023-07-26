@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -6,54 +7,74 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- |
 -- Module      : Massalia.RESTSchema
 -- Description : A module to define schemas for REST API that can be verified
 module Massalia.RESTSchema (
-  RESTSchema (..), ValidateRestSchemaContext, ValidateRestSchemaError (..),
-  Person (..)
+  RestSchema (..), RestSchemaField (..),
+  RestSchemaValidateContext, RestSchemaValidateError (..),
+  Person (..), API (..),
+  restSchemaValidate
 ) where
-import Massalia.SelectionTree (JsonMassaliaTree (..), MassaliaTree (isLeaf, getName, getChildrenList))
 import Data.Text (Text)
 import Massalia.Utils (intercalate)
-import Protolude (Foldable(foldr'), Generic)
+import Protolude (Generic, Proxy (..))
+import Massalia.SelectionTree (JsonMassaliaTree, MassaliaTree (getName, getChildrenList), isLeaf)
+import qualified Data.Text as Text
 
-class RESTSchema a where
-  validateRestSchema :: ValidateRestSchemaContext -> a -> JsonMassaliaTree -> [ValidateRestSchemaError]
+data RestSchemaField = RestSchemaLeaf | forall b. RestSchema b => RestSchemaObject (Proxy b)
+
+class RestSchema a where
+  restSchemaLookupField :: Proxy a -> Text -> Maybe RestSchemaField
+
+restSchemaValidate :: RestSchema a =>
+  Proxy a -> RestSchemaValidateContext -> JsonMassaliaTree -> [RestSchemaValidateError]
+restSchemaValidate (Proxy :: Proxy a) oldCtx input =
+  case restSchemaLookupField (Proxy @a) (getName input) of
+    Nothing                                  -> [mkErr oldCtx (getName input) "does not exist"]
+    Just (RestSchemaObject s) | isLeaf input -> [mkErr ctx (getName input) "has no fields specified"]
+                              | otherwise    -> getChildrenList input >>= restSchemaValidate s ctx
+    Just RestSchemaLeaf | isLeaf input       -> []
+                        | otherwise          -> [mkErr ctx (getName input) "must be a leaf node"]
+  where 
+    ctx = getName input : oldCtx
 
 -- Each new context is added at the head of the list
-type ValidateRestSchemaContext = [Text]
+type RestSchemaValidateContext = [Text]
 
-newtype ValidateRestSchemaError = ValidateRestSchemaError {
-  vrs_errorMessage :: Text
+data RestSchemaValidateError = RestSchemaValidateError {
+  vrs_errorMessage :: Text,
+  vrs_errorCtx :: RestSchemaValidateContext,
+  vrs_errorFieldName :: Text
 } deriving (Eq)
-instance Show ValidateRestSchemaError where
-  show = show . vrs_errorMessage
-
-validateRestSchemaLeaf :: ValidateRestSchemaContext -> a -> JsonMassaliaTree -> [ValidateRestSchemaError]
-validateRestSchemaLeaf ctx _ node
-  | not (isLeaf node) = [mkError ctx $ "'" <> getName node <> "' is a leaf node"]
-  | otherwise         = mempty
-
-instance RESTSchema Int where
-  validateRestSchema = validateRestSchemaLeaf
-instance RESTSchema Text where
-  validateRestSchema = validateRestSchemaLeaf
-instance RESTSchema String where
-  validateRestSchema = validateRestSchemaLeaf
+instance Show RestSchemaValidateError where
+  show e = Text.unpack $
+    formatCtx (vrs_errorCtx e) <> ": '" <> vrs_errorFieldName e <> "' " <> vrs_errorMessage e
 
 data Person = Person { name :: Text, age :: Int }
   deriving (Show, Eq, Generic)
-instance RESTSchema Person where
-  validateRestSchema ctx Person{name, age} =
-    foldr' ((<>) . validate) [] . getChildrenList
-    where ctx' = "Person" : ctx
-          validate child | getName child == "name" = validateRestSchema ctx' name child
-                         | getName child == "age" = validateRestSchema ctx' age child
-                         | otherwise = [mkError ctx' $ "'" <> getName child <> "' doesn't exist"]
+instance RestSchema Person where
+  restSchemaLookupField _ "name" = Just RestSchemaLeaf
+  restSchemaLookupField _ "age" = Just RestSchemaLeaf
+  restSchemaLookupField _ _ = Nothing
 
-mkError :: ValidateRestSchemaContext -> Text -> ValidateRestSchemaError
-mkError ctx message = ValidateRestSchemaError{vrs_errorMessage=formatCtx ctx <> ": " <> message}
-formatCtx :: ValidateRestSchemaContext -> Text
+data API = API {
+  person :: Person,
+  users :: Int
+}
+instance RestSchema API where
+  restSchemaLookupField _ "person" = Just (RestSchemaObject (Proxy @Person))
+  restSchemaLookupField _ "users" = Just RestSchemaLeaf
+  restSchemaLookupField _ _ = Nothing
+
+
+mkErr :: RestSchemaValidateContext -> Text -> Text -> RestSchemaValidateError
+mkErr ctx fieldName message = RestSchemaValidateError{
+  vrs_errorMessage=message,
+  vrs_errorCtx=ctx,
+  vrs_errorFieldName=fieldName
+}
+formatCtx :: RestSchemaValidateContext -> Text
 formatCtx = intercalate "." . reverse
