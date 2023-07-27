@@ -8,6 +8,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DefaultSignatures #-}
 
 -- |
 -- Module      : Massalia.RESTSchema
@@ -20,14 +21,47 @@ module Massalia.RESTSchema (
 ) where
 import Data.Text (Text)
 import Massalia.Utils (intercalate)
-import Protolude (Generic, Proxy (..))
+import Protolude (Generic (Rep), Proxy (..), (:*:), M1, K1, Selector (selName), Alternative ((<|>)))
 import Massalia.SelectionTree (JsonMassaliaTree, MassaliaTree (getName, getChildrenList), isLeaf)
 import qualified Data.Text as Text
+import GHC.Generics (S, D, C)
 
 data RestSchemaField = RestSchemaLeaf | forall b. RestSchema b => RestSchemaObject (Proxy b)
 
 class RestSchema a where
   restSchemaLookupField :: Proxy a -> Text -> Maybe RestSchemaField
+  default restSchemaLookupField :: (Generic a, GRestSchema (Rep a)) => Proxy a -> Text -> Maybe RestSchemaField
+  restSchemaLookupField (_ :: Proxy a) = gRestSchemaLookupField (Proxy @(Rep a _))
+
+class GRestSchema f where
+  gRestSchemaLookupField :: Proxy (f a) -> Text -> Maybe RestSchemaField
+class GToRestSchemaField f where
+  gToRestSchemaField :: Proxy (f a) -> RestSchemaField
+
+instance (GRestSchema a, GRestSchema b) => GRestSchema (a :*: b) where
+  gRestSchemaLookupField (_ :: Proxy ((:*:) a b p)) name =
+    gRestSchemaLookupField (Proxy @(a p)) name <|> gRestSchemaLookupField (Proxy @(b p)) name
+instance (GToRestSchemaField a, Selector s) => GRestSchema (M1 S s a) where
+  gRestSchemaLookupField (_ :: Proxy (M1 S s a p)) name
+    | fieldName == name = Just (gToRestSchemaField (Proxy @(a p)))
+    | otherwise = Nothing
+    where fieldName = Text.pack $ selName (undefined :: M1 S s _ p)
+instance (GRestSchema a) => GRestSchema (M1 D s a) where
+  gRestSchemaLookupField (_ :: Proxy (M1 D s a p)) = gRestSchemaLookupField (Proxy @(a p))
+instance (GRestSchema a) => GRestSchema (M1 C s a) where
+  gRestSchemaLookupField (_ :: Proxy (M1 C s a p)) = gRestSchemaLookupField (Proxy @(a p))
+
+instance (GToRestSchemaField a) => GToRestSchemaField (M1 i s a) where
+  gToRestSchemaField (_ :: Proxy (M1 i s a p)) = gToRestSchemaField (Proxy @(a p))
+instance {-# OVERLAPPABLE #-} (RestSchema a) => GToRestSchemaField (K1 i a) where
+  gToRestSchemaField (_ :: Proxy (K1 i a p)) = RestSchemaObject (Proxy @a)
+instance GToRestSchemaField (K1 i Int) where
+  gToRestSchemaField _ = RestSchemaLeaf
+instance GToRestSchemaField (K1 i String) where
+  gToRestSchemaField _ = RestSchemaLeaf
+instance GToRestSchemaField (K1 i Text) where
+  gToRestSchemaField _ = RestSchemaLeaf
+
 
 restSchemaValidate :: RestSchema a =>
   Proxy a -> RestSchemaValidateContext -> JsonMassaliaTree -> [RestSchemaValidateError]
@@ -55,20 +89,13 @@ instance Show RestSchemaValidateError where
 
 data Person = Person { name :: Text, age :: Int }
   deriving (Show, Eq, Generic)
-instance RestSchema Person where
-  restSchemaLookupField _ "name" = Just RestSchemaLeaf
-  restSchemaLookupField _ "age" = Just RestSchemaLeaf
-  restSchemaLookupField _ _ = Nothing
+instance RestSchema Person
 
 data API = API {
   person :: Person,
   users :: Int
-}
-instance RestSchema API where
-  restSchemaLookupField _ "person" = Just (RestSchemaObject (Proxy @Person))
-  restSchemaLookupField _ "users" = Just RestSchemaLeaf
-  restSchemaLookupField _ _ = Nothing
-
+} deriving (Show, Eq, Generic)
+instance RestSchema API
 
 mkErr :: RestSchemaValidateContext -> Text -> Text -> RestSchemaValidateError
 mkErr ctx fieldName message = RestSchemaValidateError{
