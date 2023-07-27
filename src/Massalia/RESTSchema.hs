@@ -21,40 +21,45 @@ module Massalia.RESTSchema (
 ) where
 import Data.Text (Text)
 import Massalia.Utils (intercalate)
-import Protolude (Generic (Rep), Proxy (..), (:*:), M1, K1, Selector (selName), Alternative ((<|>)))
+import Protolude (Generic (Rep), Proxy (..), (:*:), M1, K1, Selector (selName), Alternative ((<|>)), Type)
 import Massalia.SelectionTree (JsonMassaliaTree, MassaliaTree (getName, getChildrenList), isLeaf)
 import qualified Data.Text as Text
 import GHC.Generics (S, D, C)
+import Massalia.GenericUtils (proxySelName)
 
 data RestSchemaField = RestSchemaLeaf | forall b. RestSchema b => RestSchemaObject (Proxy b)
 
 class RestSchema a where
   restSchemaLookupField :: Proxy a -> Text -> Maybe RestSchemaField
   default restSchemaLookupField :: (Generic a, GRestSchema (Rep a)) => Proxy a -> Text -> Maybe RestSchemaField
-  restSchemaLookupField (_ :: Proxy a) = gRestSchemaLookupField (Proxy @(Rep a _))
+  restSchemaLookupField (_ :: Proxy a) = gRestSchemaLookupField (Proxy @(Rep a))
 
-class GRestSchema f where
-  gRestSchemaLookupField :: Proxy (f a) -> Text -> Maybe RestSchemaField
-class GToRestSchemaField f where
-  gToRestSchemaField :: Proxy (f a) -> RestSchemaField
+-- GRestSchema checks all record field names
+class GRestSchema (f :: Type -> Type) where
+  gRestSchemaLookupField :: Proxy f -> Text -> Maybe RestSchemaField
+
+-- GToRestSchemaField finds the type of a single field (Leaf or Object)
+class GToRestSchemaField (f :: Type -> Type) where
+  gToRestSchemaField :: Proxy f -> RestSchemaField
+
 
 instance (GRestSchema a, GRestSchema b) => GRestSchema (a :*: b) where
-  gRestSchemaLookupField (_ :: Proxy ((:*:) a b p)) name =
-    gRestSchemaLookupField (Proxy @(a p)) name <|> gRestSchemaLookupField (Proxy @(b p)) name
-instance (GToRestSchemaField a, Selector s) => GRestSchema (M1 S s a) where
-  gRestSchemaLookupField (_ :: Proxy (M1 S s a p)) name
-    | fieldName == name = Just (gToRestSchemaField (Proxy @(a p)))
-    | otherwise = Nothing
-    where fieldName = Text.pack $ selName (undefined :: M1 S s _ p)
+  gRestSchemaLookupField (_ :: Proxy ((:*:) a b)) name =
+    gRestSchemaLookupField (Proxy @a) name <|> gRestSchemaLookupField (Proxy @b) name
 instance (GRestSchema a) => GRestSchema (M1 D s a) where
-  gRestSchemaLookupField (_ :: Proxy (M1 D s a p)) = gRestSchemaLookupField (Proxy @(a p))
+  gRestSchemaLookupField (_ :: Proxy (M1 D s a)) = gRestSchemaLookupField (Proxy @a)
 instance (GRestSchema a) => GRestSchema (M1 C s a) where
-  gRestSchemaLookupField (_ :: Proxy (M1 C s a p)) = gRestSchemaLookupField (Proxy @(a p))
+  gRestSchemaLookupField (_ :: Proxy (M1 C s a)) = gRestSchemaLookupField (Proxy @a)
+instance (GToRestSchemaField a, Selector s) => GRestSchema (M1 S s a) where
+  gRestSchemaLookupField (_ :: Proxy (M1 S s a)) name
+    | fieldName == name = Just (gToRestSchemaField (Proxy @a))
+    | otherwise = Nothing
+    where fieldName = Text.pack $ selName (proxySelName :: M1 S s _ p)
 
 instance (GToRestSchemaField a) => GToRestSchemaField (M1 i s a) where
-  gToRestSchemaField (_ :: Proxy (M1 i s a p)) = gToRestSchemaField (Proxy @(a p))
+  gToRestSchemaField (_ :: Proxy (M1 i s a)) = gToRestSchemaField (Proxy @a)
 instance {-# OVERLAPPABLE #-} (RestSchema a) => GToRestSchemaField (K1 i a) where
-  gToRestSchemaField (_ :: Proxy (K1 i a p)) = RestSchemaObject (Proxy @a)
+  gToRestSchemaField (_ :: Proxy (K1 i a)) = RestSchemaObject (Proxy @a)
 instance GToRestSchemaField (K1 i Int) where
   gToRestSchemaField _ = RestSchemaLeaf
 instance GToRestSchemaField (K1 i String) where
@@ -67,12 +72,13 @@ restSchemaValidate :: RestSchema a =>
   Proxy a -> RestSchemaValidateContext -> JsonMassaliaTree -> [RestSchemaValidateError]
 restSchemaValidate (Proxy :: Proxy a) oldCtx input =
   case restSchemaLookupField (Proxy @a) (getName input) of
-    Nothing                                  -> [mkErr oldCtx (getName input) "does not exist"]
-    Just (RestSchemaObject s) | isLeaf input -> [mkErr ctx (getName input) "has no fields specified"]
-                              | otherwise    -> getChildrenList input >>= restSchemaValidate s ctx
-    Just RestSchemaLeaf | isLeaf input       -> []
-                        | otherwise          -> [mkErr ctx (getName input) "must be a leaf node"]
-  where 
+    Nothing                                -> [mkErr oldCtx (getName input) "does not exist"]
+    Just RestSchemaLeaf | isLeaf input     -> []
+                        | otherwise        -> [mkErr ctx (getName input) "must be a leaf node"]
+    Just (RestSchemaObject s)
+      | not . null $ getChildrenList input -> getChildrenList input >>= restSchemaValidate s ctx
+      | otherwise                          -> [mkErr ctx (getName input) "has no fields specified"]
+  where
     ctx = getName input : oldCtx
 
 -- Each new context is added at the head of the list
