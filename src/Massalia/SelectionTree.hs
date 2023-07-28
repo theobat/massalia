@@ -7,18 +7,24 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Massalia.SelectionTree
 where
 
-import Data.Morpheus.Core (SelectionTree)
 import qualified Data.Morpheus.Core as MorpheusTree (SelectionTree(..))
 import Data.Morpheus.Types (
     ResolverContext (ResolverContext, currentSelection),
   )
 import qualified Data.Map.Strict as Map
-import Data.Morpheus.Types.Internal.AST (FieldName(readName))
+import Data.Morpheus.Types.Internal.AST (Selection, VALID, FieldName, unpackName)
 import Protolude
+import Data.Aeson (ToJSON, Value (String, Array), FromJSON (parseJSON))
+import Data.Aeson.Types (ToJSON(toJSON))
+import Data.Vector ((!), tail, map, Vector, (!?))
+import Control.Monad (MonadFail(fail))
+import Data.Set (fromList, insert)
 
 -- | A tree structure but with indexed-by-name children
 data MassaliaNode = MassaliaNode {
@@ -54,11 +60,14 @@ overAll parent child = parent{
 nodeOver :: Text -> [MassaliaNode] -> MassaliaNode
 nodeOver key childList = leaf key `overAll` childList
 
+fromMorpheusContextM ::  MonadReader ResolverContext m => m MassaliaNode
+fromMorpheusContextM = asks fromMorpheusContext
+
 fromMorpheusContext :: ResolverContext -> MassaliaNode
 fromMorpheusContext ResolverContext{currentSelection = input} = morpheusNodeToMassaliaNode input
 
 {-# INLINABLE morpheusNodeToMassaliaNode #-}
-morpheusNodeToMassaliaNode :: (SelectionTree a) => a -> MassaliaNode
+morpheusNodeToMassaliaNode :: Selection VALID -> MassaliaNode
 morpheusNodeToMassaliaNode input
   | MorpheusTree.isLeaf input = leaf $ textName
   | otherwise = MassaliaNode {
@@ -105,3 +114,36 @@ class MassaliaTree a where
   -- | get a node's name
   getName :: a -> Text
 
+readName :: FieldName -> Text
+readName = unpackName
+
+data JsonMassaliaTree = JsonMassaliaNode Text (Set JsonMassaliaTree) | JsonMassaliaLeaf Text
+  deriving (Eq, Show)
+
+instance MassaliaTree JsonMassaliaTree where
+  isLeaf (JsonMassaliaNode _ _) = False
+  isLeaf (JsonMassaliaLeaf _) = True
+
+  getChildrenList (JsonMassaliaLeaf _) = []
+  getChildrenList (JsonMassaliaNode _ children) = toList children
+
+  lookupChildren key n = find ((== key) . getName) (getChildrenList n)
+
+  foldrChildren f init n = foldr' f init (getChildrenList n)
+
+  getName (JsonMassaliaLeaf name) = name
+  getName (JsonMassaliaNode name _) = name
+
+instance Ord JsonMassaliaTree where
+  compare = compare `on` getName
+instance FromJSON JsonMassaliaTree where
+  parseJSON (String name) = pure $ JsonMassaliaLeaf name
+  parseJSON (Array arr) = do
+    name <- maybe (fail "No name in nested node") parseJSON (arr !? 0)
+    childrenVector :: Vector JsonMassaliaTree <- mapM parseJSON (tail arr)
+    let childrenSet = foldr' insert mempty childrenVector
+    return $ JsonMassaliaNode name childrenSet
+  parseJSON _ = fail "Invalid JSON Tree (Expected leaf string or array)"
+instance ToJSON JsonMassaliaTree where
+  toJSON (JsonMassaliaLeaf name) = toJSON name
+  toJSON (JsonMassaliaNode name children) = toJSON (JsonMassaliaLeaf name : toList children)

@@ -18,7 +18,7 @@ module MassaliaSchema.Industry.PlantFilter
 where
 
 import qualified Data.Aeson as JSON
-import Data.Morpheus.Types (GQLType (description))
+import Data.Morpheus.Types (GQLType(..), directives, typeDirective, Describe (Describe))
 import Massalia.Filter
   ( GQLFilterDay,
     GQLFilterText,
@@ -62,7 +62,7 @@ data PlantFilter = PlantFilter
     )
 
 instance GQLType PlantFilter where
-  description = const $ Just ("A set of filters for the Plant type" :: Text)
+  directives _ = typeDirective (Describe "A set of filters for the Plant type")
 
 instance SQLDecoder (Paginated PlantFilter) [Truck] where
   sqlExpr = basicDecodeListSubquery contextSwitch joinFn

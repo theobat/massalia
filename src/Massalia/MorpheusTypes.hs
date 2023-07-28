@@ -19,7 +19,7 @@ where
 
 import qualified Data.Aeson as JSON
 import Data.Morpheus.Types.GQLScalar ( EncodeScalar(encodeScalar), DecodeScalar(decodeScalar) )
-import Data.Morpheus.Types (GQLType(description), KIND)
+import Data.Morpheus.Types (GQLType(..), directives, typeDirective, Describe (Describe), KIND)
 import Data.Morpheus.Kind (SCALAR)
 import qualified Data.Morpheus.Types as GQLT
 import Massalia.Utils (UTCTime, 
@@ -114,7 +114,7 @@ instance GQLType Void where
   type KIND Void = SCALAR
 
 instance (Typeable a, GQLType a) => GQLType (SimpleRange a) where
-  description = const $ Just ("A simple range structure for filtering in postgres, it's ultimately translated as a PostgresRange" :: Text)
+  directives _ = typeDirective (Describe "A simple range structure for filtering in postgres, it's ultimately translated as a PostgresRange")
 
 instance EncodeScalar Inclusivity where
   encodeScalar x = case x of

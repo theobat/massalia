@@ -77,14 +77,14 @@ import Data.UUID.V4 (nextRandom)
 -- Email
 
 -- LocalTime
-import PostgreSQL.Binary.Data (
+import Data.Time (
     LocalTime,
     Day,
     TimeOfDay,
     TimeZone,
-    UTCTime,
-    Scientific
+    UTCTime
   )
+import Data.Scientific (Scientific)
 import Data.Time (ZonedTime, zonedTimeToUTC, UTCTime(UTCTime), secondsToDiffTime)
 import Data.Time.LocalTime (LocalTime(LocalTime), midnight)
 import Data.Time.Calendar (Day(ModifiedJulianDay))

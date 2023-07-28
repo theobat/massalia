@@ -22,12 +22,11 @@ import Hasql.Session
 import Hasql.Statement
 import qualified Hasql.Connection as Connection (Settings)
 import Massalia.HasqlConnection (settingsFromURL, URLError)
-import Data.Time (NominalDiffTime)
 
-poolFromURLString :: Int -> NominalDiffTime -> String -> IO (Either URLError Pool)
+poolFromURLString :: Int -> Maybe Int -> String -> IO (Either URLError Pool)
 poolFromURLString poolSize timeout url = eitherURLToPool poolSize timeout $ settingsFromURL url
 
-eitherURLToPool :: Int -> NominalDiffTime -> Either URLError Connection.Settings -> IO (Either URLError Pool)
+eitherURLToPool :: Int -> Maybe Int -> Either URLError Connection.Settings -> IO (Either URLError Pool)
 eitherURLToPool poolSize timeout input = case input of
   Left err -> pure $ Left err
-  Right settings -> Right <$> acquire (poolSize, timeout, settings)
+  Right settings -> Right <$> acquire poolSize timeout settings

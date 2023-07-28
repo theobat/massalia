@@ -53,8 +53,10 @@ dependencies:
 - filepattern
 - filepath
 - time
-- morpheus-graphql >= 0.16
-- morpheus-graphql-core >= 0.16
+- morpheus-graphql >= 0.27
+- morpheus-graphql-core >= 0.27
+- morpheus-graphql-server >= 0.27
+- scientific
 - these
 
 library:

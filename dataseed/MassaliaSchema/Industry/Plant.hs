@@ -19,7 +19,7 @@ where
 import Protolude
 import Data.UUID (UUID, nil)
 import Massalia.HasqlExec (dynamicallyParameterizedStatement, use)
-import Massalia.SelectionTree (fromMorpheusContext)
+import Massalia.SelectionTree (fromMorpheusContextM)
 import Massalia.MorpheusTypes
   (
     GQLType,
@@ -40,7 +40,6 @@ import Massalia.SQLSelectStruct (
 import MassaliaSchema.Industry.PlantInput (queryTest)
 import MassaliaSchema.Industry.Truck (Truck)
 import MassaliaSchema.Industry.PlantFilter (PlantFilter)
-import Data.Morpheus.Types (unsafeInternalContext)
 import Massalia.Utils (LocalTime, Day, uuidV4)
 import Massalia.UtilsGQL (Paginated, defaultPaginated)
 import qualified Massalia.UtilsGQL as Paginated
@@ -81,14 +80,14 @@ defaultPlant = Plant {
     createdAt=Default.timestamptz
   }
 
-plantListQuery :: _ => _ -> _ -> _ _ _ IO (Vector Plant)
+plantListQuery :: _ => Maybe _ -> Paginated PlantFilter -> m (Vector Plant)
 plantListQuery maybePool queryArgs = do
-  massaliaTree <- fromMorpheusContext <$> unsafeInternalContext
+  massaliaTree <- fromMorpheusContextM
   case maybePool of
     Nothing -> pure mempty
-    Just pool -> lift (exec pool massaliaTree)
+    Just pool -> liftIO (exec pool massaliaTree)
   where
-    exec :: _ => _ -> _ -> _ (Vector Plant)
+    exec :: _ => _ -> _ -> IO (Vector Plant)
     exec pool validSel = do
       let (snippet, result) = queryAndDecoderToQueryFormatAndResultVect $ toSelectQuery validSel queryArgs
       let fullSnippet = binaryQueryResult snippet
@@ -100,8 +99,8 @@ plantListQuery maybePool queryArgs = do
     -- statement validSel = queryAndDecoderToSession $ initialSnippet validSel
     -- arg = defaultPaginated{Paginated.globalFilter = pure plantFilterTest}
 
-plantListQueryGen :: _ => Paginated PlantFilter -> _ _ _ IO (Vector Plant)
+plantListQueryGen :: _ => Paginated PlantFilter -> m (Vector Plant)
 plantListQueryGen queryArgs = do
-  massaliaTree <- fromMorpheusContext <$> unsafeInternalContext
+  massaliaTree <- fromMorpheusContextM
   let (snippet, _) = queryAndDecoderToQueryFormatAndResultVect $ toSelectQuery @_ @Plant massaliaTree queryArgs
   pure $ pure defaultPlant{name=snippet} -- a Hack for only generating the query
