@@ -16,15 +16,15 @@
 module Massalia.RESTSchema (
   RestSchema (..), RestSchemaField (..),
   RestSchemaValidateContext, RestSchemaValidateError (..),
-  Person (..), API (..),
+  Person (..), API (..), GenericIsObject (..),
   restSchemaValidate
 ) where
 import Data.Text (Text)
 import Massalia.Utils (intercalate)
-import Protolude (Generic (Rep), Proxy (..), (:*:), M1, K1, Selector (selName), Alternative ((<|>)), Type)
+import Protolude (Generic (Rep, to, from), Proxy (..), (:*:), M1, K1, Selector (selName), Alternative ((<|>)), Type, U1, Constructor)
 import Massalia.SelectionTree (JsonMassaliaTree, MassaliaTree (getName, getChildrenList), isLeaf)
 import qualified Data.Text as Text
-import GHC.Generics (S, D, C)
+import GHC.Generics (S, D, C, R, (:+:), Constructor (conIsRecord))
 import Massalia.GenericUtils (proxySelName)
 
 data RestSchemaField = RestSchemaLeaf | forall b. RestSchema b => RestSchemaObject (Proxy b)
@@ -34,38 +34,31 @@ class RestSchema a where
   default restSchemaLookupField :: (Generic a, GRestSchema (Rep a)) => Proxy a -> Text -> Maybe RestSchemaField
   restSchemaLookupField (_ :: Proxy a) = gRestSchemaLookupField (Proxy @(Rep a))
 
--- GRestSchema checks all record field names
 class GRestSchema (f :: Type -> Type) where
   gRestSchemaLookupField :: Proxy f -> Text -> Maybe RestSchemaField
 
--- GToRestSchemaField finds the type of a single field (Leaf or Object)
-class GToRestSchemaField (f :: Type -> Type) where
-  gToRestSchemaField :: Proxy f -> RestSchemaField
-
-
 instance (GRestSchema a, GRestSchema b) => GRestSchema (a :*: b) where
-  gRestSchemaLookupField (_ :: Proxy ((:*:) a b)) name =
+  gRestSchemaLookupField _ name =
     gRestSchemaLookupField (Proxy @a) name <|> gRestSchemaLookupField (Proxy @b) name
 instance (GRestSchema a) => GRestSchema (M1 D s a) where
-  gRestSchemaLookupField (_ :: Proxy (M1 D s a)) = gRestSchemaLookupField (Proxy @a)
+  gRestSchemaLookupField _ = gRestSchemaLookupField (Proxy @a)
 instance (GRestSchema a) => GRestSchema (M1 C s a) where
-  gRestSchemaLookupField (_ :: Proxy (M1 C s a)) = gRestSchemaLookupField (Proxy @a)
-instance (GToRestSchemaField a, Selector s) => GRestSchema (M1 S s a) where
-  gRestSchemaLookupField (_ :: Proxy (M1 S s a)) name
-    | fieldName == name = Just (gToRestSchemaField (Proxy @a))
+  gRestSchemaLookupField _ = gRestSchemaLookupField (Proxy @a)
+instance (Selector s) => GRestSchema (M1 S s (K1 R a)) where
+  gRestSchemaLookupField _ name
+    | fieldName == name = undefined
     | otherwise = Nothing
     where fieldName = Text.pack $ selName (proxySelName :: M1 S s _ p)
 
-instance (GToRestSchemaField a) => GToRestSchemaField (M1 i s a) where
-  gToRestSchemaField (_ :: Proxy (M1 i s a)) = gToRestSchemaField (Proxy @a)
-instance {-# OVERLAPPABLE #-} (RestSchema a) => GToRestSchemaField (K1 i a) where
-  gToRestSchemaField (_ :: Proxy (K1 i a)) = RestSchemaObject (Proxy @a)
-instance GToRestSchemaField (K1 i Int) where
-  gToRestSchemaField _ = RestSchemaLeaf
-instance GToRestSchemaField (K1 i String) where
-  gToRestSchemaField _ = RestSchemaLeaf
-instance GToRestSchemaField (K1 i Text) where
-  gToRestSchemaField _ = RestSchemaLeaf
+class GenericIsObject (f :: Type -> Type) where
+  gIsObject :: Proxy f -> Bool
+
+instance (GenericIsObject a) => GenericIsObject (M1 D s a) where
+  gIsObject _ = gIsObject (Proxy @a)
+instance (Constructor s) => GenericIsObject (M1 C s a) where
+  gIsObject _ = conIsRecord (proxySelName :: M1 C s a p)
+instance GenericIsObject (a :+: b) where
+  gIsObject _ = False
 
 
 restSchemaValidate :: RestSchema a =>
