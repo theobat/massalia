@@ -12,6 +12,8 @@
 
 
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use newtype instead of data" #-}
 -- |
 -- Module      : Massalia.RESTSchema
 -- Description : A module to define schemas for REST API that can be verified
@@ -20,59 +22,41 @@ module Massalia.RESTSchema (
 import Control.Monad.Identity (Identity)
 import Data.Text (Text)
 import Data.Kind (Type)
+import GHC.Generics (Generic)
+import Massalia.SelectionTree (JsonMassaliaTree)
 
-class Schema (f :: (Type -> Type) -> Type) where
-  getSchema :: f SchemaField
+class Schema (a :: (Type -> Type) -> (Type -> Type) -> Type) where
+  parseQuery :: JsonMassaliaTree -> a ScalarSelect ObjSelect
+  default parseQuery :: Generic (a ScalarSelect ObjSelect) => JsonMassaliaTree -> a ScalarSelect ObjSelect
+  parseQuery = undefined
 
-data SchemaField a where
-  SFLeaf :: SchemaField (Identity a)
-  SFObject :: Schema a => (a SchemaField) -> SchemaField (Identity (a SchemaField))
-  SFList :: SchemaField (Identity a) -> SchemaField [a]
+data ScalarSelect a = SSPick | SSDiscard
+data ObjSelect a where
+  SSSelect :: a ScalarSelect ObjSelect -> ObjSelect (rel (a ScalarSelect ObjSelect))
 
-data SchemaSelection a where
-  SSFalse :: SchemaSelection (m a)
-  SSTrue :: SchemaSelection (m a)
-  SSSelectFields :: Schema a => a SchemaSelection -> SchemaSelection (m (a SchemaSelection))
+data Person scalar obj = Person {
+  name :: scalar Text,
+  age :: scalar Int,
+  favNumbers :: scalar [Int]
+} deriving (Generic)
 
--- EXAMPLE
+data API scalar obj = API {
+  version :: scalar Int,
+  admin :: obj (Identity (Person scalar obj)),
+  users :: obj [Person scalar obj]
+} deriving (Generic)
 
-data Person f = Person {
-  name :: f (Identity Text),
-  age :: f (Identity Int),
-  email :: f (Identity Text),
-  favoriteNumbers :: f [Int]
-}
-
-data API f = API {
-  version :: f (Identity Int),
-  webMaster :: f (Identity (Person f)),
-  users :: f [Person f]
-}
-
-instance Schema API where
-  getSchema = API {
-    version = SFLeaf,
-    webMaster = SFObject getSchema,
-    users = SFList (SFObject getSchema)
-  }
-
-instance Schema Person where
-  getSchema = Person {
-    name = SFLeaf,
-    age = SFLeaf,
-    email = SFLeaf,
-    favoriteNumbers = SFList SFLeaf
-  }
-
-
-selection :: API SchemaSelection
+selection :: API ScalarSelect ObjSelect
 selection = API {
-  version = SSFalse,
-  webMaster = SSTrue,
-  users = SSSelectFields Person {
-    name = SSTrue,
-    age = SSFalse,
-    email = SSTrue,
-    favoriteNumbers = SSTrue
+  version = SSPick,
+  admin = SSSelect Person {
+    name = SSPick,
+    age = SSDiscard,
+    favNumbers = SSPick
+  },
+  users = SSSelect Person {
+    name = SSPick,
+    age = SSDiscard,
+    favNumbers = SSDiscard
   }
 }
