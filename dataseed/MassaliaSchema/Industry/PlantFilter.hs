@@ -68,15 +68,12 @@ instance GQLType PlantFilter where
 instance SQLDecoder (Paginated PlantFilter) [Truck] where
   sqlExpr = basicDecodeListSubquery contextSwitch joinFn
     where
-      contextSwitch _ = undefined :: (Paginated TruckFilter)
-      joinFn plantSqlName =
-        mempty
-          { _join = [joinEq truckPlantName "truck_id" truckName "id"],
-            _where = Just $ simpleEq truckPlantName "plant_id" plantSqlName "id",
-            _groupBy = [plantSqlName ° "id"]
-          }
-      truckPlantName = "truck_plant"
-      truckName = "truck"
+      res = basicDecodeListSubquery contextSwitch joinFn context treeNode
+      contextSwitch = changeFilter (viewChannelMessageList <=< globalFilter)
+      joinFn name = mempty {
+        _where = Just (simpleEq decodedTruckName "truck_id" name "id")
+      }
+      decodedTruckName = fromText $ decodeNameInContext context "truck"
   sqlDecoder = decoderFromSQLDefault
 
 plantFilterTest :: PlantFilter
