@@ -51,7 +51,8 @@ data PlantFilter = PlantFilter
     name :: Maybe GQLFilterText,
     checkDate :: Maybe GQLFilterDay,
     truckList :: Maybe (Paginated TruckFilter),
-    existsTruck :: Maybe TruckFilter
+    existsTruck :: Maybe TruckFilter,
+    notExistsTruck :: Maybe TruckFilter
   }
   deriving
     ( Show,

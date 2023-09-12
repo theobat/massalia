@@ -22,32 +22,24 @@ module MassaliaSchema.Industry.TruckFilter
 where
 
 import qualified Data.Aeson as JSON
-import Data.Data (Data, gmapQ)
-import Data.Text (Text)
-import Data.UUID (UUID, nil)
-import GHC.Generics (Generic, from)
+import Data.UUID (nil)
 import Massalia.Filter
   ( GQLFilterText,
     GQLFilterUUID,
     GQLScalarFilterCore(isEq, isIn),
     defaultScalarFilter,
   )
-import qualified Massalia.HasqlDec as Decoders
 import Massalia.QueryFormat
-  ( QueryFormat,
-    BinaryQuery,
-    TextQuery,
-    FromText,
-    SQLEncoder,
-    MassaliaContext(..)
+  ( FromText (fromText),
+    MassaliaContext(..), (°)
   )
 import Massalia.SQLClass (
     SQLFilter,
-    SQLFilterField(filterStruct)
+    SQLFilterField(filterStruct), existsOrNotPrimitive
   )
-import Data.Morpheus.Types (GQLType(description), KIND)
-import Data.Morpheus.Kind (INPUT)
+import Data.Morpheus.Types (GQLType(description))
 import Protolude
+import Massalia.SQLSelectStruct (SelectStruct(..))
 
 data TruckFilter
   = TruckFilter
@@ -58,8 +50,26 @@ data TruckFilter
 
 
 instance SQLFilterField TruckFilter where
-  filterStruct _ selection value = Nothing
+  filterStruct opts selection val = case selection of
+    "exists_truck" -> Just $ handleExistFilter True opts selection val
+    "not_exists_truck" -> Just $ handleExistFilter False opts selection val
+    _ -> Nothing
+    where
+      handleExistFilter isExist = existsOrNotPrimitive isExist filterInside actualFilter
+      filterInside = True
+      actualFilter fatherTableName =
+        ( mempty
+            { _select = pure "1",
+              _from = Just "truck",
+              _where = Just condition
+            },
+          "exists_subquery_name"
+        )
+        where
+          condition = ("truck" ° "plant_id") <> "=" <> (ftn ° "id")
+          ftn = fromText fatherTableName
 
+testInstance :: TruckFilter
 testInstance =
   TruckFilter
     { id = pure $ defaultScalarFilter {isEq = Just nil},
