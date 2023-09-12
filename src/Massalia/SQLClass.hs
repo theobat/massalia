@@ -1173,8 +1173,8 @@ instance
       resA = gfullTopSelection @contextT @a name :: MassaliaNode
       resB = gfullTopSelection @contextT @b name :: MassaliaNode
   gfullRecordDecoder = do
-        ca <- gfullRecordDecoder @contextT
-        cb <- gfullRecordDecoder @contextT
+        ca <- gfullRecordDecoder @contextT @a
+        cb <- gfullRecordDecoder @contextT @b
         pure (ca :*: cb)
   gtoColumnListAndDecoder selectionVal context (a :*: b) = result
     where
@@ -1189,14 +1189,14 @@ instance
 
 instance (GSQLRecord contextT a) => GSQLRecord contextT (M1 D c a) where
   gfullTopSelection name = gfullTopSelection @contextT @a name
-  gfullRecordDecoder = gfullRecordDecoder @contextT @_
+  gfullRecordDecoder = M1 <$> gfullRecordDecoder @contextT @a
   gtoColumnListAndDecoder selectionVal context (M1 x) = second (M1 <$>) res
     where
       res = gtoColumnListAndDecoder selectionVal context x
 
 instance (GSQLRecord contextT a) => GSQLRecord contextT (M1 C c a) where
   gfullTopSelection name = gfullTopSelection @contextT @a name
-  gfullRecordDecoder = gfullRecordDecoder @contextT @_
+  gfullRecordDecoder = M1 <$> gfullRecordDecoder @contextT @a
   gtoColumnListAndDecoder selectionVal context (M1 x) = second (M1 <$>) res
     where
       res = gtoColumnListAndDecoder selectionVal context x

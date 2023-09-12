@@ -87,8 +87,75 @@ The main function of massalia is to implement this workflow:
 It also handles nesting collection of types (through the collection combinator).
 
 
-.. warning::
+More details
+-------------------------------
 
-  It's in alpha **alpha** stage and not on hackage yet. If you want to use it in its early form
-  please refer to the github version. It won't be on hackage before several month.
+The library revolves around the idea that you can define a godd enough graph where nodes are tables with filters and vertices are meaningful relations of filtering.
+For instance, we can define the following schema (it comes from the dataseed/MassaliaSchema folder in the repo, which is used for integration tests in the repo) : 
+
+.. code-block:: haskell
+
+  data Plant
+    = Plant
+        { id :: UUID,
+          name :: Text,
+          createdAt :: LocalTime,
+          checkDate :: Day,
+          description :: Maybe Text,
+          truckList :: [Truck]
+        }
+    deriving (Show, Generic, GQLType)
+  deriving instance SQLRecord (Paginated PlantFilter) Plant
+
+  data PlantFilter = PlantFilter
+    { id :: Maybe GQLFilterUUID,
+      name :: Maybe GQLFilterText,
+      checkDate :: Maybe GQLFilterDay,
+      truckList :: Maybe (Paginated TruckFilter),
+      existsTruck :: Maybe TruckFilter
+    }
+    deriving
+      ( Show,
+        Generic,
+        JSON.FromJSON,
+        JSON.ToJSON,
+        SQLFilter
+      )
+  data Truck
+    = Truck
+        { id :: UUID,
+          vehicleId :: Text
+        }
+    deriving (Show, Generic, Eq, GQLType)
+  
+  deriving instance SQLRecord (Paginated TruckFilter) Truck
+  
+  data TruckFilter
+    = TruckFilter
+        { id :: Maybe GQLFilterUUID,
+          vehicleId :: Maybe GQLFilterText
+        }
+    deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON, SQLFilter)
+  
+  instance SQLFilterField TruckFilter where
+    filterStruct opts selection val = case selection of
+      "exists_truck" -> Just $ handleExistFilter True opts selection val
+      "not_exists_truck" -> Just $ handleExistFilter False opts selection val
+      _ -> Nothing
+      where
+        handleExistFilter isExist = existsOrNotPrimitive isExist filterInside actualFilter
+        filterInside = True
+        actualFilter fatherTableName =
+          ( mempty
+              { _select = pure "1",
+                _from = Just "truck",
+                _where = Just condition
+              },
+            "exists_subquery_name"
+          )
+          where
+            condition = ("truck" ° "plant_id") <> "=" <> (ftn ° "id")
+            ftn = fromText fatherTableName
+
+You will be able to define (for instance) queries for plants containing a paginated list of trucks related to this plant.
 
