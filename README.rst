@@ -137,26 +137,25 @@ For instance, we can define the following schema (it comes from the dataseed/Mas
         }
     deriving (Show, Generic, JSON.FromJSON, JSON.ToJSON, SQLFilter)
   
-  
-instance SQLFilterField TruckFilter where
-  filterStruct opts selection val = case selection of
-    "exists_truck" -> Just $ handleExistFilter True opts selection val
-    "not_exists_truck" -> Just $ handleExistFilter False opts selection val
-    _ -> Nothing
-    where
-      handleExistFilter isExist = existsOrNotPrimitive isExist filterInside actualFilter
-      filterInside = True
-      actualFilter fatherTableName =
-        ( mempty
-            { _select = pure "1",
-              _from = Just "truck",
-              _where = Just condition
-            },
-          "exists_subquery_name"
-        )
-        where
-          condition = ("truck" ° "plant_id") <> "=" <> (ftn ° "id")
-          ftn = fromText fatherTableName
+  instance SQLFilterField TruckFilter where
+    filterStruct opts selection val = case selection of
+      "exists_truck" -> Just $ handleExistFilter True opts selection val
+      "not_exists_truck" -> Just $ handleExistFilter False opts selection val
+      _ -> Nothing
+      where
+        handleExistFilter isExist = existsOrNotPrimitive isExist filterInside actualFilter
+        filterInside = True
+        actualFilter fatherTableName =
+          ( mempty
+              { _select = pure "1",
+                _from = Just "truck",
+                _where = Just condition
+              },
+            "exists_subquery_name"
+          )
+          where
+            condition = ("truck" ° "plant_id") <> "=" <> (ftn ° "id")
+            ftn = fromText fatherTableName
 
 You will be able to define (for instance) queries for plants containing a paginated list of trucks related to this plant.
 
